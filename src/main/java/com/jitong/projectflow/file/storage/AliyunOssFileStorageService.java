@@ -5,6 +5,7 @@ import com.aliyun.oss.OSSClientBuilder;
 import com.jitong.projectflow.file.domain.FileStorageService;
 import com.jitong.projectflow.file.domain.FileUploadCommand;
 import com.jitong.projectflow.file.domain.StoredFile;
+import jakarta.annotation.PreDestroy;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.stereotype.Service;
@@ -43,6 +44,11 @@ public class AliyunOssFileStorageService implements FileStorageService {
     @Override
     public void delete(String storageKey) {
         ossClient.deleteObject(properties.bucketName(), storageKey);
+    }
+
+    @PreDestroy
+    public void shutdown() {
+        ossClient.shutdown();
     }
 
     private String buildObjectKey(String originalName) {
