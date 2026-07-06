@@ -26,4 +26,40 @@ class TaskStatusCalculatorTest {
         TaskStatus status = calculator.calculate(LocalDate.of(2026, 7, 8), null, null, false, LocalDate.of(2026, 7, 6));
         assertThat(status).isEqualTo(TaskStatus.DUE_SOON);
     }
+
+    @Test
+    void returnsDueSoonOnBoundaryExactlyThreeDaysOut() {
+        TaskStatus status = calculator.calculate(LocalDate.of(2026, 7, 9), null, null, false, LocalDate.of(2026, 7, 6));
+        assertThat(status).isEqualTo(TaskStatus.DUE_SOON);
+    }
+
+    @Test
+    void returnsPausedWhenPausedFlagSet() {
+        TaskStatus status = calculator.calculate(LocalDate.of(2026, 7, 1), null, null, true, LocalDate.of(2026, 7, 6));
+        assertThat(status).isEqualTo(TaskStatus.PAUSED);
+    }
+
+    @Test
+    void returnsPausedEvenWhenOverdue() {
+        TaskStatus status = calculator.calculate(LocalDate.of(2026, 7, 1), null, null, true, LocalDate.of(2026, 7, 10));
+        assertThat(status).isEqualTo(TaskStatus.PAUSED);
+    }
+
+    @Test
+    void returnsInProgressWhenStartedAndNotDueSoon() {
+        TaskStatus status = calculator.calculate(LocalDate.of(2026, 12, 31), LocalDate.of(2026, 7, 1), null, false, LocalDate.of(2026, 7, 6));
+        assertThat(status).isEqualTo(TaskStatus.IN_PROGRESS);
+    }
+
+    @Test
+    void returnsNotStartedWhenNoStartDateAndNoDeadline() {
+        TaskStatus status = calculator.calculate(null, null, null, false, LocalDate.of(2026, 7, 6));
+        assertThat(status).isEqualTo(TaskStatus.NOT_STARTED);
+    }
+
+    @Test
+    void returnsInProgressWhenStartedAndNullDeadline() {
+        TaskStatus status = calculator.calculate(null, LocalDate.of(2026, 7, 1), null, false, LocalDate.of(2026, 7, 6));
+        assertThat(status).isEqualTo(TaskStatus.IN_PROGRESS);
+    }
 }
