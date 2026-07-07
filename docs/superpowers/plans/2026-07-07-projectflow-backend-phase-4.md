@@ -307,23 +307,23 @@ git commit -m "feat: protect api endpoints with jwt"
 **Files:**
 - Modify only files needed to fix concrete compile or test failures.
 
-- [ ] **Step 1: Run full tests**
+- [x] **Step 1: Run full tests**
 
 ```bash
 mvn test
 ```
 
-- [ ] **Step 2: Build package**
+- [x] **Step 2: Build package**
 
 ```bash
 mvn package
 ```
 
-- [ ] **Step 3: Run application and check OpenAPI**
+- [x] **Step 3: Run application and check OpenAPI**
 
 Start with a free local port and check `/v3/api-docs`.
 
-- [ ] **Step 4: Commit verification state**
+- [x] **Step 4: Commit verification state**
 
 ```bash
 git add docs/superpowers/plans/2026-07-07-projectflow-backend-phase-4.md
