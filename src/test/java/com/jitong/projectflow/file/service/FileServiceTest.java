@@ -60,7 +60,7 @@ class FileServiceTest {
 
         assertThatThrownBy(() -> new FileService(fileMetadataMapper, fileStorageService).upload("TASK", 10L, null, file))
                 .isInstanceOf(BusinessException.class)
-                .hasMessage("File type not allowed");
+                .hasMessage("不支持的文件类型");
     }
 
     @Test
@@ -79,7 +79,7 @@ class FileServiceTest {
 
         assertThatThrownBy(() -> new FileService(fileMetadataMapper, fileStorageService).upload("TASK", 10L, null, file))
                 .isInstanceOf(BusinessException.class)
-                .hasMessage("File size exceeds 50 MB");
+                .hasMessage("文件大小不能超过50MB");
     }
 
     @Test
@@ -88,7 +88,7 @@ class FileServiceTest {
 
         assertThatThrownBy(() -> new FileService(fileMetadataMapper, fileStorageService).upload("TASK", 10L, null, file))
                 .isInstanceOf(BusinessException.class)
-                .hasMessage("File name is required");
+                .hasMessage("文件名不能为空");
     }
 
     @Test
@@ -139,13 +139,13 @@ class FileServiceTest {
     void listRejectsMissingBusinessType() {
         assertThatThrownBy(() -> new FileService(fileMetadataMapper, fileStorageService).list(null, 10L))
                 .isInstanceOf(BusinessException.class)
-                .hasMessage("File query requires businessType and businessId");
+                .hasMessage("查询文件需要指定业务类型和业务ID");
     }
 
     @Test
     void listRejectsMissingBusinessId() {
         assertThatThrownBy(() -> new FileService(fileMetadataMapper, fileStorageService).list("TASK", null))
                 .isInstanceOf(BusinessException.class)
-                .hasMessage("File query requires businessType and businessId");
+                .hasMessage("查询文件需要指定业务类型和业务ID");
     }
 }

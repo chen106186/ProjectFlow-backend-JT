@@ -47,7 +47,7 @@ class RoleManagementServiceTest {
 
         assertThatThrownBy(() -> new RoleManagementService(roleMapper, roleMenuMapper, userRoleMapper, systemUserMapper, operationLogService).create(request))
                 .isInstanceOf(BusinessException.class)
-                .hasMessage("Role code already exists");
+                .hasMessage("角色编码已存在");
     }
 
     @Test
@@ -81,6 +81,6 @@ class RoleManagementServiceTest {
 
         assertThatThrownBy(() -> new RoleManagementService(roleMapper, roleMenuMapper, userRoleMapper, systemUserMapper, operationLogService).delete(1L))
                 .isInstanceOf(BusinessException.class)
-                .hasMessage("Role is assigned to active users");
+                .hasMessage("角色已分配给活跃用户，无法删除");
     }
 }

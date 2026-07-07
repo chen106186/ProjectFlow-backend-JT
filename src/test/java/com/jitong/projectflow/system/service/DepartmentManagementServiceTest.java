@@ -48,7 +48,7 @@ class DepartmentManagementServiceTest {
 
         assertThatThrownBy(() -> new DepartmentManagementService(departmentMapper, systemUserMapper, operationLogService).delete(1L))
                 .isInstanceOf(BusinessException.class)
-                .hasMessage("Department has active users");
+                .hasMessage("部门下存在活跃用户，无法删除");
     }
 
     @Test
@@ -62,6 +62,6 @@ class DepartmentManagementServiceTest {
 
         assertThatThrownBy(() -> new DepartmentManagementService(departmentMapper, systemUserMapper, operationLogService).delete(1L))
                 .isInstanceOf(BusinessException.class)
-                .hasMessage("Department has child departments");
+                .hasMessage("部门下存在子部门，无法删除");
     }
 }

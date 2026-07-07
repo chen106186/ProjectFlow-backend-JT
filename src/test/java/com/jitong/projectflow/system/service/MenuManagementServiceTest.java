@@ -30,7 +30,7 @@ class MenuManagementServiceTest {
 
         assertThatThrownBy(() -> new MenuManagementService(menuMapper, operationLogService).create(request))
                 .isInstanceOf(BusinessException.class)
-                .hasMessage("Invalid menu type");
+                .hasMessage("无效的菜单类型");
     }
 
     @Test
@@ -43,7 +43,7 @@ class MenuManagementServiceTest {
 
         assertThatThrownBy(() -> new MenuManagementService(menuMapper, operationLogService).create(request))
                 .isInstanceOf(BusinessException.class)
-                .hasMessage("Menu code already exists");
+                .hasMessage("菜单编码已存在");
     }
 
     @Test
@@ -57,6 +57,6 @@ class MenuManagementServiceTest {
 
         assertThatThrownBy(() -> new MenuManagementService(menuMapper, operationLogService).delete(1L))
                 .isInstanceOf(BusinessException.class)
-                .hasMessage("Menu has child menus");
+                .hasMessage("菜单存在子菜单，无法删除");
     }
 }
