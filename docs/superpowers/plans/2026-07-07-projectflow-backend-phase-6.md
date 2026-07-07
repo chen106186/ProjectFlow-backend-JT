@@ -147,7 +147,7 @@ git commit -m "feat: return json security errors"
 - Modify: `src/main/java/com/jitong/projectflow/system/controller/SystemController.java`
 - Test: `src/test/java/com/jitong/projectflow/auth/security/SecurityConfigTest.java`
 
-- [ ] **Step 1: Add method security tests**
+- [x] **Step 1: Add method security tests**
 
 Add MockMvc tests proving:
 
@@ -155,7 +155,7 @@ Add MockMvc tests proving:
 - A token without `system:user:view` receives `403`.
 - `/api/system/me` still only requires authentication.
 
-- [ ] **Step 2: Add system `@PreAuthorize` annotations**
+- [x] **Step 2: Add system `@PreAuthorize` annotations**
 
 Protect methods with these permission codes:
 
@@ -174,7 +174,7 @@ Protect methods with these permission codes:
 - Menu create: `system:menu:create`.
 - Menu update/delete: `system:menu:update`.
 
-- [ ] **Step 3: Verify**
+- [x] **Step 3: Verify**
 
 Run:
 
@@ -182,7 +182,7 @@ Run:
 mvn -q "-Dmaven.repo.local=.m2/repository" -Dtest=SecurityConfigTest test
 ```
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/main/java/com/jitong/projectflow/system src/test/java/com/jitong/projectflow/auth docs/superpowers/plans/2026-07-07-projectflow-backend-phase-6.md

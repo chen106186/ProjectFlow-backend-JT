@@ -34,6 +34,7 @@ import com.jitong.projectflow.system.service.SystemQueryService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.MDC;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
@@ -71,31 +72,37 @@ public class SystemController {
     }
 
     @GetMapping("/logs")
+    @PreAuthorize("hasAuthority('system:log:view')")
     public ApiResponse<PageResult<OperationLogResponse>> listOperationLogs(@Valid @ModelAttribute OperationLogQueryRequest request) {
         return ApiResponse.success(operationLogQueryService.list(request), MDC.get("traceId"));
     }
 
     @GetMapping("/users")
+    @PreAuthorize("hasAuthority('system:user:view')")
     public ApiResponse<PageResult<SystemUserResponse>> listUsers(@Valid @ModelAttribute SystemUserQueryRequest request) {
         return ApiResponse.success(systemQueryService.listUsers(request), MDC.get("traceId"));
     }
 
     @PostMapping("/users")
+    @PreAuthorize("hasAuthority('system:user:create')")
     public ApiResponse<UserDetailResponse> createUser(@Valid @RequestBody UserCreateRequest request) {
         return ApiResponse.success(systemUserManagementService.create(request), MDC.get("traceId"));
     }
 
     @GetMapping("/users/{id}")
+    @PreAuthorize("hasAuthority('system:user:view')")
     public ApiResponse<UserDetailResponse> getUser(@PathVariable Long id) {
         return ApiResponse.success(systemUserManagementService.getById(id), MDC.get("traceId"));
     }
 
     @PutMapping("/users/{id}")
+    @PreAuthorize("hasAuthority('system:user:update')")
     public ApiResponse<UserDetailResponse> updateUser(@PathVariable Long id, @Valid @RequestBody UserUpdateRequest request) {
         return ApiResponse.success(systemUserManagementService.update(id, request), MDC.get("traceId"));
     }
 
     @PatchMapping("/users/{id}/enabled")
+    @PreAuthorize("hasAuthority('system:user:update')")
     public ApiResponse<UserDetailResponse> updateUserEnabled(
             @PathVariable Long id,
             @Valid @RequestBody UserEnabledUpdateRequest request) {
@@ -103,6 +110,7 @@ public class SystemController {
     }
 
     @PatchMapping("/users/{id}/password")
+    @PreAuthorize("hasAuthority('system:user:update')")
     public ApiResponse<Void> resetUserPassword(
             @PathVariable Long id,
             @Valid @RequestBody UserPasswordResetRequest request) {
@@ -111,6 +119,7 @@ public class SystemController {
     }
 
     @PutMapping("/users/{id}/roles")
+    @PreAuthorize("hasAuthority('system:user:update')")
     public ApiResponse<List<Long>> assignUserRoles(
             @PathVariable Long id,
             @Valid @RequestBody UserRoleAssignRequest request) {
@@ -118,16 +127,19 @@ public class SystemController {
     }
 
     @GetMapping("/departments")
+    @PreAuthorize("hasAuthority('system:department:view')")
     public ApiResponse<List<DepartmentResponse>> listDepartments() {
         return ApiResponse.success(systemQueryService.listDepartments(), MDC.get("traceId"));
     }
 
     @PostMapping("/departments")
+    @PreAuthorize("hasAuthority('system:department:create')")
     public ApiResponse<DepartmentResponse> createDepartment(@Valid @RequestBody DepartmentCreateRequest request) {
         return ApiResponse.success(departmentManagementService.create(request), MDC.get("traceId"));
     }
 
     @PutMapping("/departments/{id}")
+    @PreAuthorize("hasAuthority('system:department:update')")
     public ApiResponse<DepartmentResponse> updateDepartment(
             @PathVariable Long id,
             @Valid @RequestBody DepartmentUpdateRequest request) {
@@ -135,63 +147,75 @@ public class SystemController {
     }
 
     @DeleteMapping("/departments/{id}")
+    @PreAuthorize("hasAuthority('system:department:update')")
     public ApiResponse<Void> deleteDepartment(@PathVariable Long id) {
         departmentManagementService.delete(id);
         return ApiResponse.success(null, MDC.get("traceId"));
     }
 
     @GetMapping("/roles")
+    @PreAuthorize("hasAuthority('system:role:view')")
     public ApiResponse<List<RoleResponse>> listRoles() {
         return ApiResponse.success(systemQueryService.listRoles(), MDC.get("traceId"));
     }
 
     @PostMapping("/roles")
+    @PreAuthorize("hasAuthority('system:role:create')")
     public ApiResponse<RoleResponse> createRole(@Valid @RequestBody RoleCreateRequest request) {
         return ApiResponse.success(roleManagementService.create(request), MDC.get("traceId"));
     }
 
     @GetMapping("/roles/{id}")
+    @PreAuthorize("hasAuthority('system:role:view')")
     public ApiResponse<RoleDetailResponse> getRole(@PathVariable Long id) {
         return ApiResponse.success(roleManagementService.getById(id), MDC.get("traceId"));
     }
 
     @PutMapping("/roles/{id}")
+    @PreAuthorize("hasAuthority('system:role:update')")
     public ApiResponse<RoleResponse> updateRole(@PathVariable Long id, @Valid @RequestBody RoleUpdateRequest request) {
         return ApiResponse.success(roleManagementService.update(id, request), MDC.get("traceId"));
     }
 
     @DeleteMapping("/roles/{id}")
+    @PreAuthorize("hasAuthority('system:role:update')")
     public ApiResponse<Void> deleteRole(@PathVariable Long id) {
         roleManagementService.delete(id);
         return ApiResponse.success(null, MDC.get("traceId"));
     }
 
     @GetMapping("/roles/{id}/menus")
+    @PreAuthorize("hasAuthority('system:role:view')")
     public ApiResponse<List<Long>> getRoleMenus(@PathVariable Long id) {
         return ApiResponse.success(roleManagementService.getMenuIds(id), MDC.get("traceId"));
     }
 
     @PutMapping("/roles/{id}/menus")
+    @PreAuthorize("hasAuthority('system:role:assign-menu')")
     public ApiResponse<List<Long>> assignRoleMenus(@PathVariable Long id, @Valid @RequestBody RoleMenuAssignRequest request) {
         return ApiResponse.success(roleManagementService.assignMenus(id, request), MDC.get("traceId"));
     }
 
     @GetMapping("/menus")
+    @PreAuthorize("hasAuthority('system:menu:view')")
     public ApiResponse<List<MenuResponse>> listMenus() {
         return ApiResponse.success(systemQueryService.listMenus(), MDC.get("traceId"));
     }
 
     @PostMapping("/menus")
+    @PreAuthorize("hasAuthority('system:menu:create')")
     public ApiResponse<MenuResponse> createMenu(@Valid @RequestBody MenuCreateRequest request) {
         return ApiResponse.success(menuManagementService.create(request), MDC.get("traceId"));
     }
 
     @PutMapping("/menus/{id}")
+    @PreAuthorize("hasAuthority('system:menu:update')")
     public ApiResponse<MenuResponse> updateMenu(@PathVariable Long id, @Valid @RequestBody MenuUpdateRequest request) {
         return ApiResponse.success(menuManagementService.update(id, request), MDC.get("traceId"));
     }
 
     @DeleteMapping("/menus/{id}")
+    @PreAuthorize("hasAuthority('system:menu:update')")
     public ApiResponse<Void> deleteMenu(@PathVariable Long id) {
         menuManagementService.delete(id);
         return ApiResponse.success(null, MDC.get("traceId"));
