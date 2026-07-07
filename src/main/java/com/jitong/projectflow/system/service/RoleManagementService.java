@@ -1,6 +1,5 @@
 package com.jitong.projectflow.system.service;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.jitong.projectflow.common.error.BusinessException;
 import com.jitong.projectflow.common.error.ErrorCode;
 import com.jitong.projectflow.system.audit.OperationLogService;
@@ -10,7 +9,6 @@ import com.jitong.projectflow.system.dto.RoleMenuAssignRequest;
 import com.jitong.projectflow.system.dto.RoleResponse;
 import com.jitong.projectflow.system.dto.RoleUpdateRequest;
 import com.jitong.projectflow.system.entity.RoleEntity;
-import com.jitong.projectflow.system.entity.RoleMenuEntity;
 import com.jitong.projectflow.system.entity.SystemUser;
 import com.jitong.projectflow.system.entity.UserRoleEntity;
 import com.jitong.projectflow.system.mapper.RoleMapper;
@@ -61,8 +59,7 @@ public class RoleManagementService {
 
     public void delete(Long id) {
         RoleEntity entity = requireRole(id);
-        List<UserRoleEntity> assignments = userRoleMapper.selectList(new LambdaQueryWrapper<UserRoleEntity>()
-                .eq(UserRoleEntity::getRoleId, id));
+        List<UserRoleEntity> assignments = userRoleMapper.selectByRoleId(id);
         for (UserRoleEntity assignment : assignments) {
             SystemUser user = systemUserMapper.selectById(assignment.getUserId());
             if (user != null && Boolean.TRUE.equals(user.getEnabled())) {
@@ -81,19 +78,16 @@ public class RoleManagementService {
     public List<Long> assignMenus(Long roleId, RoleMenuAssignRequest request) {
         requireRole(roleId);
         List<Long> menuIds = request.getMenuIds() == null ? List.of() : request.getMenuIds();
-        roleMenuMapper.delete(new LambdaQueryWrapper<RoleMenuEntity>().eq(RoleMenuEntity::getRoleId, roleId));
+        roleMenuMapper.deleteByRoleId(roleId);
         for (Long menuId : menuIds) {
-            RoleMenuEntity entity = new RoleMenuEntity();
-            entity.setRoleId(roleId);
-            entity.setMenuId(menuId);
-            roleMenuMapper.insert(entity);
+            roleMenuMapper.insertRelation(roleId, menuId);
         }
         operationLogService.record("system", "Role", roleId, "ASSIGN_MENUS", "Assign menus to role " + roleId);
         return new ArrayList<>(menuIds);
     }
 
     private void ensureCodeUnique(String code, Long currentId) {
-        LambdaQueryWrapper<RoleEntity> wrapper = new LambdaQueryWrapper<RoleEntity>().eq(RoleEntity::getCode, code);
+        com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<RoleEntity> wrapper = new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<RoleEntity>().eq(RoleEntity::getCode, code);
         if (currentId != null) {
             wrapper.ne(RoleEntity::getId, currentId);
         }
@@ -111,10 +105,7 @@ public class RoleManagementService {
     }
 
     private List<Long> menuIds(Long roleId) {
-        return roleMenuMapper.selectList(new LambdaQueryWrapper<RoleMenuEntity>().eq(RoleMenuEntity::getRoleId, roleId))
-                .stream()
-                .map(RoleMenuEntity::getMenuId)
-                .toList();
+        return roleMenuMapper.selectMenuIdsByRoleId(roleId);
     }
 
     private RoleResponse toResponse(RoleEntity entity) {

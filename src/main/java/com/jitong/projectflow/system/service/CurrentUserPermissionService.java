@@ -9,9 +9,7 @@ import com.jitong.projectflow.system.dto.MenuResponse;
 import com.jitong.projectflow.system.dto.RoleResponse;
 import com.jitong.projectflow.system.entity.MenuEntity;
 import com.jitong.projectflow.system.entity.RoleEntity;
-import com.jitong.projectflow.system.entity.RoleMenuEntity;
 import com.jitong.projectflow.system.entity.SystemUser;
-import com.jitong.projectflow.system.entity.UserRoleEntity;
 import com.jitong.projectflow.system.mapper.MenuMapper;
 import com.jitong.projectflow.system.mapper.RoleMapper;
 import com.jitong.projectflow.system.mapper.RoleMenuMapper;
@@ -42,21 +40,13 @@ public class CurrentUserPermissionService {
         if (!Boolean.TRUE.equals(user.getEnabled())) {
             throw new BusinessException(ErrorCode.FORBIDDEN, "Current user disabled");
         }
-        List<Long> roleIds = userRoleMapper.selectList(new LambdaQueryWrapper<UserRoleEntity>()
-                        .eq(UserRoleEntity::getUserId, userId))
-                .stream()
-                .map(UserRoleEntity::getRoleId)
-                .toList();
+        List<Long> roleIds = userRoleMapper.selectRoleIdsByUserId(userId);
         List<RoleEntity> roles = roleIds.isEmpty()
                 ? List.of()
                 : roleMapper.selectList(new LambdaQueryWrapper<RoleEntity>().in(RoleEntity::getId, roleIds));
         List<Long> menuIds = roleIds.isEmpty()
                 ? List.of()
-                : roleMenuMapper.selectList(new LambdaQueryWrapper<RoleMenuEntity>().in(RoleMenuEntity::getRoleId, roleIds))
-                .stream()
-                .map(RoleMenuEntity::getMenuId)
-                .distinct()
-                .toList();
+                : roleMenuMapper.selectMenuIdsByRoleIds(roleIds).stream().distinct().toList();
         List<MenuEntity> allMenus = menuIds.isEmpty()
                 ? List.of()
                 : menuMapper.selectList(new LambdaQueryWrapper<MenuEntity>().in(MenuEntity::getId, menuIds)

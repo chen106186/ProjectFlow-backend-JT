@@ -12,7 +12,6 @@ import com.jitong.projectflow.system.dto.UserPasswordResetRequest;
 import com.jitong.projectflow.system.dto.UserRoleAssignRequest;
 import com.jitong.projectflow.system.dto.UserUpdateRequest;
 import com.jitong.projectflow.system.entity.SystemUser;
-import com.jitong.projectflow.system.entity.UserRoleEntity;
 import com.jitong.projectflow.system.mapper.SystemUserMapper;
 import com.jitong.projectflow.system.mapper.UserRoleMapper;
 import lombok.RequiredArgsConstructor;
@@ -96,12 +95,9 @@ public class SystemUserManagementService {
     public List<Long> assignRoles(Long id, UserRoleAssignRequest request) {
         requireUser(id);
         List<Long> roleIds = request.getRoleIds() == null ? List.of() : request.getRoleIds();
-        userRoleMapper.delete(new LambdaQueryWrapper<UserRoleEntity>().eq(UserRoleEntity::getUserId, id));
+        userRoleMapper.deleteByUserId(id);
         for (Long roleId : roleIds) {
-            UserRoleEntity entity = new UserRoleEntity();
-            entity.setUserId(id);
-            entity.setRoleId(roleId);
-            userRoleMapper.insert(entity);
+            userRoleMapper.insertRelation(id, roleId);
         }
         operationLogService.record("system", "User", id, "ASSIGN_ROLES", "Assign roles to user " + id);
         return new ArrayList<>(roleIds);
@@ -127,10 +123,7 @@ public class SystemUserManagementService {
     }
 
     private List<Long> roleIds(Long userId) {
-        return userRoleMapper.selectList(new LambdaQueryWrapper<UserRoleEntity>().eq(UserRoleEntity::getUserId, userId))
-                .stream()
-                .map(UserRoleEntity::getRoleId)
-                .toList();
+        return userRoleMapper.selectRoleIdsByUserId(userId);
     }
 
     private UserDetailResponse toDetailResponse(SystemUser user, List<Long> roleIds) {

@@ -6,7 +6,6 @@ import com.jitong.projectflow.system.dto.UserCreateRequest;
 import com.jitong.projectflow.system.dto.UserEnabledUpdateRequest;
 import com.jitong.projectflow.system.dto.UserRoleAssignRequest;
 import com.jitong.projectflow.system.entity.SystemUser;
-import com.jitong.projectflow.system.entity.UserRoleEntity;
 import com.jitong.projectflow.system.mapper.SystemUserMapper;
 import com.jitong.projectflow.system.mapper.UserRoleMapper;
 import org.junit.jupiter.api.AfterEach;
@@ -88,10 +87,9 @@ class SystemUserManagementServiceTest {
         new SystemUserManagementService(systemUserMapper, userRoleMapper, passwordEncoder, operationLogService)
                 .assignRoles(1L, request);
 
-        verify(userRoleMapper).delete(any());
-        ArgumentCaptor<UserRoleEntity> captor = ArgumentCaptor.forClass(UserRoleEntity.class);
-        verify(userRoleMapper, org.mockito.Mockito.times(2)).insert(captor.capture());
-        assertThat(captor.getAllValues()).extracting(UserRoleEntity::getRoleId).containsExactly(10L, 20L);
+        verify(userRoleMapper).deleteByUserId(1L);
+        verify(userRoleMapper).insertRelation(1L, 10L);
+        verify(userRoleMapper).insertRelation(1L, 20L);
         verify(operationLogService).record("system", "User", 1L, "ASSIGN_ROLES", "Assign roles to user 1");
     }
 }

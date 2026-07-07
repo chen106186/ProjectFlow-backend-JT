@@ -176,20 +176,20 @@ git commit -m "feat: seed admin integration data"
 - Modify: system services using these mappers.
 - Tests: `SystemUserManagementServiceTest`, `RoleManagementServiceTest`, `CurrentUserPermissionServiceTest`, `SecurityConfigTest`
 
-- [ ] **Step 1: Replace BaseMapper join usage with explicit SQL methods**
+- [x] **Step 1: Replace BaseMapper join usage with explicit SQL methods**
 
 Rules:
 
 - Avoid MyBatis-Plus no-primary-key warnings for join entities.
 - Preserve existing user-role and role-menu behavior.
 
-- [ ] **Step 2: Verify**
+- [x] **Step 2: Verify**
 
 ```bash
 mvn -q -Dtest=SystemUserManagementServiceTest,RoleManagementServiceTest,CurrentUserPermissionServiceTest,SecurityConfigTest test
 ```
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add src/main/java/com/jitong/projectflow/system src/test/java/com/jitong/projectflow/system src/test/java/com/jitong/projectflow/auth docs/superpowers/plans/2026-07-07-projectflow-backend-phase-5.md

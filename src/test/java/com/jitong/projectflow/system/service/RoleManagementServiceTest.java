@@ -5,7 +5,6 @@ import com.jitong.projectflow.system.audit.OperationLogService;
 import com.jitong.projectflow.system.dto.RoleCreateRequest;
 import com.jitong.projectflow.system.dto.RoleMenuAssignRequest;
 import com.jitong.projectflow.system.entity.RoleEntity;
-import com.jitong.projectflow.system.entity.RoleMenuEntity;
 import com.jitong.projectflow.system.entity.SystemUser;
 import com.jitong.projectflow.system.entity.UserRoleEntity;
 import com.jitong.projectflow.system.mapper.RoleMapper;
@@ -60,10 +59,9 @@ class RoleManagementServiceTest {
         new RoleManagementService(roleMapper, roleMenuMapper, userRoleMapper, systemUserMapper, operationLogService)
                 .assignMenus(1L, request);
 
-        verify(roleMenuMapper).delete(any());
-        ArgumentCaptor<RoleMenuEntity> captor = ArgumentCaptor.forClass(RoleMenuEntity.class);
-        verify(roleMenuMapper, org.mockito.Mockito.times(2)).insert(captor.capture());
-        assertThat(captor.getAllValues()).extracting(RoleMenuEntity::getMenuId).containsExactly(100L, 200L);
+        verify(roleMenuMapper).deleteByRoleId(1L);
+        verify(roleMenuMapper).insertRelation(1L, 100L);
+        verify(roleMenuMapper).insertRelation(1L, 200L);
     }
 
     @Test
@@ -76,7 +74,7 @@ class RoleManagementServiceTest {
         UserRoleEntity userRole = new UserRoleEntity();
         userRole.setUserId(10L);
         userRole.setRoleId(1L);
-        when(userRoleMapper.selectList(any())).thenReturn(List.of(userRole));
+        when(userRoleMapper.selectByRoleId(1L)).thenReturn(List.of(userRole));
         SystemUser user = new SystemUser();
         user.setEnabled(true);
         when(systemUserMapper.selectById(10L)).thenReturn(user);
