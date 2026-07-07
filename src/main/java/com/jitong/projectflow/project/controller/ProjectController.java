@@ -13,6 +13,7 @@ import com.jitong.projectflow.project.service.GanttService;
 import com.jitong.projectflow.project.service.ProjectService;
 import jakarta.validation.Valid;
 import org.slf4j.MDC;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
@@ -39,6 +40,7 @@ public class ProjectController {
     }
 
     @PostMapping
+    @PreAuthorize("hasAuthority('project:create')")
     public ApiResponse<ProjectResponse> create(@Valid @RequestBody ProjectCreateRequest request) {
         return ApiResponse.success(projectService.create(request), MDC.get("traceId"));
     }
@@ -54,11 +56,13 @@ public class ProjectController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('project:update')")
     public ApiResponse<ProjectResponse> update(@PathVariable Long id, @Valid @RequestBody ProjectUpdateRequest request) {
         return ApiResponse.success(projectService.update(id, request), MDC.get("traceId"));
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('project:update')")
     public ApiResponse<Void> delete(@PathVariable Long id) {
         projectService.delete(id);
         return ApiResponse.success(null, MDC.get("traceId"));
@@ -70,6 +74,7 @@ public class ProjectController {
     }
 
     @PatchMapping("/{projectId}/nodes/{nodeId}")
+    @PreAuthorize("hasAuthority('project:update')")
     public ApiResponse<GanttNodeResponse> updateNode(
             @PathVariable Long projectId,
             @PathVariable Long nodeId,

@@ -13,6 +13,7 @@ import com.jitong.projectflow.bug.service.BugService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.MDC;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -32,6 +33,7 @@ public class BugController {
     private final BugService bugService;
 
     @PostMapping
+    @PreAuthorize("hasAuthority('bug:create')")
     public ApiResponse<BugResponse> create(@Valid @RequestBody BugCreateRequest request) {
         return ApiResponse.success(bugService.create(request), MDC.get("traceId"));
     }
@@ -52,21 +54,25 @@ public class BugController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('bug:update')")
     public ApiResponse<BugResponse> update(@PathVariable Long id, @Valid @RequestBody BugUpdateRequest request) {
         return ApiResponse.success(bugService.update(id, request), MDC.get("traceId"));
     }
 
     @PatchMapping("/{id}/assign")
+    @PreAuthorize("hasAuthority('bug:update')")
     public ApiResponse<BugResponse> assign(@PathVariable Long id, @Valid @RequestBody BugAssignRequest request) {
         return ApiResponse.success(bugService.assign(id, request), MDC.get("traceId"));
     }
 
     @PatchMapping("/{id}/close")
+    @PreAuthorize("hasAuthority('bug:update')")
     public ApiResponse<BugResponse> close(@PathVariable Long id) {
         return ApiResponse.success(bugService.close(id), MDC.get("traceId"));
     }
 
     @PostMapping("/{id}/comments")
+    @PreAuthorize("hasAuthority('bug:update')")
     public ApiResponse<BugCommentResponse> addComment(@PathVariable Long id, @Valid @RequestBody BugCommentCreateRequest request) {
         return ApiResponse.success(bugService.addComment(id, request), MDC.get("traceId"));
     }

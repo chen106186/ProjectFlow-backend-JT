@@ -10,6 +10,7 @@ import com.jitong.projectflow.requirement.dto.RequirementUpdateRequest;
 import com.jitong.projectflow.requirement.service.RequirementService;
 import jakarta.validation.Valid;
 import org.slf4j.MDC;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -33,6 +34,7 @@ public class RequirementController {
     }
 
     @PostMapping
+    @PreAuthorize("hasAuthority('requirement:create')")
     public ApiResponse<RequirementResponse> create(@Valid @RequestBody RequirementCreateRequest req) {
         return ApiResponse.success(requirementService.create(req), MDC.get("traceId"));
     }
@@ -53,12 +55,14 @@ public class RequirementController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('requirement:update')")
     public ApiResponse<RequirementResponse> update(@PathVariable Long id,
                                                     @Valid @RequestBody RequirementUpdateRequest req) {
         return ApiResponse.success(requirementService.update(id, req), MDC.get("traceId"));
     }
 
     @PatchMapping("/{id}/status")
+    @PreAuthorize("hasAuthority('requirement:update')")
     public ApiResponse<RequirementResponse> updateStatus(@PathVariable Long id,
                                                           @Valid @RequestBody RequirementStatusUpdateRequest req) {
         return ApiResponse.success(requirementService.updateStatus(id, req), MDC.get("traceId"));

@@ -11,6 +11,7 @@ import com.jitong.projectflow.task.service.TaskService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.MDC;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
@@ -31,6 +32,7 @@ public class TaskController {
     private final TaskService taskService;
 
     @PostMapping
+    @PreAuthorize("hasAuthority('task:create')")
     public ApiResponse<TaskResponse> create(@Valid @RequestBody TaskCreateRequest request) {
         return ApiResponse.success(taskService.create(request), MDC.get("traceId"));
     }
@@ -51,17 +53,20 @@ public class TaskController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('task:update')")
     public ApiResponse<TaskResponse> update(@PathVariable Long id, @Valid @RequestBody TaskUpdateRequest request) {
         return ApiResponse.success(taskService.update(id, request), MDC.get("traceId"));
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('task:update')")
     public ApiResponse<Void> delete(@PathVariable Long id) {
         taskService.delete(id);
         return ApiResponse.success(null, MDC.get("traceId"));
     }
 
     @PatchMapping("/{id}/actual-time")
+    @PreAuthorize("hasAuthority('task:update')")
     public ApiResponse<TaskResponse> updateActualTime(@PathVariable Long id, @Valid @RequestBody TaskActualTimeUpdateRequest request) {
         return ApiResponse.success(taskService.updateActualTime(id, request), MDC.get("traceId"));
     }

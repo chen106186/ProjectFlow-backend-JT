@@ -4,18 +4,23 @@ import com.jitong.projectflow.common.api.PageResult;
 import com.jitong.projectflow.system.dto.CurrentUserProfileResponse;
 import com.jitong.projectflow.system.service.CurrentUserPermissionService;
 import com.jitong.projectflow.system.service.SystemQueryService;
+import com.jitong.projectflow.task.dto.TaskResponse;
+import com.jitong.projectflow.task.service.TaskService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -30,6 +35,8 @@ class SecurityConfigTest {
     CurrentUserPermissionService currentUserPermissionService;
     @MockBean
     SystemQueryService systemQueryService;
+    @MockBean
+    TaskService taskService;
 
     @Test
     void protectedEndpointWithoutJwtReturnsUnauthorized() throws Exception {
@@ -83,6 +90,46 @@ class SecurityConfigTest {
                         .header("Authorization", bearerToken(1L)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.username").value("admin"));
+    }
+
+    @Test
+    void businessReadOnlyEndpointOnlyRequiresAuthentication() throws Exception {
+        when(currentUserPermissionService.getPermissionsByUserId(1L)).thenReturn(List.of());
+        when(taskService.list(any())).thenReturn(new PageResult<>(0, 1, 20, List.of()));
+
+        mockMvc.perform(get("/api/tasks")
+                        .header("Authorization", bearerToken(1L)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0));
+    }
+
+    @Test
+    void taskUpdateRequiresUpdatePermission() throws Exception {
+        when(currentUserPermissionService.getPermissionsByUserId(1L)).thenReturn(List.of());
+
+        mockMvc.perform(put("/api/tasks/10")
+                        .header("Authorization", bearerToken(1L))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value(403));
+    }
+
+    @Test
+    void taskUpdateAllowsUpdatePermission() throws Exception {
+        when(currentUserPermissionService.getPermissionsByUserId(1L)).thenReturn(List.of("task:update"));
+        when(taskService.update(eq(10L), any())).thenReturn(TaskResponse.builder()
+                .id(10L)
+                .name("Design API")
+                .status("TODO")
+                .build());
+
+        mockMvc.perform(put("/api/tasks/10")
+                        .header("Authorization", bearerToken(1L))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.id").value(10));
     }
 
     private String bearerToken(Long userId) {

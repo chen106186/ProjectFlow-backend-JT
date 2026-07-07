@@ -198,7 +198,7 @@ git commit -m "feat: protect system management apis"
 - Modify: `src/main/java/com/jitong/projectflow/bug/controller/BugController.java`
 - Test: `src/test/java/com/jitong/projectflow/auth/security/SecurityConfigTest.java`
 
-- [ ] **Step 1: Add business permission tests**
+- [x] **Step 1: Add business permission tests**
 
 Add MockMvc tests proving:
 
@@ -206,7 +206,7 @@ Add MockMvc tests proving:
 - Missing `task:update` blocks `PUT /api/tasks/{id}` with `403`.
 - Having `task:update` allows the request to reach the controller layer.
 
-- [ ] **Step 2: Add business `@PreAuthorize` annotations**
+- [x] **Step 2: Add business `@PreAuthorize` annotations**
 
 Protect methods with these permission codes:
 
@@ -221,7 +221,7 @@ Protect methods with these permission codes:
 
 Leave list/detail/read endpoints authenticated-only.
 
-- [ ] **Step 3: Verify**
+- [x] **Step 3: Verify**
 
 Run:
 
@@ -229,7 +229,7 @@ Run:
 mvn -q "-Dmaven.repo.local=.m2/repository" -Dtest=SecurityConfigTest test
 ```
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/main/java/com/jitong/projectflow/project src/main/java/com/jitong/projectflow/task src/main/java/com/jitong/projectflow/requirement src/main/java/com/jitong/projectflow/bug src/test/java/com/jitong/projectflow/auth docs/superpowers/plans/2026-07-07-projectflow-backend-phase-6.md
