@@ -40,6 +40,11 @@ public class RequirementController {
         return ApiResponse.success(requirementService.list(projectId), MDC.get("traceId"));
     }
 
+    @GetMapping("/my")
+    public ApiResponse<List<RequirementResponse>> listMine() {
+        return ApiResponse.success(requirementService.listMine(), MDC.get("traceId"));
+    }
+
     @GetMapping("/{id}")
     public ApiResponse<RequirementResponse> getById(@PathVariable Long id) {
         return ApiResponse.success(requirementService.getById(id), MDC.get("traceId"));
@@ -55,10 +60,5 @@ public class RequirementController {
     public ApiResponse<RequirementResponse> updateStatus(@PathVariable Long id,
                                                           @Valid @RequestBody RequirementStatusUpdateRequest req) {
         return ApiResponse.success(requirementService.updateStatus(id, req), MDC.get("traceId"));
-    }
-
-    @GetMapping("/my")
-    public ApiResponse<List<RequirementResponse>> listMine() {
-        return ApiResponse.success(requirementService.listMine(), MDC.get("traceId"));
     }
 }
