@@ -191,11 +191,11 @@ git commit -m "feat: add role permission management"
 - Modify: `src/main/java/com/jitong/projectflow/system/controller/SystemController.java`
 - Test: `src/test/java/com/jitong/projectflow/system/service/MenuManagementServiceTest.java`
 
-- [ ] **Step 1: Write service tests**
+- [x] **Step 1: Write service tests**
 
 Cover invalid type, duplicate code, and delete blocked by child menu rows.
 
-- [ ] **Step 2: Implement menu management service**
+- [x] **Step 2: Implement menu management service**
 
 Rules:
 
@@ -205,7 +205,7 @@ Rules:
 - Delete is blocked if children exist.
 - Write operation logs.
 
-- [ ] **Step 3: Add APIs**
+- [x] **Step 3: Add APIs**
 
 ```text
 POST   /api/system/menus
@@ -213,13 +213,13 @@ PUT    /api/system/menus/{id}
 DELETE /api/system/menus/{id}
 ```
 
-- [ ] **Step 4: Verify**
+- [x] **Step 4: Verify**
 
 ```bash
 mvn -q -Dtest=MenuManagementServiceTest test
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/main/java/com/jitong/projectflow/system src/test/java/com/jitong/projectflow/system docs/superpowers/plans/2026-07-07-projectflow-backend-phase-4.md

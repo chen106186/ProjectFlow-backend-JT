@@ -5,6 +5,8 @@ import com.jitong.projectflow.system.dto.DepartmentResponse;
 import com.jitong.projectflow.system.dto.DepartmentCreateRequest;
 import com.jitong.projectflow.system.dto.DepartmentUpdateRequest;
 import com.jitong.projectflow.system.dto.MenuResponse;
+import com.jitong.projectflow.system.dto.MenuCreateRequest;
+import com.jitong.projectflow.system.dto.MenuUpdateRequest;
 import com.jitong.projectflow.system.dto.RoleResponse;
 import com.jitong.projectflow.system.dto.RoleCreateRequest;
 import com.jitong.projectflow.system.dto.RoleDetailResponse;
@@ -18,6 +20,7 @@ import com.jitong.projectflow.system.dto.UserPasswordResetRequest;
 import com.jitong.projectflow.system.dto.UserRoleAssignRequest;
 import com.jitong.projectflow.system.dto.UserUpdateRequest;
 import com.jitong.projectflow.system.service.DepartmentManagementService;
+import com.jitong.projectflow.system.service.MenuManagementService;
 import com.jitong.projectflow.system.service.RoleManagementService;
 import com.jitong.projectflow.system.service.SystemUserManagementService;
 import com.jitong.projectflow.system.service.SystemQueryService;
@@ -45,6 +48,7 @@ public class SystemController {
     private final SystemUserManagementService systemUserManagementService;
     private final DepartmentManagementService departmentManagementService;
     private final RoleManagementService roleManagementService;
+    private final MenuManagementService menuManagementService;
 
     @GetMapping("/users")
     public ApiResponse<List<SystemUserResponse>> listUsers(
@@ -153,5 +157,21 @@ public class SystemController {
     @GetMapping("/menus")
     public ApiResponse<List<MenuResponse>> listMenus() {
         return ApiResponse.success(systemQueryService.listMenus(), MDC.get("traceId"));
+    }
+
+    @PostMapping("/menus")
+    public ApiResponse<MenuResponse> createMenu(@Valid @RequestBody MenuCreateRequest request) {
+        return ApiResponse.success(menuManagementService.create(request), MDC.get("traceId"));
+    }
+
+    @PutMapping("/menus/{id}")
+    public ApiResponse<MenuResponse> updateMenu(@PathVariable Long id, @RequestBody MenuUpdateRequest request) {
+        return ApiResponse.success(menuManagementService.update(id, request), MDC.get("traceId"));
+    }
+
+    @DeleteMapping("/menus/{id}")
+    public ApiResponse<Void> deleteMenu(@PathVariable Long id) {
+        menuManagementService.delete(id);
+        return ApiResponse.success(null, MDC.get("traceId"));
     }
 }
