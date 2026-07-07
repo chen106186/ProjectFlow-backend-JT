@@ -91,7 +91,7 @@ public class SystemController {
     }
 
     @PutMapping("/users/{id}")
-    public ApiResponse<UserDetailResponse> updateUser(@PathVariable Long id, @RequestBody UserUpdateRequest request) {
+    public ApiResponse<UserDetailResponse> updateUser(@PathVariable Long id, @Valid @RequestBody UserUpdateRequest request) {
         return ApiResponse.success(systemUserManagementService.update(id, request), MDC.get("traceId"));
     }
 
@@ -113,7 +113,7 @@ public class SystemController {
     @PutMapping("/users/{id}/roles")
     public ApiResponse<List<Long>> assignUserRoles(
             @PathVariable Long id,
-            @RequestBody UserRoleAssignRequest request) {
+            @Valid @RequestBody UserRoleAssignRequest request) {
         return ApiResponse.success(systemUserManagementService.assignRoles(id, request), MDC.get("traceId"));
     }
 
@@ -130,7 +130,7 @@ public class SystemController {
     @PutMapping("/departments/{id}")
     public ApiResponse<DepartmentResponse> updateDepartment(
             @PathVariable Long id,
-            @RequestBody DepartmentUpdateRequest request) {
+            @Valid @RequestBody DepartmentUpdateRequest request) {
         return ApiResponse.success(departmentManagementService.update(id, request), MDC.get("traceId"));
     }
 
@@ -156,7 +156,7 @@ public class SystemController {
     }
 
     @PutMapping("/roles/{id}")
-    public ApiResponse<RoleResponse> updateRole(@PathVariable Long id, @RequestBody RoleUpdateRequest request) {
+    public ApiResponse<RoleResponse> updateRole(@PathVariable Long id, @Valid @RequestBody RoleUpdateRequest request) {
         return ApiResponse.success(roleManagementService.update(id, request), MDC.get("traceId"));
     }
 
@@ -172,7 +172,7 @@ public class SystemController {
     }
 
     @PutMapping("/roles/{id}/menus")
-    public ApiResponse<List<Long>> assignRoleMenus(@PathVariable Long id, @RequestBody RoleMenuAssignRequest request) {
+    public ApiResponse<List<Long>> assignRoleMenus(@PathVariable Long id, @Valid @RequestBody RoleMenuAssignRequest request) {
         return ApiResponse.success(roleManagementService.assignMenus(id, request), MDC.get("traceId"));
     }
 
@@ -187,7 +187,7 @@ public class SystemController {
     }
 
     @PutMapping("/menus/{id}")
-    public ApiResponse<MenuResponse> updateMenu(@PathVariable Long id, @RequestBody MenuUpdateRequest request) {
+    public ApiResponse<MenuResponse> updateMenu(@PathVariable Long id, @Valid @RequestBody MenuUpdateRequest request) {
         return ApiResponse.success(menuManagementService.update(id, request), MDC.get("traceId"));
     }
 

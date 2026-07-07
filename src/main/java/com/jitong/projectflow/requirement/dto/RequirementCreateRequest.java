@@ -1,17 +1,20 @@
 package com.jitong.projectflow.requirement.dto;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 
 public class RequirementCreateRequest {
 
     @NotBlank
     private String title;
 
+    @NotBlank
     private String requirementType;
 
     @NotBlank
     private String priority;
 
+    @NotNull
     private Long projectId;
 
     private String description;

@@ -125,7 +125,7 @@ git commit -m "feat: paginate system list apis"
 - Modify controllers only where `@Valid` is missing.
 - Test: `src/test/java/com/jitong/projectflow/common/error/GlobalExceptionHandlerTest.java` or focused controller test.
 
-- [ ] **Step 1: Add validation annotations**
+- [x] **Step 1: Add validation annotations**
 
 Rules:
 
@@ -133,13 +133,13 @@ Rules:
 - Required names/titles use `@NotBlank`.
 - Page bounds use `@Min` and `@Max`.
 
-- [ ] **Step 2: Verify**
+- [x] **Step 2: Verify**
 
 ```bash
 mvn -q test
 ```
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add src/main/java src/test/java docs/superpowers/plans/2026-07-07-projectflow-backend-phase-5.md

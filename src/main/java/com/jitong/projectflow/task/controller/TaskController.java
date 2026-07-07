@@ -51,7 +51,7 @@ public class TaskController {
     }
 
     @PutMapping("/{id}")
-    public ApiResponse<TaskResponse> update(@PathVariable Long id, @RequestBody TaskUpdateRequest request) {
+    public ApiResponse<TaskResponse> update(@PathVariable Long id, @Valid @RequestBody TaskUpdateRequest request) {
         return ApiResponse.success(taskService.update(id, request), MDC.get("traceId"));
     }
 
@@ -62,7 +62,7 @@ public class TaskController {
     }
 
     @PatchMapping("/{id}/actual-time")
-    public ApiResponse<TaskResponse> updateActualTime(@PathVariable Long id, @RequestBody TaskActualTimeUpdateRequest request) {
+    public ApiResponse<TaskResponse> updateActualTime(@PathVariable Long id, @Valid @RequestBody TaskActualTimeUpdateRequest request) {
         return ApiResponse.success(taskService.updateActualTime(id, request), MDC.get("traceId"));
     }
 }

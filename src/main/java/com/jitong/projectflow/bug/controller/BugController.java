@@ -52,7 +52,7 @@ public class BugController {
     }
 
     @PutMapping("/{id}")
-    public ApiResponse<BugResponse> update(@PathVariable Long id, @RequestBody BugUpdateRequest request) {
+    public ApiResponse<BugResponse> update(@PathVariable Long id, @Valid @RequestBody BugUpdateRequest request) {
         return ApiResponse.success(bugService.update(id, request), MDC.get("traceId"));
     }
 

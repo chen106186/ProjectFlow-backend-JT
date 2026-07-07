@@ -54,7 +54,7 @@ public class ProjectController {
     }
 
     @PutMapping("/{id}")
-    public ApiResponse<ProjectResponse> update(@PathVariable Long id, @RequestBody ProjectUpdateRequest request) {
+    public ApiResponse<ProjectResponse> update(@PathVariable Long id, @Valid @RequestBody ProjectUpdateRequest request) {
         return ApiResponse.success(projectService.update(id, request), MDC.get("traceId"));
     }
 
