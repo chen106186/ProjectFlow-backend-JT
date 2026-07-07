@@ -264,11 +264,11 @@ git commit -m "feat: add file upload download api"
 - Create: `src/main/java/com/jitong/projectflow/system/controller/SystemController.java`
 - Test: `src/test/java/com/jitong/projectflow/system/service/SystemQueryServiceTest.java`
 
-- [ ] **Step 1: Write service tests**
+- [x] **Step 1: Write service tests**
 
 Test users, departments, roles, and menus are mapped to response DTOs.
 
-- [ ] **Step 2: Implement query service**
+- [x] **Step 2: Implement query service**
 
 Rules:
 
@@ -276,7 +276,7 @@ Rules:
 - Department list returns flat rows for frontend tree assembly.
 - Menu list returns flat rows for frontend tree assembly.
 
-- [ ] **Step 3: Implement APIs**
+- [x] **Step 3: Implement APIs**
 
 ```text
 GET /api/system/users
@@ -285,13 +285,13 @@ GET /api/system/roles
 GET /api/system/menus
 ```
 
-- [ ] **Step 4: Verify**
+- [x] **Step 4: Verify**
 
 ```bash
 mvn -q -Dtest=SystemQueryServiceTest test
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/main/java/com/jitong/projectflow/system src/test/java/com/jitong/projectflow/system
