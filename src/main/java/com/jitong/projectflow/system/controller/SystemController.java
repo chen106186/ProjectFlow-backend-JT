@@ -2,6 +2,8 @@ package com.jitong.projectflow.system.controller;
 
 import com.jitong.projectflow.common.api.ApiResponse;
 import com.jitong.projectflow.system.dto.DepartmentResponse;
+import com.jitong.projectflow.system.dto.DepartmentCreateRequest;
+import com.jitong.projectflow.system.dto.DepartmentUpdateRequest;
 import com.jitong.projectflow.system.dto.MenuResponse;
 import com.jitong.projectflow.system.dto.RoleResponse;
 import com.jitong.projectflow.system.dto.SystemUserResponse;
@@ -11,6 +13,7 @@ import com.jitong.projectflow.system.dto.UserEnabledUpdateRequest;
 import com.jitong.projectflow.system.dto.UserPasswordResetRequest;
 import com.jitong.projectflow.system.dto.UserRoleAssignRequest;
 import com.jitong.projectflow.system.dto.UserUpdateRequest;
+import com.jitong.projectflow.system.service.DepartmentManagementService;
 import com.jitong.projectflow.system.service.SystemUserManagementService;
 import com.jitong.projectflow.system.service.SystemQueryService;
 import jakarta.validation.Valid;
@@ -35,6 +38,7 @@ import java.util.List;
 public class SystemController {
     private final SystemQueryService systemQueryService;
     private final SystemUserManagementService systemUserManagementService;
+    private final DepartmentManagementService departmentManagementService;
 
     @GetMapping("/users")
     public ApiResponse<List<SystemUserResponse>> listUsers(
@@ -84,6 +88,24 @@ public class SystemController {
     @GetMapping("/departments")
     public ApiResponse<List<DepartmentResponse>> listDepartments() {
         return ApiResponse.success(systemQueryService.listDepartments(), MDC.get("traceId"));
+    }
+
+    @PostMapping("/departments")
+    public ApiResponse<DepartmentResponse> createDepartment(@Valid @RequestBody DepartmentCreateRequest request) {
+        return ApiResponse.success(departmentManagementService.create(request), MDC.get("traceId"));
+    }
+
+    @PutMapping("/departments/{id}")
+    public ApiResponse<DepartmentResponse> updateDepartment(
+            @PathVariable Long id,
+            @RequestBody DepartmentUpdateRequest request) {
+        return ApiResponse.success(departmentManagementService.update(id, request), MDC.get("traceId"));
+    }
+
+    @DeleteMapping("/departments/{id}")
+    public ApiResponse<Void> deleteDepartment(@PathVariable Long id) {
+        departmentManagementService.delete(id);
+        return ApiResponse.success(null, MDC.get("traceId"));
     }
 
     @GetMapping("/roles")

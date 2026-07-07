@@ -101,11 +101,11 @@ git commit -m "feat: add system user management"
 - Modify: `src/main/java/com/jitong/projectflow/system/controller/SystemController.java`
 - Test: `src/test/java/com/jitong/projectflow/system/service/DepartmentManagementServiceTest.java`
 
-- [ ] **Step 1: Write service tests**
+- [x] **Step 1: Write service tests**
 
 Cover delete blocked by active users and child departments.
 
-- [ ] **Step 2: Implement department management service**
+- [x] **Step 2: Implement department management service**
 
 Rules:
 
@@ -114,7 +114,7 @@ Rules:
 - Delete is blocked if active users or child departments exist.
 - Write operation logs for create, update, and delete.
 
-- [ ] **Step 3: Add APIs**
+- [x] **Step 3: Add APIs**
 
 ```text
 POST   /api/system/departments
@@ -122,13 +122,13 @@ PUT    /api/system/departments/{id}
 DELETE /api/system/departments/{id}
 ```
 
-- [ ] **Step 4: Verify**
+- [x] **Step 4: Verify**
 
 ```bash
 mvn -q -Dtest=DepartmentManagementServiceTest test
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/main/java/com/jitong/projectflow/system src/test/java/com/jitong/projectflow/system docs/superpowers/plans/2026-07-07-projectflow-backend-phase-4.md
