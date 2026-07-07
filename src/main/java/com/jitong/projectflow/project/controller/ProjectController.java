@@ -1,6 +1,7 @@
 package com.jitong.projectflow.project.controller;
 
 import com.jitong.projectflow.common.api.ApiResponse;
+import com.jitong.projectflow.common.api.PageResult;
 import com.jitong.projectflow.project.dto.GanttNodeResponse;
 import com.jitong.projectflow.project.dto.GanttSummaryResponse;
 import com.jitong.projectflow.project.dto.ProjectCreateRequest;
@@ -43,7 +44,7 @@ public class ProjectController {
     }
 
     @GetMapping
-    public ApiResponse<List<ProjectResponse>> listProjects(@ModelAttribute ProjectQueryRequest request) {
+    public ApiResponse<PageResult<ProjectResponse>> listProjects(@Valid @ModelAttribute ProjectQueryRequest request) {
         return ApiResponse.success(projectService.list(request), MDC.get("traceId"));
     }
 

@@ -1,10 +1,12 @@
 package com.jitong.projectflow.bug.controller;
 
 import com.jitong.projectflow.common.api.ApiResponse;
+import com.jitong.projectflow.common.api.PageResult;
 import com.jitong.projectflow.bug.dto.BugAssignRequest;
 import com.jitong.projectflow.bug.dto.BugCommentCreateRequest;
 import com.jitong.projectflow.bug.dto.BugCommentResponse;
 import com.jitong.projectflow.bug.dto.BugCreateRequest;
+import com.jitong.projectflow.bug.dto.BugQueryRequest;
 import com.jitong.projectflow.bug.dto.BugResponse;
 import com.jitong.projectflow.bug.dto.BugUpdateRequest;
 import com.jitong.projectflow.bug.service.BugService;
@@ -12,12 +14,12 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.MDC;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -35,12 +37,8 @@ public class BugController {
     }
 
     @GetMapping
-    public ApiResponse<List<BugResponse>> listBugs(
-            @RequestParam(required = false) String status,
-            @RequestParam(required = false) String priority,
-            @RequestParam(required = false) Long projectId,
-            @RequestParam(required = false) String keyword) {
-        return ApiResponse.success(bugService.list(status, priority, projectId, keyword), MDC.get("traceId"));
+    public ApiResponse<PageResult<BugResponse>> listBugs(@Valid @ModelAttribute BugQueryRequest request) {
+        return ApiResponse.success(bugService.list(request), MDC.get("traceId"));
     }
 
     @GetMapping("/my")

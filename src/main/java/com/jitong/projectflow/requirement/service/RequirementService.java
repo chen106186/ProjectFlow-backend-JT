@@ -1,12 +1,16 @@
 package com.jitong.projectflow.requirement.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.jitong.projectflow.auth.security.CurrentUserContext;
+import com.jitong.projectflow.common.api.PageResult;
+import com.jitong.projectflow.common.api.PageUtils;
 import com.jitong.projectflow.common.error.BusinessException;
 import com.jitong.projectflow.common.error.ErrorCode;
 import com.jitong.projectflow.requirement.domain.RequirementStatus;
 import com.jitong.projectflow.requirement.domain.RequirementStatusPolicy;
 import com.jitong.projectflow.requirement.dto.RequirementCreateRequest;
+import com.jitong.projectflow.requirement.dto.RequirementQueryRequest;
 import com.jitong.projectflow.requirement.dto.RequirementResponse;
 import com.jitong.projectflow.requirement.dto.RequirementStatusUpdateRequest;
 import com.jitong.projectflow.requirement.dto.RequirementUpdateRequest;
@@ -48,13 +52,13 @@ public class RequirementService {
         return toResponse(entity);
     }
 
-    public List<RequirementResponse> list(Long projectId) {
+    public PageResult<RequirementResponse> list(RequirementQueryRequest request) {
         LambdaQueryWrapper<RequirementEntity> wrapper = new LambdaQueryWrapper<>();
-        if (projectId != null) {
-            wrapper.eq(RequirementEntity::getProjectId, projectId);
+        if (request.getProjectId() != null) {
+            wrapper.eq(RequirementEntity::getProjectId, request.getProjectId());
         }
-        List<RequirementEntity> entities = requirementMapper.selectList(wrapper);
-        return entities.stream().map(this::toResponse).collect(Collectors.toList());
+        Page<RequirementEntity> page = requirementMapper.selectPage(PageUtils.toPage(request), wrapper);
+        return PageUtils.toResult(page, page.getRecords().stream().map(this::toResponse).collect(Collectors.toList()));
     }
 
     public RequirementResponse getById(Long id) {

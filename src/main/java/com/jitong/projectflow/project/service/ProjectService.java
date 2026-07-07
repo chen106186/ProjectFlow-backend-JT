@@ -1,7 +1,10 @@
 package com.jitong.projectflow.project.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.jitong.projectflow.auth.security.CurrentUserContext;
+import com.jitong.projectflow.common.api.PageResult;
+import com.jitong.projectflow.common.api.PageUtils;
 import com.jitong.projectflow.common.error.BusinessException;
 import com.jitong.projectflow.common.error.ErrorCode;
 import com.jitong.projectflow.project.dto.ProjectCreateRequest;
@@ -42,7 +45,7 @@ public class ProjectService {
         return toResponse(entity);
     }
 
-    public List<ProjectResponse> list(ProjectQueryRequest request) {
+    public PageResult<ProjectResponse> list(ProjectQueryRequest request) {
         LambdaQueryWrapper<ProjectEntity> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(StringUtils.hasText(request.getProjectType()), ProjectEntity::getProjectType, request.getProjectType());
         wrapper.eq(StringUtils.hasText(request.getStatus()), ProjectEntity::getStatus, request.getStatus());
@@ -50,7 +53,8 @@ public class ProjectService {
         wrapper.eq(request.getManagerId() != null, ProjectEntity::getManagerId, request.getManagerId());
         wrapper.like(StringUtils.hasText(request.getKeyword()), ProjectEntity::getName, request.getKeyword());
         wrapper.orderByDesc(ProjectEntity::getCreatedAt);
-        return projectMapper.selectList(wrapper).stream().map(this::toResponse).toList();
+        Page<ProjectEntity> page = projectMapper.selectPage(PageUtils.toPage(request), wrapper);
+        return PageUtils.toResult(page, page.getRecords().stream().map(this::toResponse).toList());
     }
 
     public ProjectResponse getById(Long id) {

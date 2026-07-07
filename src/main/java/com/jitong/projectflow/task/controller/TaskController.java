@@ -1,6 +1,7 @@
 package com.jitong.projectflow.task.controller;
 
 import com.jitong.projectflow.common.api.ApiResponse;
+import com.jitong.projectflow.common.api.PageResult;
 import com.jitong.projectflow.task.dto.TaskActualTimeUpdateRequest;
 import com.jitong.projectflow.task.dto.TaskCreateRequest;
 import com.jitong.projectflow.task.dto.TaskQueryRequest;
@@ -35,7 +36,7 @@ public class TaskController {
     }
 
     @GetMapping
-    public ApiResponse<List<TaskResponse>> listTasks(@ModelAttribute TaskQueryRequest request) {
+    public ApiResponse<PageResult<TaskResponse>> listTasks(@Valid @ModelAttribute TaskQueryRequest request) {
         return ApiResponse.success(taskService.list(request), MDC.get("traceId"));
     }
 

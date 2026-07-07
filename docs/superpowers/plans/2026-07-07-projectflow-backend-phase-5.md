@@ -59,24 +59,24 @@ git commit -m "feat: add pagination foundation"
 - Modify: `src/main/java/com/jitong/projectflow/requirement/controller/RequirementController.java`
 - Tests: existing service tests plus targeted pagination assertions.
 
-- [ ] **Step 1: Write tests**
+- [x] **Step 1: Write tests**
 
 Add/adjust tests for project, task, BUG, and requirement list methods returning `PageResult`.
 
-- [ ] **Step 2: Implement paginated business services and controllers**
+- [x] **Step 2: Implement paginated business services and controllers**
 
 Rules:
 
 - `GET /api/projects`, `/api/tasks`, `/api/bugs`, `/api/requirements` return `PageResult`.
 - `/my` endpoints stay list responses in Phase 5.
 
-- [ ] **Step 3: Verify**
+- [x] **Step 3: Verify**
 
 ```bash
 mvn -q -Dtest=ProjectServiceTest,TaskServiceTest,BugServiceTest test
 ```
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/main/java/com/jitong/projectflow/project src/main/java/com/jitong/projectflow/task src/main/java/com/jitong/projectflow/bug src/main/java/com/jitong/projectflow/requirement src/test/java/com/jitong/projectflow docs/superpowers/plans/2026-07-07-projectflow-backend-phase-5.md

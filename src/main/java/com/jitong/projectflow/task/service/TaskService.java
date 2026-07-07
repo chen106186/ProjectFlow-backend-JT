@@ -1,7 +1,10 @@
 package com.jitong.projectflow.task.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.jitong.projectflow.auth.security.CurrentUserContext;
+import com.jitong.projectflow.common.api.PageResult;
+import com.jitong.projectflow.common.api.PageUtils;
 import com.jitong.projectflow.common.error.BusinessException;
 import com.jitong.projectflow.common.error.ErrorCode;
 import com.jitong.projectflow.system.audit.OperationLogService;
@@ -47,14 +50,15 @@ public class TaskService {
         return toResponse(entity);
     }
 
-    public List<TaskResponse> list(TaskQueryRequest request) {
-        return taskMapper.selectList(buildQuery(request)).stream().map(this::toResponse).toList();
+    public PageResult<TaskResponse> list(TaskQueryRequest request) {
+        Page<TaskEntity> page = taskMapper.selectPage(PageUtils.toPage(request), buildQuery(request));
+        return PageUtils.toResult(page, page.getRecords().stream().map(this::toResponse).toList());
     }
 
     public List<TaskResponse> listMine() {
         TaskQueryRequest request = new TaskQueryRequest();
         request.setAssigneeId(CurrentUserContext.userId());
-        return list(request);
+        return taskMapper.selectList(buildQuery(request)).stream().map(this::toResponse).toList();
     }
 
     public TaskResponse getById(Long id) {

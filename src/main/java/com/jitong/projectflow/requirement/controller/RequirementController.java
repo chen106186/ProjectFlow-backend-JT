@@ -1,7 +1,9 @@
 package com.jitong.projectflow.requirement.controller;
 
 import com.jitong.projectflow.common.api.ApiResponse;
+import com.jitong.projectflow.common.api.PageResult;
 import com.jitong.projectflow.requirement.dto.RequirementCreateRequest;
+import com.jitong.projectflow.requirement.dto.RequirementQueryRequest;
 import com.jitong.projectflow.requirement.dto.RequirementResponse;
 import com.jitong.projectflow.requirement.dto.RequirementStatusUpdateRequest;
 import com.jitong.projectflow.requirement.dto.RequirementUpdateRequest;
@@ -9,13 +11,13 @@ import com.jitong.projectflow.requirement.service.RequirementService;
 import jakarta.validation.Valid;
 import org.slf4j.MDC;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -36,8 +38,8 @@ public class RequirementController {
     }
 
     @GetMapping
-    public ApiResponse<List<RequirementResponse>> list(@RequestParam(required = false) Long projectId) {
-        return ApiResponse.success(requirementService.list(projectId), MDC.get("traceId"));
+    public ApiResponse<PageResult<RequirementResponse>> list(@Valid @ModelAttribute RequirementQueryRequest request) {
+        return ApiResponse.success(requirementService.list(request), MDC.get("traceId"));
     }
 
     @GetMapping("/my")

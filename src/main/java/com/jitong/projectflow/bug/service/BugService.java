@@ -1,14 +1,18 @@
 package com.jitong.projectflow.bug.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.jitong.projectflow.auth.security.CurrentUserContext;
 import com.jitong.projectflow.bug.domain.BugStatus;
 import com.jitong.projectflow.bug.dto.BugAssignRequest;
 import com.jitong.projectflow.bug.dto.BugCommentCreateRequest;
 import com.jitong.projectflow.bug.dto.BugCommentResponse;
 import com.jitong.projectflow.bug.dto.BugCreateRequest;
+import com.jitong.projectflow.bug.dto.BugQueryRequest;
 import com.jitong.projectflow.bug.dto.BugResponse;
 import com.jitong.projectflow.bug.dto.BugUpdateRequest;
+import com.jitong.projectflow.common.api.PageResult;
+import com.jitong.projectflow.common.api.PageUtils;
 import com.jitong.projectflow.bug.entity.BugCommentEntity;
 import com.jitong.projectflow.bug.entity.BugEntity;
 import com.jitong.projectflow.bug.mapper.BugCommentMapper;
@@ -51,14 +55,15 @@ public class BugService {
         return toResponse(entity);
     }
 
-    public List<BugResponse> list(String status, String priority, Long projectId, String keyword) {
+    public PageResult<BugResponse> list(BugQueryRequest request) {
         LambdaQueryWrapper<BugEntity> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(StringUtils.hasText(status), BugEntity::getStatus, status);
-        wrapper.eq(StringUtils.hasText(priority), BugEntity::getPriority, priority);
-        wrapper.eq(projectId != null, BugEntity::getProjectId, projectId);
-        wrapper.like(StringUtils.hasText(keyword), BugEntity::getTitle, keyword);
+        wrapper.eq(StringUtils.hasText(request.getStatus()), BugEntity::getStatus, request.getStatus());
+        wrapper.eq(StringUtils.hasText(request.getPriority()), BugEntity::getPriority, request.getPriority());
+        wrapper.eq(request.getProjectId() != null, BugEntity::getProjectId, request.getProjectId());
+        wrapper.like(StringUtils.hasText(request.getKeyword()), BugEntity::getTitle, request.getKeyword());
         wrapper.orderByDesc(BugEntity::getCreatedAt);
-        return bugMapper.selectList(wrapper).stream().map(this::toResponse).toList();
+        Page<BugEntity> page = bugMapper.selectPage(PageUtils.toPage(request), wrapper);
+        return PageUtils.toResult(page, page.getRecords().stream().map(this::toResponse).toList());
     }
 
     public List<BugResponse> listMine() {

@@ -1,8 +1,10 @@
 package com.jitong.projectflow.task.service;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.jitong.projectflow.auth.security.CurrentUserContext;
 import com.jitong.projectflow.system.audit.OperationLogService;
 import com.jitong.projectflow.task.dto.TaskActualTimeUpdateRequest;
+import com.jitong.projectflow.task.dto.TaskQueryRequest;
 import com.jitong.projectflow.task.entity.TaskEntity;
 import com.jitong.projectflow.task.mapper.TaskMapper;
 import org.junit.jupiter.api.AfterEach;
@@ -54,5 +56,20 @@ class TaskServiceTest {
         assertThat(updated.getStatus()).isEqualTo("COMPLETED");
         assertThat(updated.getUpdatedBy()).isEqualTo(1001L);
         verify(operationLogService).record("task", "Task", 10L, "UPDATE_ACTUAL_TIME", "Develop API");
+    }
+
+    @Test
+    void listReturnsPagedTasks() {
+        TaskEntity task = new TaskEntity();
+        task.setId(1L);
+        task.setName("Develop API");
+        Page<TaskEntity> page = new Page<>(1, 20, 1);
+        page.setRecords(java.util.List.of(task));
+        when(taskMapper.selectPage(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any())).thenReturn(page);
+
+        var result = new TaskService(taskMapper, operationLogService).list(new TaskQueryRequest());
+
+        assertThat(result.total()).isEqualTo(1);
+        assertThat(result.records()).extracting("name").containsExactly("Develop API");
     }
 }
