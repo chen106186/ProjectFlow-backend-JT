@@ -2,16 +2,18 @@ package com.jitong.projectflow.notice.controller;
 
 import com.jitong.projectflow.auth.security.CurrentUserContext;
 import com.jitong.projectflow.common.api.ApiResponse;
+import com.jitong.projectflow.common.api.PageResult;
+import com.jitong.projectflow.notice.dto.NoticeQueryRequest;
 import com.jitong.projectflow.notice.dto.NoticeResponse;
 import com.jitong.projectflow.notice.service.NoticeService;
+import jakarta.validation.Valid;
 import org.slf4j.MDC;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/notices")
@@ -24,9 +26,9 @@ public class NoticeController {
     }
 
     @GetMapping
-    public ApiResponse<List<NoticeResponse>> list() {
+    public ApiResponse<PageResult<NoticeResponse>> list(@Valid @ModelAttribute NoticeQueryRequest request) {
         Long userId = CurrentUserContext.userId();
-        return ApiResponse.success(noticeService.list(userId), MDC.get("traceId"));
+        return ApiResponse.success(noticeService.list(userId, request), MDC.get("traceId"));
     }
 
     @GetMapping("/unread-count")

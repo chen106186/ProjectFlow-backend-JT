@@ -18,7 +18,7 @@
 - Modify: `src/main/java/com/jitong/projectflow/notice/controller/NoticeController.java`
 - Test: `src/test/java/com/jitong/projectflow/notice/service/NoticeServiceTest.java`
 
-- [ ] **Step 1: Add query DTO**
+- [x] **Step 1: Add query DTO**
 
 Create `NoticeQueryRequest extends PageQuery` with:
 
@@ -27,7 +27,7 @@ Create `NoticeQueryRequest extends PageQuery` with:
 - `String businessType`
 - `Long businessId`
 
-- [ ] **Step 2: Update service tests for `PageResult`**
+- [x] **Step 2: Update service tests for `PageResult`**
 
 Update existing tests that call `noticeService.list(RECEIVER_ID)` to use a default `NoticeQueryRequest`.
 
@@ -38,7 +38,7 @@ Add tests for:
 - `noticeType` filters exact notice type.
 - `businessType` and `businessId` filter exact business object.
 
-- [ ] **Step 3: Implement paginated service list**
+- [x] **Step 3: Implement paginated service list**
 
 Change `NoticeService.list(Long receiverId, NoticeQueryRequest request)` to return `PageResult<NoticeResponse>`.
 
@@ -49,17 +49,17 @@ Rules:
 - Order by `createdAt DESC`.
 - Use `PageUtils.toPage` and `PageUtils.toResult`.
 
-- [ ] **Step 4: Update controller contract**
+- [x] **Step 4: Update controller contract**
 
 Change `GET /api/notices` to accept `@Valid @ModelAttribute NoticeQueryRequest` and return `ApiResponse<PageResult<NoticeResponse>>`.
 
-- [ ] **Step 5: Verify**
+- [x] **Step 5: Verify**
 
 ```bash
 mvn -q "-Dmaven.repo.local=.m2/repository" -Dtest=NoticeServiceTest test
 ```
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/main/java/com/jitong/projectflow/notice src/test/java/com/jitong/projectflow/notice docs/superpowers/plans/2026-07-07-projectflow-backend-phase-8.md

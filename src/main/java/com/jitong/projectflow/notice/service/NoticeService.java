@@ -2,13 +2,18 @@ package com.jitong.projectflow.notice.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.jitong.projectflow.common.api.PageResult;
+import com.jitong.projectflow.common.api.PageUtils;
 import com.jitong.projectflow.common.error.BusinessException;
 import com.jitong.projectflow.common.error.ErrorCode;
 import com.jitong.projectflow.notice.domain.NoticeType;
+import com.jitong.projectflow.notice.dto.NoticeQueryRequest;
 import com.jitong.projectflow.notice.dto.NoticeResponse;
 import com.jitong.projectflow.notice.entity.NoticeEntity;
 import com.jitong.projectflow.notice.mapper.NoticeMapper;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -63,12 +68,16 @@ public class NoticeService {
         noticeMapper.update(null, wrapper);
     }
 
-    public List<NoticeResponse> list(Long receiverId) {
+    public PageResult<NoticeResponse> list(Long receiverId, NoticeQueryRequest request) {
         LambdaQueryWrapper<NoticeEntity> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(NoticeEntity::getReceiverId, receiverId)
+               .eq(request.getRead() != null, NoticeEntity::getReadFlag, Boolean.TRUE.equals(request.getRead()) ? 1 : 0)
+               .eq(StringUtils.hasText(request.getNoticeType()), NoticeEntity::getNoticeType, request.getNoticeType())
+               .eq(StringUtils.hasText(request.getBusinessType()), NoticeEntity::getBusinessType, request.getBusinessType())
+               .eq(request.getBusinessId() != null, NoticeEntity::getBusinessId, request.getBusinessId())
                .orderByDesc(NoticeEntity::getCreatedAt);
-        List<NoticeEntity> entities = noticeMapper.selectList(wrapper);
-        return entities.stream().map(this::toResponse).collect(Collectors.toList());
+        Page<NoticeEntity> page = noticeMapper.selectPage(PageUtils.toPage(request), wrapper);
+        return PageUtils.toResult(page, page.getRecords().stream().map(this::toResponse).collect(Collectors.toList()));
     }
 
     private NoticeResponse toResponse(NoticeEntity entity) {

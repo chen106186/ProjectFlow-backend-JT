@@ -2,6 +2,7 @@ package com.jitong.projectflow.notice.service;
 
 import com.jitong.projectflow.common.error.BusinessException;
 import com.jitong.projectflow.notice.domain.NoticeType;
+import com.jitong.projectflow.notice.dto.NoticeQueryRequest;
 import com.jitong.projectflow.notice.dto.NoticeResponse;
 import com.jitong.projectflow.notice.entity.NoticeEntity;
 import com.jitong.projectflow.notice.mapper.NoticeMapper;
@@ -47,7 +48,7 @@ class NoticeServiceTest {
     void create_insertsNoticeWithReadFlagZero() {
         noticeService.create(RECEIVER_ID, NoticeType.SYSTEM, "Test Title", "Test Content", null, null);
 
-        List<NoticeResponse> notices = noticeService.list(RECEIVER_ID);
+        List<NoticeResponse> notices = noticeService.list(RECEIVER_ID, query()).records();
         assertThat(notices).hasSize(1);
         NoticeResponse notice = notices.get(0);
         assertThat(notice.getTitle()).isEqualTo("Test Title");
@@ -69,7 +70,7 @@ class NoticeServiceTest {
     @Test
     void markRead_setsReadFlagAndReadAt() {
         noticeService.create(RECEIVER_ID, NoticeType.SYSTEM, "Mark Test", "Content", null, null);
-        List<NoticeResponse> notices = noticeService.list(RECEIVER_ID);
+        List<NoticeResponse> notices = noticeService.list(RECEIVER_ID, query()).records();
         assertThat(notices).hasSize(1);
         Long noticeId = notices.get(0).getId();
 
@@ -86,7 +87,7 @@ class NoticeServiceTest {
     @Test
     void markRead_throwsNotFound_whenWrongReceiver() {
         noticeService.create(RECEIVER_ID, NoticeType.SYSTEM, "Other User Notice", "Content", null, null);
-        List<NoticeResponse> notices = noticeService.list(RECEIVER_ID);
+        List<NoticeResponse> notices = noticeService.list(RECEIVER_ID, query()).records();
         Long noticeId = notices.get(0).getId();
 
         assertThatThrownBy(() -> noticeService.markRead(999L, noticeId))
@@ -106,8 +107,70 @@ class NoticeServiceTest {
 
         assertThat(noticeService.unreadCount(RECEIVER_ID)).isEqualTo(0);
 
-        List<NoticeResponse> notices = noticeService.list(RECEIVER_ID);
+        List<NoticeResponse> notices = noticeService.list(RECEIVER_ID, query()).records();
         assertThat(notices).allMatch(NoticeResponse::isRead);
         assertThat(notices).allMatch(n -> n.getReadAt() != null);
+    }
+
+    @Test
+    void list_returnsPageResult() {
+        noticeService.create(RECEIVER_ID, NoticeType.SYSTEM, "System 1", "Content 1", null, null);
+        noticeService.create(RECEIVER_ID, NoticeType.TASK_ASSIGNED, "Task 1", "Content 2", "TASK", 1L);
+
+        var page = noticeService.list(RECEIVER_ID, query());
+
+        assertThat(page.total()).isEqualTo(2);
+        assertThat(page.pageNo()).isEqualTo(1);
+        assertThat(page.pageSize()).isEqualTo(20);
+        assertThat(page.records()).hasSize(2);
+    }
+
+    @Test
+    void list_filtersUnreadNotices() {
+        noticeService.create(RECEIVER_ID, NoticeType.SYSTEM, "System 1", "Content 1", null, null);
+        noticeService.create(RECEIVER_ID, NoticeType.TASK_ASSIGNED, "Task 1", "Content 2", null, null);
+        Long noticeId = noticeService.list(RECEIVER_ID, query()).records().get(0).getId();
+        noticeService.markRead(RECEIVER_ID, noticeId);
+        NoticeQueryRequest request = query();
+        request.setRead(false);
+
+        var page = noticeService.list(RECEIVER_ID, request);
+
+        assertThat(page.total()).isEqualTo(1);
+        assertThat(page.records()).allMatch(notice -> !notice.isRead());
+    }
+
+    @Test
+    void list_filtersNoticeType() {
+        noticeService.create(RECEIVER_ID, NoticeType.SYSTEM, "System 1", "Content 1", null, null);
+        noticeService.create(RECEIVER_ID, NoticeType.BUG_ASSIGNED, "Bug 1", "Content 2", null, null);
+        NoticeQueryRequest request = query();
+        request.setNoticeType("BUG_ASSIGNED");
+
+        var page = noticeService.list(RECEIVER_ID, request);
+
+        assertThat(page.total()).isEqualTo(1);
+        assertThat(page.records()).extracting(NoticeResponse::getNoticeType).containsExactly("BUG_ASSIGNED");
+    }
+
+    @Test
+    void list_filtersBusinessObject() {
+        noticeService.create(RECEIVER_ID, NoticeType.SYSTEM, "Task 1", "Content 1", "TASK", 10L);
+        noticeService.create(RECEIVER_ID, NoticeType.SYSTEM, "Task 2", "Content 2", "TASK", 20L);
+        NoticeQueryRequest request = query();
+        request.setBusinessType("TASK");
+        request.setBusinessId(20L);
+
+        var page = noticeService.list(RECEIVER_ID, request);
+
+        assertThat(page.total()).isEqualTo(1);
+        assertThat(page.records()).extracting(NoticeResponse::getBusinessId).containsExactly(20L);
+    }
+
+    private NoticeQueryRequest query() {
+        NoticeQueryRequest request = new NoticeQueryRequest();
+        request.setPageNo(1L);
+        request.setPageSize(20L);
+        return request;
     }
 }
