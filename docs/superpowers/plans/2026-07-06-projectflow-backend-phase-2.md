@@ -396,7 +396,7 @@ git commit -m "feat: enhance dashboard statistics"
 **Files:**
 - Modify only files needed to fix concrete compile or test failures.
 
-- [ ] **Step 1: Run full tests**
+- [x] **Step 1: Run full tests**
 
 ```bash
 mvn test
@@ -404,7 +404,7 @@ mvn test
 
 Expected: all tests pass.
 
-- [ ] **Step 2: Compile package**
+- [x] **Step 2: Compile package**
 
 ```bash
 mvn package
@@ -412,7 +412,7 @@ mvn package
 
 Expected: package succeeds.
 
-- [ ] **Step 3: Run application**
+- [x] **Step 3: Run application**
 
 ```bash
 mvn spring-boot:run
@@ -420,7 +420,7 @@ mvn spring-boot:run
 
 Expected: application starts and Swagger exposes Phase 2 endpoints.
 
-- [ ] **Step 4: Commit verification fixes**
+- [x] **Step 4: Commit verification fixes**
 
 If fixes were needed:
 
