@@ -212,11 +212,11 @@ git commit -m "feat: implement bug workflow"
 - Create: `src/main/java/com/jitong/projectflow/file/controller/FileController.java`
 - Test: `src/test/java/com/jitong/projectflow/file/service/FileServiceTest.java`
 
-- [ ] **Step 1: Write service tests**
+- [x] **Step 1: Write service tests**
 
 Test upload delegates to `FileStorageService` and inserts `FileMetadata`.
 
-- [ ] **Step 2: Implement service**
+- [x] **Step 2: Implement service**
 
 Rules:
 
@@ -225,7 +225,7 @@ Rules:
 - Download returns metadata and stream.
 - Delete logically deletes metadata and calls storage delete.
 
-- [ ] **Step 3: Implement APIs**
+- [x] **Step 3: Implement APIs**
 
 ```text
 POST   /api/files
@@ -234,13 +234,13 @@ GET    /api/files/{id}/download
 DELETE /api/files/{id}
 ```
 
-- [ ] **Step 4: Verify**
+- [x] **Step 4: Verify**
 
 ```bash
 mvn -q -Dtest=FileServiceTest test
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/main/java/com/jitong/projectflow/file src/test/java/com/jitong/projectflow/file

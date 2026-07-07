@@ -1,5 +1,8 @@
 package com.jitong.projectflow.file.entity;
 
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 
@@ -8,6 +11,7 @@ import java.time.LocalDateTime;
 @Data
 @TableName("pf_file")
 public class FileMetadata {
+    @TableId(type = IdType.ASSIGN_ID)
     private Long id;
     private String businessType;
     private Long businessId;
@@ -19,5 +23,6 @@ public class FileMetadata {
     private String storageKey;
     private Long uploaderId;
     private LocalDateTime uploadedAt;
-    private Boolean deleted;
+    @TableLogic
+    private Integer deleted;
 }
