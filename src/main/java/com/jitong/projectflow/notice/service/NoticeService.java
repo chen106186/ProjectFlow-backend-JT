@@ -47,7 +47,7 @@ public class NoticeService {
     public void markRead(Long receiverId, Long noticeId) {
         NoticeEntity entity = noticeMapper.selectById(noticeId);
         if (entity == null || !entity.getReceiverId().equals(receiverId)) {
-            throw new BusinessException(ErrorCode.NOT_FOUND, "Notice not found: " + noticeId);
+            throw new BusinessException(ErrorCode.NOT_FOUND, "通知不存在");
         }
         entity.setReadFlag(1);
         entity.setReadAt(LocalDateTime.now());

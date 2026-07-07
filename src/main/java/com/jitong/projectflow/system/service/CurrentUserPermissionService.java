@@ -35,10 +35,10 @@ public class CurrentUserPermissionService {
         Long userId = CurrentUserContext.userId();
         SystemUser user = systemUserMapper.selectById(userId);
         if (user == null) {
-            throw new BusinessException(ErrorCode.UNAUTHORIZED, "Current user not found");
+            throw new BusinessException(ErrorCode.UNAUTHORIZED, "当前用户不存在");
         }
         if (!Boolean.TRUE.equals(user.getEnabled())) {
-            throw new BusinessException(ErrorCode.FORBIDDEN, "Current user disabled");
+            throw new BusinessException(ErrorCode.FORBIDDEN, "当前用户已被禁用");
         }
         List<Long> roleIds = userRoleMapper.selectRoleIdsByUserId(userId);
         List<RoleEntity> roles = roleIds.isEmpty()
@@ -74,10 +74,10 @@ public class CurrentUserPermissionService {
     public List<String> getPermissionsByUserId(Long userId) {
         SystemUser user = systemUserMapper.selectById(userId);
         if (user == null) {
-            throw new BusinessException(ErrorCode.UNAUTHORIZED, "Current user not found");
+            throw new BusinessException(ErrorCode.UNAUTHORIZED, "当前用户不存在");
         }
         if (!Boolean.TRUE.equals(user.getEnabled())) {
-            throw new BusinessException(ErrorCode.FORBIDDEN, "Current user disabled");
+            throw new BusinessException(ErrorCode.FORBIDDEN, "当前用户已被禁用");
         }
         List<Long> roleIds = userRoleMapper.selectRoleIdsByUserId(userId);
         if (roleIds.isEmpty()) {

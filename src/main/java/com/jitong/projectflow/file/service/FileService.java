@@ -59,13 +59,13 @@ public class FileService {
             fileMetadataMapper.insert(metadata);
             return toResponse(metadata);
         } catch (IOException ex) {
-            throw new BusinessException(ErrorCode.INTERNAL_ERROR, "File upload failed");
+            throw new BusinessException(ErrorCode.INTERNAL_ERROR, "文件上传失败");
         }
     }
 
     public List<FileResponse> list(String businessType, Long businessId) {
         if (!StringUtils.hasText(businessType) || businessId == null) {
-            throw new BusinessException(ErrorCode.BAD_REQUEST, "File query requires businessType and businessId");
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "查询文件需要指定业务类型和业务ID");
         }
         LambdaQueryWrapper<FileMetadata> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(FileMetadata::getBusinessType, businessType);
@@ -87,17 +87,17 @@ public class FileService {
 
     private void validateUpload(String businessType, Long businessId, MultipartFile file) {
         if (!StringUtils.hasText(businessType) || businessId == null || file == null || file.isEmpty()) {
-            throw new BusinessException(ErrorCode.BAD_REQUEST, "Invalid file upload request");
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "无效的文件上传请求");
         }
         if (!StringUtils.hasText(file.getOriginalFilename())) {
-            throw new BusinessException(ErrorCode.BAD_REQUEST, "File name is required");
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "文件名不能为空");
         }
         if (file.getSize() > MAX_FILE_SIZE) {
-            throw new BusinessException(ErrorCode.BAD_REQUEST, "File size exceeds 50 MB");
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "文件大小不能超过50MB");
         }
         String extension = extensionOf(file.getOriginalFilename());
         if (!ALLOWED_EXTENSIONS.contains(extension)) {
-            throw new BusinessException(ErrorCode.BAD_REQUEST, "File type not allowed");
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "不支持的文件类型");
         }
     }
 
@@ -132,7 +132,7 @@ public class FileService {
     private FileMetadata requireFile(Long id) {
         FileMetadata metadata = fileMetadataMapper.selectById(id);
         if (metadata == null) {
-            throw new BusinessException(ErrorCode.NOT_FOUND, "File not found");
+            throw new BusinessException(ErrorCode.NOT_FOUND, "文件不存在");
         }
         return metadata;
     }

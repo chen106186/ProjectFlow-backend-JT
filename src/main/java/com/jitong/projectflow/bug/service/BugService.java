@@ -140,7 +140,7 @@ public class BugService {
     private BugEntity requireBug(Long id) {
         BugEntity entity = bugMapper.selectById(id);
         if (entity == null) {
-            throw new BusinessException(ErrorCode.NOT_FOUND, "Bug not found");
+            throw new BusinessException(ErrorCode.NOT_FOUND, "缺陷不存在");
         }
         return entity;
     }

@@ -63,7 +63,7 @@ public class RoleManagementService {
         for (UserRoleEntity assignment : assignments) {
             SystemUser user = systemUserMapper.selectById(assignment.getUserId());
             if (user != null && Boolean.TRUE.equals(user.getEnabled())) {
-                throw new BusinessException(ErrorCode.CONFLICT, "Role is assigned to active users");
+                throw new BusinessException(ErrorCode.CONFLICT, "角色已分配给活跃用户，无法删除");
             }
         }
         roleMapper.deleteById(id);
@@ -92,14 +92,14 @@ public class RoleManagementService {
             wrapper.ne(RoleEntity::getId, currentId);
         }
         if (roleMapper.selectCount(wrapper) > 0) {
-            throw new BusinessException(ErrorCode.CONFLICT, "Role code already exists");
+            throw new BusinessException(ErrorCode.CONFLICT, "角色编码已存在");
         }
     }
 
     private RoleEntity requireRole(Long id) {
         RoleEntity entity = roleMapper.selectById(id);
         if (entity == null) {
-            throw new BusinessException(ErrorCode.NOT_FOUND, "Role not found");
+            throw new BusinessException(ErrorCode.NOT_FOUND, "角色不存在");
         }
         return entity;
     }

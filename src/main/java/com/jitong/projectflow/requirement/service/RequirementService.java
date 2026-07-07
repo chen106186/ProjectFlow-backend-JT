@@ -64,7 +64,7 @@ public class RequirementService {
     public RequirementResponse getById(Long id) {
         RequirementEntity entity = requirementMapper.selectById(id);
         if (entity == null) {
-            throw new BusinessException(ErrorCode.NOT_FOUND, "Requirement not found: " + id);
+            throw new BusinessException(ErrorCode.NOT_FOUND, "需求不存在");
         }
         return toResponse(entity);
     }
@@ -72,7 +72,7 @@ public class RequirementService {
     public RequirementResponse update(Long id, RequirementUpdateRequest req) {
         RequirementEntity entity = requirementMapper.selectById(id);
         if (entity == null) {
-            throw new BusinessException(ErrorCode.NOT_FOUND, "Requirement not found: " + id);
+            throw new BusinessException(ErrorCode.NOT_FOUND, "需求不存在");
         }
 
         if (req.title() != null) entity.setTitle(req.title());
@@ -93,7 +93,7 @@ public class RequirementService {
     public RequirementResponse updateStatus(Long id, RequirementStatusUpdateRequest req) {
         RequirementEntity entity = requirementMapper.selectById(id);
         if (entity == null) {
-            throw new BusinessException(ErrorCode.NOT_FOUND, "Requirement not found: " + id);
+            throw new BusinessException(ErrorCode.NOT_FOUND, "需求不存在");
         }
 
         RequirementStatus from = RequirementStatus.valueOf(entity.getStatus());
@@ -101,12 +101,11 @@ public class RequirementService {
         try {
             to = RequirementStatus.valueOf(req.status());
         } catch (IllegalArgumentException e) {
-            throw new BusinessException(ErrorCode.BAD_REQUEST, "Invalid status: " + req.status());
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "无效的状态值: " + req.status());
         }
 
         if (!statusPolicy.canTransition(from, to)) {
-            throw new BusinessException(ErrorCode.CONFLICT,
-                    "Cannot transition from " + from + " to " + to);
+            throw new BusinessException(ErrorCode.CONFLICT, "需求状态流转不合法");
         }
 
         entity.setStatus(to.name());

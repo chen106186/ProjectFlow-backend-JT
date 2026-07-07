@@ -110,14 +110,14 @@ public class SystemUserManagementService {
             wrapper.ne(SystemUser::getId, currentId);
         }
         if (systemUserMapper.selectCount(wrapper) > 0) {
-            throw new BusinessException(ErrorCode.CONFLICT, "Username already exists");
+            throw new BusinessException(ErrorCode.CONFLICT, "用户名已存在");
         }
     }
 
     private SystemUser requireUser(Long id) {
         SystemUser user = systemUserMapper.selectById(id);
         if (user == null) {
-            throw new BusinessException(ErrorCode.NOT_FOUND, "User not found");
+            throw new BusinessException(ErrorCode.NOT_FOUND, "用户不存在");
         }
         return user;
     }

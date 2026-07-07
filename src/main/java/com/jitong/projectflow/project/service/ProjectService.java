@@ -89,7 +89,7 @@ public class ProjectService {
     private ProjectEntity requireProject(Long id) {
         ProjectEntity entity = projectMapper.selectById(id);
         if (entity == null) {
-            throw new BusinessException(ErrorCode.NOT_FOUND, "Project not found");
+            throw new BusinessException(ErrorCode.NOT_FOUND, "项目不存在");
         }
         return entity;
     }

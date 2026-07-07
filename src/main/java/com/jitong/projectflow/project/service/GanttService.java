@@ -41,7 +41,7 @@ public class GanttService {
     public GanttNodeResponse updateNode(Long projectId, Long nodeId, ProjectNodeUpdateRequest req) {
         ProjectNodeEntity entity = projectNodeMapper.selectById(nodeId);
         if (entity == null || !projectId.equals(entity.getProjectId())) {
-            throw new BusinessException(ErrorCode.NOT_FOUND, "ProjectNode not found: " + nodeId);
+            throw new BusinessException(ErrorCode.NOT_FOUND, "项目节点不存在");
         }
 
         if (req.getNodeName() != null) entity.setNodeName(req.getNodeName());

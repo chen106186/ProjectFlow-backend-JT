@@ -128,7 +128,7 @@ public class TaskService {
     private TaskEntity requireTask(Long id) {
         TaskEntity entity = taskMapper.selectById(id);
         if (entity == null) {
-            throw new BusinessException(ErrorCode.NOT_FOUND, "Task not found");
+            throw new BusinessException(ErrorCode.NOT_FOUND, "任务不存在");
         }
         return entity;
     }

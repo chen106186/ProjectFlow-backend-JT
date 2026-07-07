@@ -60,7 +60,7 @@ public class MenuManagementService {
         MenuEntity entity = requireMenu(id);
         Long childCount = menuMapper.selectCount(new LambdaQueryWrapper<MenuEntity>().eq(MenuEntity::getParentId, id));
         if (childCount > 0) {
-            throw new BusinessException(ErrorCode.CONFLICT, "Menu has child menus");
+            throw new BusinessException(ErrorCode.CONFLICT, "菜单存在子菜单，无法删除");
         }
         menuMapper.deleteById(id);
         operationLogService.record("system", "Menu", id, "DELETE", "Delete menu " + entity.getCode());
@@ -68,7 +68,7 @@ public class MenuManagementService {
 
     private void validateType(String type) {
         if (!ALLOWED_TYPES.contains(type)) {
-            throw new BusinessException(ErrorCode.BAD_REQUEST, "Invalid menu type");
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "无效的菜单类型");
         }
     }
 
@@ -78,14 +78,14 @@ public class MenuManagementService {
             wrapper.ne(MenuEntity::getId, currentId);
         }
         if (menuMapper.selectCount(wrapper) > 0) {
-            throw new BusinessException(ErrorCode.CONFLICT, "Menu code already exists");
+            throw new BusinessException(ErrorCode.CONFLICT, "菜单编码已存在");
         }
     }
 
     private MenuEntity requireMenu(Long id) {
         MenuEntity entity = menuMapper.selectById(id);
         if (entity == null) {
-            throw new BusinessException(ErrorCode.NOT_FOUND, "Menu not found");
+            throw new BusinessException(ErrorCode.NOT_FOUND, "菜单不存在");
         }
         return entity;
     }

@@ -48,12 +48,12 @@ public class DepartmentManagementService {
                 .eq(SystemUser::getEnabled, true)
                 .eq(SystemUser::getDeleted, false));
         if (userCount > 0) {
-            throw new BusinessException(ErrorCode.CONFLICT, "Department has active users");
+            throw new BusinessException(ErrorCode.CONFLICT, "部门下存在活跃用户，无法删除");
         }
         Long childCount = departmentMapper.selectCount(new LambdaQueryWrapper<DepartmentEntity>()
                 .eq(DepartmentEntity::getParentId, id));
         if (childCount > 0) {
-            throw new BusinessException(ErrorCode.CONFLICT, "Department has child departments");
+            throw new BusinessException(ErrorCode.CONFLICT, "部门下存在子部门，无法删除");
         }
         departmentMapper.deleteById(id);
         operationLogService.record("system", "Department", id, "DELETE", "Delete department " + entity.getName());
@@ -62,7 +62,7 @@ public class DepartmentManagementService {
     private DepartmentEntity requireDepartment(Long id) {
         DepartmentEntity entity = departmentMapper.selectById(id);
         if (entity == null) {
-            throw new BusinessException(ErrorCode.NOT_FOUND, "Department not found");
+            throw new BusinessException(ErrorCode.NOT_FOUND, "部门不存在");
         }
         return entity;
     }
