@@ -151,17 +151,17 @@ git commit -m "feat: harden request validation"
 **Files:**
 - Create: `src/main/resources/db/migration/V5__phase_5_seed_admin_data.sql`
 
-- [ ] **Step 1: Add seed migration**
+- [x] **Step 1: Add seed migration**
 
 Seed baseline department, admin role, admin user, menus, user-role, and role-menu rows. Use idempotent `INSERT ... SELECT ... WHERE NOT EXISTS`.
 
-- [ ] **Step 2: Verify migration file exists**
+- [x] **Step 2: Verify migration file exists**
 
 ```bash
 rg --files src/main/resources/db/migration
 ```
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add src/main/resources/db/migration/V5__phase_5_seed_admin_data.sql docs/superpowers/plans/2026-07-07-projectflow-backend-phase-5.md
