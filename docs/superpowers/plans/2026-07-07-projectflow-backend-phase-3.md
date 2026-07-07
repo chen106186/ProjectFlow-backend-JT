@@ -15,7 +15,7 @@
 **Files:**
 - Create: `src/main/resources/db/migration/V3__phase_3_business_indexes.sql`
 
-- [ ] **Step 1: Add migration**
+- [x] **Step 1: Add migration**
 
 Create `V3__phase_3_business_indexes.sql`:
 
@@ -32,7 +32,7 @@ CREATE INDEX idx_pf_bug_created_time ON pf_bug (created_at);
 CREATE INDEX idx_sys_user_department_enabled ON sys_user (department_id, enabled);
 ```
 
-- [ ] **Step 2: Verify migration file exists**
+- [x] **Step 2: Verify migration file exists**
 
 Run:
 
@@ -42,7 +42,7 @@ rg --files src/main/resources/db/migration
 
 Expected: V1, V2, and V3 migration files exist.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add src/main/resources/db/migration/V3__phase_3_business_indexes.sql
@@ -62,11 +62,11 @@ git commit -m "feat: add phase 3 business indexes"
 - Modify: `src/main/java/com/jitong/projectflow/project/controller/ProjectController.java`
 - Test: `src/test/java/com/jitong/projectflow/project/service/ProjectServiceTest.java`
 
-- [ ] **Step 1: Write service tests**
+- [x] **Step 1: Write service tests**
 
 Test project create maps request fields, default status, and writes an operation log.
 
-- [ ] **Step 2: Implement entity, mapper, DTOs, and service**
+- [x] **Step 2: Implement entity, mapper, DTOs, and service**
 
 Rules:
 
@@ -75,7 +75,7 @@ Rules:
 - Delete uses MyBatis-Plus logical delete.
 - Create, update, and delete call `OperationLogService.record(...)`.
 
-- [ ] **Step 3: Implement APIs**
+- [x] **Step 3: Implement APIs**
 
 ```text
 POST   /api/projects
@@ -85,13 +85,13 @@ PUT    /api/projects/{id}
 DELETE /api/projects/{id}
 ```
 
-- [ ] **Step 4: Verify**
+- [x] **Step 4: Verify**
 
 ```bash
 mvn -q -Dtest=ProjectServiceTest test
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/main/java/com/jitong/projectflow/project src/test/java/com/jitong/projectflow/project
