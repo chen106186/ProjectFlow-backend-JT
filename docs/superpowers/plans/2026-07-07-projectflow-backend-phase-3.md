@@ -164,11 +164,11 @@ git commit -m "feat: implement task workflow"
 - Modify: `src/main/java/com/jitong/projectflow/bug/controller/BugController.java`
 - Test: `src/test/java/com/jitong/projectflow/bug/service/BugServiceTest.java`
 
-- [ ] **Step 1: Write service tests**
+- [x] **Step 1: Write service tests**
 
 Test assign changes assignee, close sets status to `CLOSED`, and comments are persisted.
 
-- [ ] **Step 2: Implement service**
+- [x] **Step 2: Implement service**
 
 Rules:
 
@@ -177,7 +177,7 @@ Rules:
 - Close sets `closedAt` and writes operation log.
 - Comment writes comment row, operation log, and comment notice.
 
-- [ ] **Step 3: Implement APIs**
+- [x] **Step 3: Implement APIs**
 
 ```text
 POST   /api/bugs
@@ -191,13 +191,13 @@ POST   /api/bugs/{id}/comments
 GET    /api/bugs/{id}/comments
 ```
 
-- [ ] **Step 4: Verify**
+- [x] **Step 4: Verify**
 
 ```bash
 mvn -q -Dtest=BugServiceTest test
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/main/java/com/jitong/projectflow/bug src/test/java/com/jitong/projectflow/bug
