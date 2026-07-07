@@ -55,11 +55,11 @@ git commit -m "feat: add phase 4 system indexes"
 - Modify: `src/main/java/com/jitong/projectflow/system/controller/SystemController.java`
 - Test: `src/test/java/com/jitong/projectflow/system/service/SystemUserManagementServiceTest.java`
 
-- [ ] **Step 1: Write service tests**
+- [x] **Step 1: Write service tests**
 
 Cover create password hashing, enable-disable, and role replacement.
 
-- [ ] **Step 2: Implement user management service**
+- [x] **Step 2: Implement user management service**
 
 Rules:
 
@@ -69,7 +69,7 @@ Rules:
 - Enable-disable writes operation log.
 - Role assignment deletes existing user-role rows and inserts the new set.
 
-- [ ] **Step 3: Add APIs**
+- [x] **Step 3: Add APIs**
 
 ```text
 POST   /api/system/users
@@ -80,13 +80,13 @@ PATCH  /api/system/users/{id}/password
 PUT    /api/system/users/{id}/roles
 ```
 
-- [ ] **Step 4: Verify**
+- [x] **Step 4: Verify**
 
 ```bash
 mvn -q -Dtest=SystemUserManagementServiceTest test
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/main/java/com/jitong/projectflow/system src/test/java/com/jitong/projectflow/system docs/superpowers/plans/2026-07-07-projectflow-backend-phase-4.md
