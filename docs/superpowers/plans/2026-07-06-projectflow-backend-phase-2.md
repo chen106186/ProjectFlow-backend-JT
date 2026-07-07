@@ -15,7 +15,7 @@
 **Files:**
 - Create: `src/main/resources/db/migration/V2__phase_2_workflow_indexes.sql`
 
-- [ ] **Step 1: Add migration**
+- [x] **Step 1: Add migration**
 
 Create `V2__phase_2_workflow_indexes.sql`:
 
@@ -34,7 +34,7 @@ CREATE INDEX idx_sys_operation_log_module_time ON sys_operation_log (module, cre
 CREATE INDEX idx_sys_operation_log_type_time ON sys_operation_log (operation_type, created_at);
 ```
 
-- [ ] **Step 2: Verify migration naming**
+- [x] **Step 2: Verify migration naming**
 
 Run:
 
@@ -44,7 +44,7 @@ rg --files src/main/resources/db/migration
 
 Expected: both `V1__init_schema.sql` and `V2__phase_2_workflow_indexes.sql` are present.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add src/main/resources/db/migration/V2__phase_2_workflow_indexes.sql
@@ -67,7 +67,7 @@ git commit -m "feat: add phase 2 workflow indexes"
 - Modify: `src/main/java/com/jitong/projectflow/requirement/controller/RequirementController.java`
 - Test: `src/test/java/com/jitong/projectflow/requirement/domain/RequirementStatusPolicyTest.java`
 
-- [ ] **Step 1: Write failing status policy tests**
+- [x] **Step 1: Write failing status policy tests**
 
 Create `RequirementStatusPolicyTest.java`:
 
@@ -93,7 +93,7 @@ class RequirementStatusPolicyTest {
 }
 ```
 
-- [ ] **Step 2: Implement status enums and policy**
+- [x] **Step 2: Implement status enums and policy**
 
 ```java
 package com.jitong.projectflow.requirement.domain;
@@ -130,7 +130,7 @@ public class RequirementStatusPolicy {
 }
 ```
 
-- [ ] **Step 3: Implement entity, mapper, DTOs, service, and controller**
+- [x] **Step 3: Implement entity, mapper, DTOs, service, and controller**
 
 Implement CRUD endpoints from the Phase 2 design:
 
@@ -151,7 +151,7 @@ Service requirements:
 - Invalid transition throws `BusinessException(ErrorCode.CONFLICT, "Invalid requirement status transition")`.
 - Create, update, and status change call `OperationLogService.record(...)`.
 
-- [ ] **Step 4: Verify**
+- [x] **Step 4: Verify**
 
 Run:
 
@@ -161,7 +161,7 @@ mvn -q -Dtest=RequirementStatusPolicyTest test
 
 Expected: tests pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/main/java/com/jitong/projectflow/requirement src/test/java/com/jitong/projectflow/requirement
@@ -182,11 +182,11 @@ git commit -m "feat: implement requirement workflow"
 - Modify: `src/main/java/com/jitong/projectflow/project/controller/ProjectController.java`
 - Test: `src/test/java/com/jitong/projectflow/project/domain/GanttNodeSummaryCalculatorTest.java`
 
-- [ ] **Step 1: Write failing calculator tests**
+- [x] **Step 1: Write failing calculator tests**
 
 Test completed, overdue, due-soon, and normal nodes.
 
-- [ ] **Step 2: Implement calculator**
+- [x] **Step 2: Implement calculator**
 
 Rules:
 
@@ -195,7 +195,7 @@ Rules:
 - Due-soon nodes have no actual end date and planned end date is within 7 days.
 - Overall progress is average `progress_percent` rounded down.
 
-- [ ] **Step 3: Implement APIs**
+- [x] **Step 3: Implement APIs**
 
 ```text
 GET    /api/projects/{projectId}/gantt
@@ -205,7 +205,7 @@ GET    /api/projects/{projectId}/gantt/summary
 
 Update operations must check node belongs to project and write operation logs.
 
-- [ ] **Step 4: Verify**
+- [x] **Step 4: Verify**
 
 Run:
 
@@ -215,7 +215,7 @@ mvn -q -Dtest=GanttNodeSummaryCalculatorTest test
 
 Expected: tests pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/main/java/com/jitong/projectflow/project src/test/java/com/jitong/projectflow/project
@@ -233,7 +233,7 @@ git commit -m "feat: add project gantt workflow"
 - Create: `src/main/java/com/jitong/projectflow/notice/controller/NoticeController.java`
 - Test: `src/test/java/com/jitong/projectflow/notice/service/NoticeServiceTest.java`
 
-- [ ] **Step 1: Implement notice types**
+- [x] **Step 1: Implement notice types**
 
 ```java
 package com.jitong.projectflow.notice.domain;
@@ -248,7 +248,7 @@ public enum NoticeType {
 }
 ```
 
-- [ ] **Step 2: Implement service contract**
+- [x] **Step 2: Implement service contract**
 
 Service methods:
 
@@ -259,7 +259,7 @@ void markRead(Long receiverId, Long noticeId);
 void markAllRead(Long receiverId);
 ```
 
-- [ ] **Step 3: Implement APIs**
+- [x] **Step 3: Implement APIs**
 
 ```text
 GET    /api/notices
@@ -270,7 +270,7 @@ PATCH  /api/notices/read-all
 
 Notice ownership checks must throw `BusinessException(ErrorCode.NOT_FOUND, "Notice not found")`.
 
-- [ ] **Step 4: Verify**
+- [x] **Step 4: Verify**
 
 Run:
 
@@ -280,7 +280,7 @@ mvn -q -Dtest=NoticeServiceTest test
 
 Expected: tests pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/main/java/com/jitong/projectflow/notice src/test/java/com/jitong/projectflow/notice
@@ -299,15 +299,15 @@ git commit -m "feat: add notification center"
 - Create: `src/main/java/com/jitong/projectflow/export/dto/GanttExportRow.java`
 - Test: `src/test/java/com/jitong/projectflow/export/service/ExcelExportServiceTest.java`
 
-- [ ] **Step 1: Implement export row DTOs**
+- [x] **Step 1: Implement export row DTOs**
 
 Each DTO should use EasyExcel `@ExcelProperty` annotations with stable column names.
 
-- [ ] **Step 2: Implement export service**
+- [x] **Step 2: Implement export service**
 
 Service accepts row lists and writes XLSX bytes to an output stream.
 
-- [ ] **Step 3: Implement endpoints**
+- [x] **Step 3: Implement endpoints**
 
 ```text
 GET    /api/exports/operation-logs
@@ -324,7 +324,7 @@ Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
 Content-Disposition: attachment; filename="<name>.xlsx"
 ```
 
-- [ ] **Step 4: Verify**
+- [x] **Step 4: Verify**
 
 Run:
 
@@ -334,7 +334,7 @@ mvn -q -Dtest=ExcelExportServiceTest test
 
 Expected: generated XLSX bytes are non-empty.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/main/java/com/jitong/projectflow/export src/test/java/com/jitong/projectflow/export
@@ -349,7 +349,7 @@ git commit -m "feat: add excel export foundation"
 - Modify: `src/main/java/com/jitong/projectflow/dashboard/controller/DashboardController.java`
 - Test: `src/test/java/com/jitong/projectflow/dashboard/service/DashboardServiceTest.java`
 
-- [ ] **Step 1: Define statistics response**
+- [x] **Step 1: Define statistics response**
 
 Fields:
 
@@ -364,17 +364,17 @@ myRequirementAccepted
 unreadNoticeCount
 ```
 
-- [ ] **Step 2: Implement dashboard service**
+- [x] **Step 2: Implement dashboard service**
 
 Service aggregates current-user data from task, bug, requirement, and notice mappers or services.
 
-- [ ] **Step 3: Add API**
+- [x] **Step 3: Add API**
 
 ```text
 GET /api/dashboard/my-statistics
 ```
 
-- [ ] **Step 4: Verify**
+- [x] **Step 4: Verify**
 
 Run:
 
@@ -384,7 +384,7 @@ mvn -q -Dtest=DashboardServiceTest test
 
 Expected: aggregation tests pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/main/java/com/jitong/projectflow/dashboard src/test/java/com/jitong/projectflow/dashboard
