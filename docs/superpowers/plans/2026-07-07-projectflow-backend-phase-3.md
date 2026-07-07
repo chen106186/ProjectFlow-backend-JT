@@ -111,11 +111,11 @@ git commit -m "feat: implement project crud"
 - Modify: `src/main/java/com/jitong/projectflow/task/controller/TaskController.java`
 - Test: `src/test/java/com/jitong/projectflow/task/service/TaskServiceTest.java`
 
-- [ ] **Step 1: Write service tests**
+- [x] **Step 1: Write service tests**
 
 Test actual time update recalculates status using `TaskStatusCalculator`.
 
-- [ ] **Step 2: Implement service**
+- [x] **Step 2: Implement service**
 
 Rules:
 
@@ -124,7 +124,7 @@ Rules:
 - Actual time update writes operation log.
 - Delete is logical delete.
 
-- [ ] **Step 3: Implement APIs**
+- [x] **Step 3: Implement APIs**
 
 ```text
 POST   /api/tasks
@@ -136,13 +136,13 @@ DELETE /api/tasks/{id}
 PATCH  /api/tasks/{id}/actual-time
 ```
 
-- [ ] **Step 4: Verify**
+- [x] **Step 4: Verify**
 
 ```bash
 mvn -q -Dtest=TaskServiceTest test
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/main/java/com/jitong/projectflow/task src/test/java/com/jitong/projectflow/task
