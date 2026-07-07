@@ -145,11 +145,11 @@ git commit -m "feat: add department management"
 - Modify: `src/main/java/com/jitong/projectflow/system/controller/SystemController.java`
 - Test: `src/test/java/com/jitong/projectflow/system/service/RoleManagementServiceTest.java`
 
-- [ ] **Step 1: Write service tests**
+- [x] **Step 1: Write service tests**
 
 Cover role create uniqueness, role-menu replacement, and delete blocked by active users.
 
-- [ ] **Step 2: Implement role management service**
+- [x] **Step 2: Implement role management service**
 
 Rules:
 
@@ -159,7 +159,7 @@ Rules:
 - Menu assignment replaces existing role-menu rows.
 - Write operation logs.
 
-- [ ] **Step 3: Add APIs**
+- [x] **Step 3: Add APIs**
 
 ```text
 POST   /api/system/roles
@@ -170,13 +170,13 @@ GET    /api/system/roles/{id}/menus
 PUT    /api/system/roles/{id}/menus
 ```
 
-- [ ] **Step 4: Verify**
+- [x] **Step 4: Verify**
 
 ```bash
 mvn -q -Dtest=RoleManagementServiceTest test
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/main/java/com/jitong/projectflow/system src/test/java/com/jitong/projectflow/system docs/superpowers/plans/2026-07-07-projectflow-backend-phase-4.md

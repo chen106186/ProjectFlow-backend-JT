@@ -6,6 +6,10 @@ import com.jitong.projectflow.system.dto.DepartmentCreateRequest;
 import com.jitong.projectflow.system.dto.DepartmentUpdateRequest;
 import com.jitong.projectflow.system.dto.MenuResponse;
 import com.jitong.projectflow.system.dto.RoleResponse;
+import com.jitong.projectflow.system.dto.RoleCreateRequest;
+import com.jitong.projectflow.system.dto.RoleDetailResponse;
+import com.jitong.projectflow.system.dto.RoleMenuAssignRequest;
+import com.jitong.projectflow.system.dto.RoleUpdateRequest;
 import com.jitong.projectflow.system.dto.SystemUserResponse;
 import com.jitong.projectflow.system.dto.UserCreateRequest;
 import com.jitong.projectflow.system.dto.UserDetailResponse;
@@ -14,6 +18,7 @@ import com.jitong.projectflow.system.dto.UserPasswordResetRequest;
 import com.jitong.projectflow.system.dto.UserRoleAssignRequest;
 import com.jitong.projectflow.system.dto.UserUpdateRequest;
 import com.jitong.projectflow.system.service.DepartmentManagementService;
+import com.jitong.projectflow.system.service.RoleManagementService;
 import com.jitong.projectflow.system.service.SystemUserManagementService;
 import com.jitong.projectflow.system.service.SystemQueryService;
 import jakarta.validation.Valid;
@@ -39,6 +44,7 @@ public class SystemController {
     private final SystemQueryService systemQueryService;
     private final SystemUserManagementService systemUserManagementService;
     private final DepartmentManagementService departmentManagementService;
+    private final RoleManagementService roleManagementService;
 
     @GetMapping("/users")
     public ApiResponse<List<SystemUserResponse>> listUsers(
@@ -111,6 +117,37 @@ public class SystemController {
     @GetMapping("/roles")
     public ApiResponse<List<RoleResponse>> listRoles() {
         return ApiResponse.success(systemQueryService.listRoles(), MDC.get("traceId"));
+    }
+
+    @PostMapping("/roles")
+    public ApiResponse<RoleResponse> createRole(@Valid @RequestBody RoleCreateRequest request) {
+        return ApiResponse.success(roleManagementService.create(request), MDC.get("traceId"));
+    }
+
+    @GetMapping("/roles/{id}")
+    public ApiResponse<RoleDetailResponse> getRole(@PathVariable Long id) {
+        return ApiResponse.success(roleManagementService.getById(id), MDC.get("traceId"));
+    }
+
+    @PutMapping("/roles/{id}")
+    public ApiResponse<RoleResponse> updateRole(@PathVariable Long id, @RequestBody RoleUpdateRequest request) {
+        return ApiResponse.success(roleManagementService.update(id, request), MDC.get("traceId"));
+    }
+
+    @DeleteMapping("/roles/{id}")
+    public ApiResponse<Void> deleteRole(@PathVariable Long id) {
+        roleManagementService.delete(id);
+        return ApiResponse.success(null, MDC.get("traceId"));
+    }
+
+    @GetMapping("/roles/{id}/menus")
+    public ApiResponse<List<Long>> getRoleMenus(@PathVariable Long id) {
+        return ApiResponse.success(roleManagementService.getMenuIds(id), MDC.get("traceId"));
+    }
+
+    @PutMapping("/roles/{id}/menus")
+    public ApiResponse<List<Long>> assignRoleMenus(@PathVariable Long id, @RequestBody RoleMenuAssignRequest request) {
+        return ApiResponse.success(roleManagementService.assignMenus(id, request), MDC.get("traceId"));
     }
 
     @GetMapping("/menus")
