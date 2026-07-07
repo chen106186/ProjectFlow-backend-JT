@@ -18,19 +18,26 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Service
 @RequiredArgsConstructor
 public class FileService {
     private static final String DEFAULT_VERSION = "v1";
-    private static final String DEFAULT_FILE_NAME = "file";
+    private static final long MAX_FILE_SIZE = 50L * 1024 * 1024;
+    private static final Pattern NUMERIC_VERSION = Pattern.compile("^v(\\d+)$");
+    private static final Set<String> ALLOWED_EXTENSIONS = Set.of("docx", "xlsx", "pdf", "png", "jpg", "jpeg", "drawio");
 
     private final FileMetadataMapper fileMetadataMapper;
     private final FileStorageService fileStorageService;
 
     public FileResponse upload(String businessType, Long businessId, String versionNo, MultipartFile file) {
         validateUpload(businessType, businessId, file);
-        String originalName = StringUtils.hasText(file.getOriginalFilename()) ? file.getOriginalFilename() : DEFAULT_FILE_NAME;
+        String originalName = file.getOriginalFilename();
+        String resolvedVersionNo = StringUtils.hasText(versionNo) ? versionNo : nextVersionNo(businessType, businessId, originalName);
         try {
             StoredFile storedFile = fileStorageService.upload(new FileUploadCommand(
                     originalName,
@@ -44,7 +51,7 @@ public class FileService {
             metadata.setOriginalName(originalName);
             metadata.setContentType(file.getContentType());
             metadata.setFileSize(storedFile.fileSize());
-            metadata.setVersionNo(StringUtils.hasText(versionNo) ? versionNo : DEFAULT_VERSION);
+            metadata.setVersionNo(resolvedVersionNo);
             metadata.setStorageType(storedFile.storageType());
             metadata.setStorageKey(storedFile.storageKey());
             metadata.setUploaderId(CurrentUserContext.userIdOrNull());
@@ -79,6 +86,44 @@ public class FileService {
         if (!StringUtils.hasText(businessType) || businessId == null || file == null || file.isEmpty()) {
             throw new BusinessException(ErrorCode.BAD_REQUEST, "Invalid file upload request");
         }
+        if (!StringUtils.hasText(file.getOriginalFilename())) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "File name is required");
+        }
+        if (file.getSize() > MAX_FILE_SIZE) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "File size exceeds 50 MB");
+        }
+        String extension = extensionOf(file.getOriginalFilename());
+        if (!ALLOWED_EXTENSIONS.contains(extension)) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "File type not allowed");
+        }
+    }
+
+    private String nextVersionNo(String businessType, Long businessId, String originalName) {
+        LambdaQueryWrapper<FileMetadata> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(FileMetadata::getBusinessType, businessType);
+        wrapper.eq(FileMetadata::getBusinessId, businessId);
+        wrapper.eq(FileMetadata::getOriginalName, originalName);
+        int maxVersion = fileMetadataMapper.selectList(wrapper).stream()
+                .map(FileMetadata::getVersionNo)
+                .map(this::numericVersion)
+                .reduce(0, Math::max);
+        return maxVersion == 0 ? DEFAULT_VERSION : "v" + (maxVersion + 1);
+    }
+
+    private int numericVersion(String versionNo) {
+        if (!StringUtils.hasText(versionNo)) {
+            return 0;
+        }
+        Matcher matcher = NUMERIC_VERSION.matcher(versionNo);
+        return matcher.matches() ? Integer.parseInt(matcher.group(1)) : 0;
+    }
+
+    private String extensionOf(String filename) {
+        int dotIndex = filename.lastIndexOf('.');
+        if (dotIndex < 0 || dotIndex == filename.length() - 1) {
+            return "";
+        }
+        return filename.substring(dotIndex + 1).toLowerCase(Locale.ROOT);
     }
 
     private FileMetadata requireFile(Long id) {

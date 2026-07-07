@@ -16,7 +16,7 @@
 - Modify: `src/main/java/com/jitong/projectflow/file/service/FileService.java`
 - Test: `src/test/java/com/jitong/projectflow/file/service/FileServiceTest.java`
 
-- [ ] **Step 1: Add upload validation tests**
+- [x] **Step 1: Add upload validation tests**
 
 Add tests for:
 
@@ -24,7 +24,7 @@ Add tests for:
 - File larger than 50 MB throws `BusinessException` with message `File size exceeds 50 MB`.
 - Blank original filename throws `BusinessException` with message `File name is required`.
 
-- [ ] **Step 2: Add auto-version tests**
+- [x] **Step 2: Add auto-version tests**
 
 Add tests for:
 
@@ -32,7 +32,7 @@ Add tests for:
 - Blank `versionNo` with existing `v1`, `v3`, and `draft` persists `v4`.
 - Explicit `versionNo` still persists the provided value.
 
-- [ ] **Step 3: Implement validation and version selection**
+- [x] **Step 3: Implement validation and version selection**
 
 Rules:
 
@@ -41,13 +41,13 @@ Rules:
 - Require nonblank original filename.
 - If `versionNo` is blank, query by same `businessType`, `businessId`, and `originalName`, then use next numeric `vN`.
 
-- [ ] **Step 4: Verify**
+- [x] **Step 4: Verify**
 
 ```bash
 mvn -q "-Dmaven.repo.local=.m2/repository" -Dtest=FileServiceTest test
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/main/java/com/jitong/projectflow/file src/test/java/com/jitong/projectflow/file docs/superpowers/plans/2026-07-07-projectflow-backend-phase-7.md
