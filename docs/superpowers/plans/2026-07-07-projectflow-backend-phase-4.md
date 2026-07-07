@@ -236,11 +236,11 @@ git commit -m "feat: add menu management"
 - Test: `src/test/java/com/jitong/projectflow/system/service/CurrentUserPermissionServiceTest.java`
 - Test: `src/test/java/com/jitong/projectflow/system/service/OperationLogQueryServiceTest.java`
 
-- [ ] **Step 1: Write service tests**
+- [x] **Step 1: Write service tests**
 
 Cover permission-code deduplication and operation-log filter mapping.
 
-- [ ] **Step 2: Implement services**
+- [x] **Step 2: Implement services**
 
 Rules:
 
@@ -248,7 +248,7 @@ Rules:
 - `/me/permissions` returns only permission codes.
 - `/logs` filters by module, business type, business id, operation type, operator id, and time range.
 
-- [ ] **Step 3: Add APIs**
+- [x] **Step 3: Add APIs**
 
 ```text
 GET /api/system/me
@@ -256,13 +256,13 @@ GET /api/system/me/permissions
 GET /api/system/logs
 ```
 
-- [ ] **Step 4: Verify**
+- [x] **Step 4: Verify**
 
 ```bash
 mvn -q -Dtest=CurrentUserPermissionServiceTest,OperationLogQueryServiceTest test
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/main/java/com/jitong/projectflow/system src/test/java/com/jitong/projectflow/system docs/superpowers/plans/2026-07-07-projectflow-backend-phase-4.md

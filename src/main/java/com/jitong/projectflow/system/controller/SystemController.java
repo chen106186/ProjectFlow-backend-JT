@@ -1,12 +1,15 @@
 package com.jitong.projectflow.system.controller;
 
 import com.jitong.projectflow.common.api.ApiResponse;
+import com.jitong.projectflow.system.dto.CurrentUserProfileResponse;
 import com.jitong.projectflow.system.dto.DepartmentResponse;
 import com.jitong.projectflow.system.dto.DepartmentCreateRequest;
 import com.jitong.projectflow.system.dto.DepartmentUpdateRequest;
 import com.jitong.projectflow.system.dto.MenuResponse;
 import com.jitong.projectflow.system.dto.MenuCreateRequest;
 import com.jitong.projectflow.system.dto.MenuUpdateRequest;
+import com.jitong.projectflow.system.dto.OperationLogQueryRequest;
+import com.jitong.projectflow.system.dto.OperationLogResponse;
 import com.jitong.projectflow.system.dto.RoleResponse;
 import com.jitong.projectflow.system.dto.RoleCreateRequest;
 import com.jitong.projectflow.system.dto.RoleDetailResponse;
@@ -19,8 +22,10 @@ import com.jitong.projectflow.system.dto.UserEnabledUpdateRequest;
 import com.jitong.projectflow.system.dto.UserPasswordResetRequest;
 import com.jitong.projectflow.system.dto.UserRoleAssignRequest;
 import com.jitong.projectflow.system.dto.UserUpdateRequest;
+import com.jitong.projectflow.system.service.CurrentUserPermissionService;
 import com.jitong.projectflow.system.service.DepartmentManagementService;
 import com.jitong.projectflow.system.service.MenuManagementService;
+import com.jitong.projectflow.system.service.OperationLogQueryService;
 import com.jitong.projectflow.system.service.RoleManagementService;
 import com.jitong.projectflow.system.service.SystemUserManagementService;
 import com.jitong.projectflow.system.service.SystemQueryService;
@@ -29,6 +34,7 @@ import lombok.RequiredArgsConstructor;
 import org.slf4j.MDC;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -49,6 +55,23 @@ public class SystemController {
     private final DepartmentManagementService departmentManagementService;
     private final RoleManagementService roleManagementService;
     private final MenuManagementService menuManagementService;
+    private final CurrentUserPermissionService currentUserPermissionService;
+    private final OperationLogQueryService operationLogQueryService;
+
+    @GetMapping("/me")
+    public ApiResponse<CurrentUserProfileResponse> getCurrentUser() {
+        return ApiResponse.success(currentUserPermissionService.getCurrentUser(), MDC.get("traceId"));
+    }
+
+    @GetMapping("/me/permissions")
+    public ApiResponse<List<String>> getCurrentUserPermissions() {
+        return ApiResponse.success(currentUserPermissionService.getCurrentUserPermissions(), MDC.get("traceId"));
+    }
+
+    @GetMapping("/logs")
+    public ApiResponse<List<OperationLogResponse>> listOperationLogs(@ModelAttribute OperationLogQueryRequest request) {
+        return ApiResponse.success(operationLogQueryService.list(request), MDC.get("traceId"));
+    }
 
     @GetMapping("/users")
     public ApiResponse<List<SystemUserResponse>> listUsers(
