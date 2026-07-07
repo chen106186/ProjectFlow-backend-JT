@@ -1,5 +1,7 @@
 package com.jitong.projectflow.system.service;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.jitong.projectflow.system.dto.SystemUserQueryRequest;
 import com.jitong.projectflow.system.entity.DepartmentEntity;
 import com.jitong.projectflow.system.entity.MenuEntity;
 import com.jitong.projectflow.system.entity.RoleEntity;
@@ -38,15 +40,21 @@ class SystemQueryServiceTest {
         user.setUsername("zhangsan");
         user.setRealName("Zhang San");
         user.setEnabled(true);
-        when(systemUserMapper.selectList(any())).thenReturn(List.of(user));
+        Page<SystemUser> page = new Page<>(1, 20, 1);
+        page.setRecords(List.of(user));
+        when(systemUserMapper.selectPage(any(), any())).thenReturn(page);
 
+        SystemUserQueryRequest request = new SystemUserQueryRequest();
+        request.setKeyword("zhang");
+        request.setDepartmentId(2L);
+        request.setEnabled(true);
         var responses = new SystemQueryService(systemUserMapper, departmentMapper, roleMapper, menuMapper)
-                .listUsers("zhang", 2L, true);
+                .listUsers(request);
 
-        assertThat(responses).hasSize(1);
-        assertThat(responses.getFirst().getUsername()).isEqualTo("zhangsan");
-        assertThat(responses.getFirst().getDepartmentId()).isEqualTo(2L);
-        assertThat(responses.getFirst().getEnabled()).isTrue();
+        assertThat(responses.total()).isEqualTo(1);
+        assertThat(responses.records().getFirst().getUsername()).isEqualTo("zhangsan");
+        assertThat(responses.records().getFirst().getDepartmentId()).isEqualTo(2L);
+        assertThat(responses.records().getFirst().getEnabled()).isTrue();
     }
 
     @Test

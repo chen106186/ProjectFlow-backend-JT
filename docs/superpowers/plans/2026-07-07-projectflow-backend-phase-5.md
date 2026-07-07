@@ -93,11 +93,11 @@ git commit -m "feat: paginate business list apis"
 - Modify: `src/main/java/com/jitong/projectflow/system/controller/SystemController.java`
 - Tests: `SystemQueryServiceTest`, `OperationLogQueryServiceTest`
 
-- [ ] **Step 1: Write tests**
+- [x] **Step 1: Write tests**
 
 Test user and operation log pagination maps total and records.
 
-- [ ] **Step 2: Implement system pagination**
+- [x] **Step 2: Implement system pagination**
 
 Rules:
 
@@ -105,13 +105,13 @@ Rules:
 - `GET /api/system/logs` returns `PageResult`.
 - Department, role, and menu selector APIs stay lists.
 
-- [ ] **Step 3: Verify**
+- [x] **Step 3: Verify**
 
 ```bash
 mvn -q -Dtest=SystemQueryServiceTest,OperationLogQueryServiceTest test
 ```
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/main/java/com/jitong/projectflow/system src/test/java/com/jitong/projectflow/system docs/superpowers/plans/2026-07-07-projectflow-backend-phase-5.md

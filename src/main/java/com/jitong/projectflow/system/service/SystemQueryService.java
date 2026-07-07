@@ -1,10 +1,14 @@
 package com.jitong.projectflow.system.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.jitong.projectflow.common.api.PageResult;
+import com.jitong.projectflow.common.api.PageUtils;
 import com.jitong.projectflow.system.dto.DepartmentResponse;
 import com.jitong.projectflow.system.dto.MenuResponse;
 import com.jitong.projectflow.system.dto.RoleResponse;
 import com.jitong.projectflow.system.dto.SystemUserResponse;
+import com.jitong.projectflow.system.dto.SystemUserQueryRequest;
 import com.jitong.projectflow.system.entity.DepartmentEntity;
 import com.jitong.projectflow.system.entity.MenuEntity;
 import com.jitong.projectflow.system.entity.RoleEntity;
@@ -27,16 +31,17 @@ public class SystemQueryService {
     private final RoleMapper roleMapper;
     private final MenuMapper menuMapper;
 
-    public List<SystemUserResponse> listUsers(String keyword, Long departmentId, Boolean enabled) {
+    public PageResult<SystemUserResponse> listUsers(SystemUserQueryRequest request) {
         LambdaQueryWrapper<SystemUser> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(departmentId != null, SystemUser::getDepartmentId, departmentId);
-        wrapper.eq(enabled != null, SystemUser::getEnabled, enabled);
-        wrapper.and(StringUtils.hasText(keyword), nested -> nested
-                .like(SystemUser::getUsername, keyword)
+        wrapper.eq(request.getDepartmentId() != null, SystemUser::getDepartmentId, request.getDepartmentId());
+        wrapper.eq(request.getEnabled() != null, SystemUser::getEnabled, request.getEnabled());
+        wrapper.and(StringUtils.hasText(request.getKeyword()), nested -> nested
+                .like(SystemUser::getUsername, request.getKeyword())
                 .or()
-                .like(SystemUser::getRealName, keyword));
+                .like(SystemUser::getRealName, request.getKeyword()));
         wrapper.orderByAsc(SystemUser::getUsername);
-        return systemUserMapper.selectList(wrapper).stream().map(this::toUserResponse).toList();
+        Page<SystemUser> page = systemUserMapper.selectPage(PageUtils.toPage(request), wrapper);
+        return PageUtils.toResult(page, page.getRecords().stream().map(this::toUserResponse).toList());
     }
 
     public List<DepartmentResponse> listDepartments() {

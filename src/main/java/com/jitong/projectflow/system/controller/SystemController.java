@@ -1,6 +1,7 @@
 package com.jitong.projectflow.system.controller;
 
 import com.jitong.projectflow.common.api.ApiResponse;
+import com.jitong.projectflow.common.api.PageResult;
 import com.jitong.projectflow.system.dto.CurrentUserProfileResponse;
 import com.jitong.projectflow.system.dto.DepartmentResponse;
 import com.jitong.projectflow.system.dto.DepartmentCreateRequest;
@@ -16,6 +17,7 @@ import com.jitong.projectflow.system.dto.RoleDetailResponse;
 import com.jitong.projectflow.system.dto.RoleMenuAssignRequest;
 import com.jitong.projectflow.system.dto.RoleUpdateRequest;
 import com.jitong.projectflow.system.dto.SystemUserResponse;
+import com.jitong.projectflow.system.dto.SystemUserQueryRequest;
 import com.jitong.projectflow.system.dto.UserCreateRequest;
 import com.jitong.projectflow.system.dto.UserDetailResponse;
 import com.jitong.projectflow.system.dto.UserEnabledUpdateRequest;
@@ -69,16 +71,13 @@ public class SystemController {
     }
 
     @GetMapping("/logs")
-    public ApiResponse<List<OperationLogResponse>> listOperationLogs(@ModelAttribute OperationLogQueryRequest request) {
+    public ApiResponse<PageResult<OperationLogResponse>> listOperationLogs(@Valid @ModelAttribute OperationLogQueryRequest request) {
         return ApiResponse.success(operationLogQueryService.list(request), MDC.get("traceId"));
     }
 
     @GetMapping("/users")
-    public ApiResponse<List<SystemUserResponse>> listUsers(
-            @RequestParam(required = false) String keyword,
-            @RequestParam(required = false) Long departmentId,
-            @RequestParam(required = false) Boolean enabled) {
-        return ApiResponse.success(systemQueryService.listUsers(keyword, departmentId, enabled), MDC.get("traceId"));
+    public ApiResponse<PageResult<SystemUserResponse>> listUsers(@Valid @ModelAttribute SystemUserQueryRequest request) {
+        return ApiResponse.success(systemQueryService.listUsers(request), MDC.get("traceId"));
     }
 
     @PostMapping("/users")
