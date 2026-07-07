@@ -94,7 +94,7 @@ git commit -m "feat: load rbac permissions into jwt authentication"
 - Create: `src/main/java/com/jitong/projectflow/auth/security/SecurityErrorResponseWriter.java`
 - Test: `src/test/java/com/jitong/projectflow/auth/security/SecurityConfigTest.java`
 
-- [ ] **Step 1: Add security response tests**
+- [x] **Step 1: Add security response tests**
 
 Extend `SecurityConfigTest` with:
 
@@ -103,7 +103,7 @@ Extend `SecurityConfigTest` with:
 
 Use the existing MockMvc pattern and JWT token helper already present in the test.
 
-- [ ] **Step 2: Add JSON response writer**
+- [x] **Step 2: Add JSON response writer**
 
 Create `SecurityErrorResponseWriter` with a method:
 
@@ -119,14 +119,14 @@ It should write:
 
 Use `TraceIdFilter.TRACE_ID` from MDC when present.
 
-- [ ] **Step 3: Wire 401 and 403 handlers**
+- [x] **Step 3: Wire 401 and 403 handlers**
 
 In `SecurityConfig.exceptionHandling`:
 
 - `authenticationEntryPoint` writes `401 Unauthorized`.
 - `accessDeniedHandler` writes `403 Forbidden`.
 
-- [ ] **Step 4: Verify**
+- [x] **Step 4: Verify**
 
 Run:
 
@@ -134,7 +134,7 @@ Run:
 mvn -q "-Dmaven.repo.local=.m2/repository" -Dtest=SecurityConfigTest test
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/main/java/com/jitong/projectflow/auth src/test/java/com/jitong/projectflow/auth docs/superpowers/plans/2026-07-07-projectflow-backend-phase-6.md
