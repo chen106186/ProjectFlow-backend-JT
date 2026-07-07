@@ -92,7 +92,7 @@ class NoticeServiceTest {
 
         assertThatThrownBy(() -> noticeService.markRead(999L, noticeId))
                 .isInstanceOf(BusinessException.class)
-                .hasMessageContaining("通知不存在");
+                .hasMessageContaining("Notice not found");
     }
 
     @Test

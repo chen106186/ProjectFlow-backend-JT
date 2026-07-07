@@ -72,21 +72,21 @@ git commit -m "feat: paginate notice list"
 - Modify: `src/main/java/com/jitong/projectflow/notice/service/NoticeService.java`
 - Test: `src/test/java/com/jitong/projectflow/notice/service/NoticeServiceTest.java`
 
-- [ ] **Step 1: Update test expectation**
+- [x] **Step 1: Update test expectation**
 
 Change wrong-receiver mark-read test to expect message `Notice not found`.
 
-- [ ] **Step 2: Update service error message**
+- [x] **Step 2: Update service error message**
 
 Change `markRead` not-found message to `Notice not found`.
 
-- [ ] **Step 3: Verify**
+- [x] **Step 3: Verify**
 
 ```bash
 mvn -q "-Dmaven.repo.local=.m2/repository" -Dtest=NoticeServiceTest test
 ```
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/main/java/com/jitong/projectflow/notice src/test/java/com/jitong/projectflow/notice docs/superpowers/plans/2026-07-07-projectflow-backend-phase-8.md
