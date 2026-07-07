@@ -10,6 +10,7 @@ import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -32,6 +33,7 @@ public class FileController {
     private final FileService fileService;
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAuthority('file:upload')")
     public ApiResponse<FileResponse> upload(
             @RequestParam String businessType,
             @RequestParam Long businessId,
@@ -63,6 +65,7 @@ public class FileController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('file:delete')")
     public ApiResponse<Void> delete(@PathVariable Long id) {
         fileService.delete(id);
         return ApiResponse.success(null, MDC.get("traceId"));

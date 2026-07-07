@@ -1,6 +1,7 @@
 package com.jitong.projectflow.auth.security;
 
 import com.jitong.projectflow.common.api.PageResult;
+import com.jitong.projectflow.file.service.FileService;
 import com.jitong.projectflow.system.dto.CurrentUserProfileResponse;
 import com.jitong.projectflow.system.service.CurrentUserPermissionService;
 import com.jitong.projectflow.system.service.SystemQueryService;
@@ -20,6 +21,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -37,6 +40,8 @@ class SecurityConfigTest {
     SystemQueryService systemQueryService;
     @MockBean
     TaskService taskService;
+    @MockBean
+    FileService fileService;
 
     @Test
     void protectedEndpointWithoutJwtReturnsUnauthorized() throws Exception {
@@ -130,6 +135,42 @@ class SecurityConfigTest {
                         .content("{}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.id").value(10));
+    }
+
+    @Test
+    void fileListOnlyRequiresAuthentication() throws Exception {
+        when(currentUserPermissionService.getPermissionsByUserId(1L)).thenReturn(List.of());
+        when(fileService.list("TASK", 1L)).thenReturn(List.of());
+
+        mockMvc.perform(get("/api/files")
+                        .param("businessType", "TASK")
+                        .param("businessId", "1")
+                        .header("Authorization", bearerToken(1L)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0));
+    }
+
+    @Test
+    void fileUploadRequiresUploadPermission() throws Exception {
+        when(currentUserPermissionService.getPermissionsByUserId(1L)).thenReturn(List.of());
+
+        mockMvc.perform(multipart("/api/files")
+                        .file("file", "abc".getBytes())
+                        .param("businessType", "TASK")
+                        .param("businessId", "1")
+                        .header("Authorization", bearerToken(1L)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value(403));
+    }
+
+    @Test
+    void fileDeleteRequiresDeletePermission() throws Exception {
+        when(currentUserPermissionService.getPermissionsByUserId(1L)).thenReturn(List.of());
+
+        mockMvc.perform(delete("/api/files/10")
+                        .header("Authorization", bearerToken(1L)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value(403));
     }
 
     private String bearerToken(Long userId) {

@@ -87,7 +87,7 @@ git commit -m "feat: require scoped file lists"
 - Modify: `src/main/java/com/jitong/projectflow/file/controller/FileController.java`
 - Modify: `src/test/java/com/jitong/projectflow/auth/security/SecurityConfigTest.java`
 
-- [ ] **Step 1: Add security tests**
+- [x] **Step 1: Add security tests**
 
 Add MockMvc tests for:
 
@@ -95,7 +95,7 @@ Add MockMvc tests for:
 - Upload without `file:upload` returns `403`.
 - Delete without `file:delete` returns `403`.
 
-- [ ] **Step 2: Add `@PreAuthorize` annotations**
+- [x] **Step 2: Add `@PreAuthorize` annotations**
 
 Apply:
 
@@ -104,13 +104,13 @@ Apply:
 
 Leave list and download authenticated-only.
 
-- [ ] **Step 3: Verify**
+- [x] **Step 3: Verify**
 
 ```bash
 mvn -q "-Dmaven.repo.local=.m2/repository" -Dtest=SecurityConfigTest test
 ```
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/main/java/com/jitong/projectflow/file src/test/java/com/jitong/projectflow/auth docs/superpowers/plans/2026-07-07-projectflow-backend-phase-7.md
