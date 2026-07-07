@@ -71,6 +71,33 @@ public class CurrentUserPermissionService {
         return getCurrentUser().getPermissions();
     }
 
+    public List<String> getPermissionsByUserId(Long userId) {
+        SystemUser user = systemUserMapper.selectById(userId);
+        if (user == null) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED, "Current user not found");
+        }
+        if (!Boolean.TRUE.equals(user.getEnabled())) {
+            throw new BusinessException(ErrorCode.FORBIDDEN, "Current user disabled");
+        }
+        List<Long> roleIds = userRoleMapper.selectRoleIdsByUserId(userId);
+        if (roleIds.isEmpty()) {
+            return List.of();
+        }
+        List<Long> menuIds = roleMenuMapper.selectMenuIdsByRoleIds(roleIds).stream().distinct().toList();
+        if (menuIds.isEmpty()) {
+            return List.of();
+        }
+        List<MenuEntity> menus = menuMapper.selectList(new LambdaQueryWrapper<MenuEntity>().in(MenuEntity::getId, menuIds)
+                .orderByAsc(MenuEntity::getSortOrder)
+                .orderByAsc(MenuEntity::getId));
+        return menus.stream()
+                .map(MenuEntity::getCode)
+                .filter(code -> code != null && !code.isBlank())
+                .collect(java.util.stream.Collectors.collectingAndThen(
+                        java.util.stream.Collectors.toCollection(LinkedHashSet::new),
+                        List::copyOf));
+    }
+
     private RoleResponse toRoleResponse(RoleEntity role) {
         return RoleResponse.builder()
                 .id(role.getId())

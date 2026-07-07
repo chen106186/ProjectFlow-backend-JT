@@ -69,4 +69,26 @@ class CurrentUserPermissionServiceTest {
         assertThat(response.getMenus()).extracting("code").containsExactly("system:user");
         assertThat(response.getPermissions()).containsExactly("system:user");
     }
+
+    @Test
+    void getPermissionsByUserIdDeduplicatesPermissionCodes() {
+        SystemUser user = new SystemUser();
+        user.setId(1L);
+        user.setUsername("admin");
+        user.setEnabled(true);
+        MenuEntity menu = new MenuEntity();
+        menu.setId(100L);
+        menu.setCode("system:user:view");
+        menu.setName("View Users");
+        menu.setType("BUTTON");
+        when(systemUserMapper.selectById(1L)).thenReturn(user);
+        when(userRoleMapper.selectRoleIdsByUserId(1L)).thenReturn(List.of(10L));
+        when(roleMenuMapper.selectMenuIdsByRoleIds(List.of(10L))).thenReturn(List.of(100L, 100L));
+        when(menuMapper.selectList(any())).thenReturn(List.of(menu, menu));
+
+        var permissions = new CurrentUserPermissionService(systemUserMapper, userRoleMapper, roleMapper, roleMenuMapper, menuMapper)
+                .getPermissionsByUserId(1L);
+
+        assertThat(permissions).containsExactly("system:user:view");
+    }
 }

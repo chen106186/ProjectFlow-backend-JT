@@ -19,7 +19,7 @@
 - Test: `src/test/java/com/jitong/projectflow/system/service/CurrentUserPermissionServiceTest.java`
 - Test: `src/test/java/com/jitong/projectflow/auth/security/SecurityConfigTest.java`
 
-- [ ] **Step 1: Add user-id permission lookup test**
+- [x] **Step 1: Add user-id permission lookup test**
 
 Add a test that calls `getPermissionsByUserId(1L)` and verifies duplicate menu ids and duplicate menu codes are deduplicated.
 
@@ -38,7 +38,7 @@ Expected assertion:
 assertThat(service.getPermissionsByUserId(1L)).containsExactly("system:user:view");
 ```
 
-- [ ] **Step 2: Implement user-id permission lookup**
+- [x] **Step 2: Implement user-id permission lookup**
 
 Add `public List<String> getPermissionsByUserId(Long userId)` to `CurrentUserPermissionService`.
 
@@ -49,7 +49,7 @@ Rules:
 - Return deduplicated permission codes from all assigned menu rows.
 - Make `getCurrentUser()` reuse the same role/menu lookup style where practical.
 
-- [ ] **Step 3: Inject permissions into JWT authentication**
+- [x] **Step 3: Inject permissions into JWT authentication**
 
 Change `JwtAuthenticationFilter` constructor to accept `CurrentUserPermissionService`.
 
@@ -65,14 +65,14 @@ UsernamePasswordAuthenticationToken authentication =
 
 If lookup throws because the user is missing or disabled, log debug and do not install authentication.
 
-- [ ] **Step 4: Enable method security**
+- [x] **Step 4: Enable method security**
 
 Update `SecurityConfig`:
 
 - Add `@EnableMethodSecurity`.
 - Construct `JwtAuthenticationFilter(jwtTokenService, currentUserPermissionService)`.
 
-- [ ] **Step 5: Verify**
+- [x] **Step 5: Verify**
 
 Run:
 
@@ -80,7 +80,7 @@ Run:
 mvn -q "-Dmaven.repo.local=.m2/repository" -Dtest=CurrentUserPermissionServiceTest,SecurityConfigTest test
 ```
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/main/java/com/jitong/projectflow/auth src/main/java/com/jitong/projectflow/system src/test/java/com/jitong/projectflow/auth src/test/java/com/jitong/projectflow/system docs/superpowers/plans/2026-07-07-projectflow-backend-phase-6.md
