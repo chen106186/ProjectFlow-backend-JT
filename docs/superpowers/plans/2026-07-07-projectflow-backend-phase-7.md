@@ -122,7 +122,7 @@ git commit -m "feat: protect file write apis"
 **Files:**
 - Create: `src/main/resources/db/migration/V7__phase_7_file_permissions.sql`
 
-- [ ] **Step 1: Add permission seed migration**
+- [x] **Step 1: Add permission seed migration**
 
 Seed:
 
@@ -134,13 +134,13 @@ file:delete
 
 Assign all three to admin role `1000000000000000101`.
 
-- [ ] **Step 2: Verify migration file exists**
+- [x] **Step 2: Verify migration file exists**
 
 ```bash
 rg --files src/main/resources/db/migration
 ```
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add src/main/resources/db/migration/V7__phase_7_file_permissions.sql docs/superpowers/plans/2026-07-07-projectflow-backend-phase-7.md
