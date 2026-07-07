@@ -4,11 +4,15 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
+    private static final Logger log = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
+
     private final JwtTokenService jwtTokenService;
 
     public JwtAuthenticationFilter(JwtTokenService jwtTokenService) {
@@ -25,8 +29,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 Long userId = jwtTokenService.parseUserId(token);
                 CurrentUserContext.set(userId);
             }
-        } catch (Exception ignored) {
-            // invalid or missing token - downstream endpoints enforce auth if needed
+        } catch (Exception e) {
+            log.debug("JWT token rejected for {}: {}", request.getRequestURI(), e.getMessage());
         }
         try {
             chain.doFilter(request, response);
