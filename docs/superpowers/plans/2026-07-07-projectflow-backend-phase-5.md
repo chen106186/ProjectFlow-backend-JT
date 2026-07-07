@@ -17,11 +17,11 @@
 - Create: `src/main/java/com/jitong/projectflow/common/api/PageUtils.java`
 - Test: `src/test/java/com/jitong/projectflow/common/api/PageUtilsTest.java`
 
-- [ ] **Step 1: Write tests**
+- [x] **Step 1: Write tests**
 
 Test default page values and max page size.
 
-- [ ] **Step 2: Implement pagination helpers**
+- [x] **Step 2: Implement pagination helpers**
 
 Rules:
 
@@ -29,13 +29,13 @@ Rules:
 - Default `pageSize = 20`.
 - `pageSize` caps at 200.
 
-- [ ] **Step 3: Verify**
+- [x] **Step 3: Verify**
 
 ```bash
 mvn -q -Dtest=PageUtilsTest test
 ```
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/main/java/com/jitong/projectflow/common src/test/java/com/jitong/projectflow/common docs/superpowers/plans/2026-07-07-projectflow-backend-phase-5.md
