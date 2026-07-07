@@ -276,11 +276,11 @@ git commit -m "feat: add user permissions and log queries"
 - Modify: `src/main/java/com/jitong/projectflow/auth/security/SecurityConfig.java`
 - Test: `src/test/java/com/jitong/projectflow/auth/security/SecurityConfigTest.java`
 
-- [ ] **Step 1: Write security test**
+- [x] **Step 1: Write security test**
 
 Cover non-public endpoint without JWT returns 401.
 
-- [ ] **Step 2: Implement authentication token and security rules**
+- [x] **Step 2: Implement authentication token and security rules**
 
 Rules:
 
@@ -289,13 +289,13 @@ Rules:
 - JWT filter sets both `CurrentUserContext` and Spring Security authentication.
 - Missing or invalid JWT returns 401 for protected endpoints.
 
-- [ ] **Step 3: Verify**
+- [x] **Step 3: Verify**
 
 ```bash
 mvn -q -Dtest=SecurityConfigTest test
 ```
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/main/java/com/jitong/projectflow/auth src/test/java/com/jitong/projectflow/auth docs/superpowers/plans/2026-07-07-projectflow-backend-phase-4.md
