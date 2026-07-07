@@ -64,9 +64,12 @@ public class FileService {
     }
 
     public List<FileResponse> list(String businessType, Long businessId) {
+        if (!StringUtils.hasText(businessType) || businessId == null) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "File query requires businessType and businessId");
+        }
         LambdaQueryWrapper<FileMetadata> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(StringUtils.hasText(businessType), FileMetadata::getBusinessType, businessType);
-        wrapper.eq(businessId != null, FileMetadata::getBusinessId, businessId);
+        wrapper.eq(FileMetadata::getBusinessType, businessType);
+        wrapper.eq(FileMetadata::getBusinessId, businessId);
         wrapper.orderByDesc(FileMetadata::getUploadedAt);
         return fileMetadataMapper.selectList(wrapper).stream().map(this::toResponse).toList();
     }

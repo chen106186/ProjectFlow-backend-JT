@@ -60,21 +60,21 @@ git commit -m "feat: harden file upload versions"
 - Modify: `src/main/java/com/jitong/projectflow/file/service/FileService.java`
 - Test: `src/test/java/com/jitong/projectflow/file/service/FileServiceTest.java`
 
-- [ ] **Step 1: Add list validation tests**
+- [x] **Step 1: Add list validation tests**
 
 Add tests that verify `list(null, 1L)` and `list("TASK", null)` throw `BusinessException` with message `File query requires businessType and businessId`.
 
-- [ ] **Step 2: Implement strict list filters**
+- [x] **Step 2: Implement strict list filters**
 
 Change `FileService.list` so both filters are required and always applied.
 
-- [ ] **Step 3: Verify**
+- [x] **Step 3: Verify**
 
 ```bash
 mvn -q "-Dmaven.repo.local=.m2/repository" -Dtest=FileServiceTest test
 ```
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/main/java/com/jitong/projectflow/file src/test/java/com/jitong/projectflow/file docs/superpowers/plans/2026-07-07-projectflow-backend-phase-7.md

@@ -134,4 +134,18 @@ class FileServiceTest {
         verify(fileMetadataMapper).insert(captor.capture());
         assertThat(captor.getValue().getVersionNo()).isEqualTo("review");
     }
+
+    @Test
+    void listRejectsMissingBusinessType() {
+        assertThatThrownBy(() -> new FileService(fileMetadataMapper, fileStorageService).list(null, 10L))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("File query requires businessType and businessId");
+    }
+
+    @Test
+    void listRejectsMissingBusinessId() {
+        assertThatThrownBy(() -> new FileService(fileMetadataMapper, fileStorageService).list("TASK", null))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("File query requires businessType and businessId");
+    }
 }
