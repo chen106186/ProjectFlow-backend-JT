@@ -14,12 +14,17 @@ import com.jitong.projectflow.daily.dto.DailyReportResponse;
 import com.jitong.projectflow.daily.dto.DailyReportUpdateRequest;
 import com.jitong.projectflow.daily.entity.DailyReportEntity;
 import com.jitong.projectflow.daily.mapper.DailyReportMapper;
+import com.jitong.projectflow.file.entity.FileMetadata;
+import com.jitong.projectflow.file.mapper.FileMetadataMapper;
 import com.jitong.projectflow.system.audit.OperationLogService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -27,6 +32,7 @@ public class DailyReportService {
     private final DailyReportMapper dailyReportMapper;
     private final OperationLogService operationLogService;
     private final BusinessAccessService businessAccessService;
+    private final FileMetadataMapper fileMetadataMapper;
 
     public DailyReportResponse create(DailyReportCreateRequest request) {
         DailyReportEntity entity = new DailyReportEntity();
@@ -72,6 +78,56 @@ public class DailyReportService {
         businessAccessService.requireDailyReportManage(entity);
         dailyReportMapper.deleteById(id);
         operationLogService.record("daily-report", "DailyReport", id, "DELETE", entity.getContent());
+    }
+
+    public int syncFilesToProject(Long reportId) {
+        // 1. 加载日报，不存在时抛异常
+        DailyReportEntity report = requireReport(reportId);
+        Long projectId = report.getProjectId();
+
+        // 2. 查询该日报下的所有文件
+        List<FileMetadata> reportFiles = fileMetadataMapper.selectList(
+            new LambdaQueryWrapper<FileMetadata>()
+                .eq(FileMetadata::getBusinessType, "DAILY_REPORT")
+                .eq(FileMetadata::getBusinessId, reportId));
+
+        if (reportFiles.isEmpty()) {
+            return 0;
+        }
+
+        // 3. 查询已同步到该项目的 storageKey 集合（避免重复）
+        List<FileMetadata> existingProjectFiles = fileMetadataMapper.selectList(
+            new LambdaQueryWrapper<FileMetadata>()
+                .eq(FileMetadata::getBusinessType, "PROJECT")
+                .eq(FileMetadata::getBusinessId, projectId));
+        Set<String> existingKeys = existingProjectFiles.stream()
+            .map(FileMetadata::getStorageKey)
+            .filter(Objects::nonNull)
+            .collect(Collectors.toSet());
+
+        // 4. 对每个尚未同步的文件，插入 PROJECT 类型的镜像记录
+        int count = 0;
+        for (FileMetadata src : reportFiles) {
+            if (src.getStorageKey() != null && existingKeys.contains(src.getStorageKey())) {
+                continue;
+            }
+            FileMetadata mirror = new FileMetadata();
+            mirror.setBusinessType("PROJECT");
+            mirror.setBusinessId(projectId);
+            mirror.setOriginalName(src.getOriginalName());
+            mirror.setContentType(src.getContentType());
+            mirror.setFileSize(src.getFileSize());
+            mirror.setVersionNo(src.getVersionNo());
+            mirror.setStorageLocation(src.getStorageLocation());
+            mirror.setFileCategory(src.getFileCategory());
+            mirror.setStorageType(src.getStorageType());
+            mirror.setStorageKey(src.getStorageKey());
+            mirror.setUploaderId(src.getUploaderId());
+            mirror.setUploadedAt(src.getUploadedAt());
+            fileMetadataMapper.insert(mirror);
+            count++;
+        }
+        return count;
     }
 
     private LambdaQueryWrapper<DailyReportEntity> buildQuery(DailyReportQueryRequest request) {

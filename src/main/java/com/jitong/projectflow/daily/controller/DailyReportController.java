@@ -75,4 +75,11 @@ public class DailyReportController {
         dailyReportService.delete(id);
         return ApiResponse.success(null, MDC.get("traceId"));
     }
+
+    @Operation(summary = "同步日报文件到项目",
+            description = "将指定日报下的附件文件同步关联到该日报所属项目，已存在的文件不重复同步。")
+    @PostMapping("/{id}/sync-files")
+    public ApiResponse<Integer> syncFiles(@PathVariable Long id) {
+        return ApiResponse.success(dailyReportService.syncFilesToProject(id), MDC.get("traceId"));
+    }
 }
