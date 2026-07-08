@@ -31,6 +31,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -134,6 +136,15 @@ public class DashboardService {
                         .eq(NoticeEntity::getReceiverId, userId)
                         .eq(NoticeEntity::getReadFlag, 0));
 
+        List<TaskEntity> myTasks = safeList(taskMapper.selectList(
+                new LambdaQueryWrapper<TaskEntity>()
+                        .eq(TaskEntity::getAssigneeId, userId)));
+        List<BugEntity> myBugs = safeList(bugMapper.selectList(
+                new LambdaQueryWrapper<BugEntity>()
+                        .and(wrapper -> wrapper.eq(BugEntity::getAssigneeId, userId)
+                                .or()
+                                .eq(BugEntity::getCreatorId, userId))));
+
         return MyStatisticsResponse.builder()
                 .myTaskTotal(myTaskTotal)
                 .myTaskCompleted(myTaskCompleted)
@@ -143,7 +154,21 @@ public class DashboardService {
                 .myRequirementTotal(myRequirementTotal)
                 .myRequirementAccepted(myRequirementAccepted)
                 .unreadNoticeCount(unreadNoticeCount)
+                .taskStatusDistribution(countBy(myTasks, TaskEntity::getStatus))
+                .taskPriorityDistribution(countBy(myTasks, TaskEntity::getPriority))
+                .bugStatusDistribution(countBy(myBugs, BugEntity::getStatus))
                 .build();
+    }
+
+    private <T> List<T> safeList(List<T> values) {
+        return values == null ? List.of() : values;
+    }
+
+    private <T> Map<String, Long> countBy(List<T> values, Function<T, String> classifier) {
+        return values.stream()
+                .map(classifier)
+                .filter(Objects::nonNull)
+                .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
     }
 
     private TodoWithSortKey taskTodo(TaskEntity task,

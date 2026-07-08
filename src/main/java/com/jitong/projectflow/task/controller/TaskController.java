@@ -3,6 +3,7 @@ package com.jitong.projectflow.task.controller;
 import com.jitong.projectflow.common.api.ApiResponse;
 import com.jitong.projectflow.common.api.PageResult;
 import com.jitong.projectflow.task.dto.TaskActualTimeUpdateRequest;
+import com.jitong.projectflow.task.dto.TaskBatchCreateRequest;
 import com.jitong.projectflow.task.dto.TaskCreateRequest;
 import com.jitong.projectflow.task.dto.TaskQueryRequest;
 import com.jitong.projectflow.task.dto.TaskResponse;
@@ -13,6 +14,10 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.MDC;
+import org.springframework.core.io.InputStreamResource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -23,8 +28,12 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.util.List;
 
 @RestController
@@ -40,6 +49,36 @@ public class TaskController {
     @PostMapping
     public ApiResponse<TaskResponse> create(@Valid @RequestBody TaskCreateRequest request) {
         return ApiResponse.success(taskService.create(request), MDC.get("traceId"));
+    }
+
+    @Operation(summary = "批量创建任务",
+            description = "一次提交多条任务，支持父任务 ID 和排序号，用于执行类项目创建任务表格。")
+    @PreAuthorize("hasAuthority('task:create')")
+    @PostMapping("/batch")
+    public ApiResponse<List<TaskResponse>> batchCreate(@Valid @RequestBody TaskBatchCreateRequest request) {
+        return ApiResponse.success(taskService.batchCreate(request), MDC.get("traceId"));
+    }
+
+    @Operation(summary = "下载任务导入模板",
+            description = "下载任务 Excel 导入模板，前端可用于批量创建任务。")
+    @GetMapping("/import-template")
+    public ResponseEntity<InputStreamResource> downloadImportTemplate() {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        taskService.writeImportTemplate(out);
+        byte[] bytes = out.toByteArray();
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                .contentLength(bytes.length)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename*=UTF-8''task-import-template.xlsx")
+                .body(new InputStreamResource(new ByteArrayInputStream(bytes)));
+    }
+
+    @Operation(summary = "导入任务 Excel",
+            description = "读取任务导入模板中的任务数据并批量创建任务。")
+    @PreAuthorize("hasAuthority('task:create')")
+    @PostMapping(value = "/import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ApiResponse<List<TaskResponse>> importTasks(@RequestPart("file") MultipartFile file) {
+        return ApiResponse.success(taskService.importTasks(file), MDC.get("traceId"));
     }
 
     @Operation(summary = "分页查询任务列表",

@@ -19,6 +19,8 @@ public class FileMetadata {
     private String contentType;
     private Long fileSize;
     private String versionNo;
+    private String storageLocation;
+    private String fileCategory;
     private String storageType;
     private String storageKey;
     private Long uploaderId;

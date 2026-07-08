@@ -33,19 +33,14 @@ class DashboardServiceTest {
 
     @Mock
     ProjectMapper projectMapper;
-
     @Mock
     TaskMapper taskMapper;
-
     @Mock
     BugMapper bugMapper;
-
     @Mock
     RequirementMapper requirementMapper;
-
     @Mock
     NoticeMapper noticeMapper;
-
     @Mock
     SystemUserMapper systemUserMapper;
 
@@ -55,17 +50,18 @@ class DashboardServiceTest {
     @SuppressWarnings("unchecked")
     @Test
     void aggregatesStatisticsCorrectly() {
-        // taskMapper called 3 times: total=5, completed=3, overdue=1
         when(taskMapper.selectCount(any(Wrapper.class))).thenReturn(5L, 3L, 1L);
-
-        // bugMapper called 2 times: total=4, open=2
         when(bugMapper.selectCount(any(Wrapper.class))).thenReturn(4L, 2L);
-
-        // requirementMapper called 2 times: total=6, accepted=2
         when(requirementMapper.selectCount(any(Wrapper.class))).thenReturn(6L, 2L);
-
-        // noticeMapper called 1 time: unread=3
         when(noticeMapper.selectCount(any(Wrapper.class))).thenReturn(3L);
+        when(taskMapper.selectList(any(Wrapper.class))).thenReturn(List.of(
+                task(1L, 100L, "开发接口", "HIGH", "IN_PROGRESS", 1L, LocalDate.now()),
+                task(2L, 100L, "修复问题", "HIGH", "COMPLETED", 1L, LocalDate.now())
+        ));
+        when(bugMapper.selectList(any(Wrapper.class))).thenReturn(List.of(
+                bug(10L, 100L, "登录失败", "HIGH", "PENDING_FIX", 1L),
+                bug(11L, 100L, "保存异常", "LOW", "CLOSED", 1L)
+        ));
 
         MyStatisticsResponse result = dashboardService.getMyStatistics(1L);
 
@@ -77,6 +73,9 @@ class DashboardServiceTest {
         assertThat(result.getMyRequirementTotal()).isEqualTo(6L);
         assertThat(result.getMyRequirementAccepted()).isEqualTo(2L);
         assertThat(result.getUnreadNoticeCount()).isEqualTo(3L);
+        assertThat(result.getTaskStatusDistribution()).containsEntry("IN_PROGRESS", 1L).containsEntry("COMPLETED", 1L);
+        assertThat(result.getTaskPriorityDistribution()).containsEntry("HIGH", 2L);
+        assertThat(result.getBugStatusDistribution()).containsEntry("PENDING_FIX", 1L).containsEntry("CLOSED", 1L);
     }
 
     @SuppressWarnings("unchecked")
@@ -97,8 +96,8 @@ class DashboardServiceTest {
     void listsAndSortsTodosFromTasksAndBugs() {
         TaskEntity mediumTask = task(10L, 100L, "普通任务", "MEDIUM", "IN_PROGRESS", 1L, LocalDate.now().minusDays(3));
         TaskEntity urgentTask = task(11L, 100L, "紧急任务", "URGENT", "OVERDUE", 2L, LocalDate.now().minusDays(1));
-        BugEntity highBug = bug(20L, 100L, "高优先级 Bug", "HIGH", "PENDING_FIX", 2L);
-        ProjectEntity project = project(100L, "项目 A");
+        BugEntity highBug = bug(20L, 100L, "高优先级Bug", "HIGH", "PENDING_FIX", 2L);
+        ProjectEntity project = project(100L, "项目A");
         SystemUser user1 = user(1L, "张三");
         SystemUser user2 = user(2L, "李四");
 
@@ -113,7 +112,7 @@ class DashboardServiceTest {
         assertThat(result.get(0).itemType()).isEqualTo("TASK");
         assertThat(result.get(0).businessId()).isEqualTo(11L);
         assertThat(result.get(0).title()).isEqualTo("紧急任务");
-        assertThat(result.get(0).projectName()).isEqualTo("项目 A");
+        assertThat(result.get(0).projectName()).isEqualTo("项目A");
         assertThat(result.get(0).ownerName()).isEqualTo("李四");
         assertThat(result.get(0).overdueDays()).isEqualTo(1L);
         assertThat(result.get(1).itemType()).isEqualTo("BUG");

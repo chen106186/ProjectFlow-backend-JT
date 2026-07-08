@@ -3,8 +3,12 @@ package com.jitong.projectflow.task.service;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.jitong.projectflow.auth.security.BusinessAccessService;
 import com.jitong.projectflow.auth.security.CurrentUserContext;
+import com.jitong.projectflow.notice.domain.NoticeType;
+import com.jitong.projectflow.notice.service.NoticeService;
 import com.jitong.projectflow.system.audit.OperationLogService;
 import com.jitong.projectflow.task.dto.TaskActualTimeUpdateRequest;
+import com.jitong.projectflow.task.dto.TaskBatchCreateRequest;
+import com.jitong.projectflow.task.dto.TaskCreateRequest;
 import com.jitong.projectflow.task.dto.TaskQueryRequest;
 import com.jitong.projectflow.task.entity.TaskEntity;
 import com.jitong.projectflow.task.mapper.TaskMapper;
@@ -32,6 +36,9 @@ class TaskServiceTest {
     @Mock
     BusinessAccessService businessAccessService;
 
+    @Mock
+    NoticeService noticeService;
+
     @AfterEach
     void clearCurrentUser() {
         CurrentUserContext.clear();
@@ -51,7 +58,7 @@ class TaskServiceTest {
         request.setActualStartDate(LocalDate.now());
         request.setActualEndDate(LocalDate.now());
 
-        TaskService service = new TaskService(taskMapper, operationLogService, businessAccessService);
+        TaskService service = new TaskService(taskMapper, operationLogService, businessAccessService, noticeService);
         service.updateActualTime(10L, request);
 
         ArgumentCaptor<TaskEntity> captor = ArgumentCaptor.forClass(TaskEntity.class);
@@ -73,9 +80,42 @@ class TaskServiceTest {
         page.setRecords(java.util.List.of(task));
         when(taskMapper.selectPage(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any())).thenReturn(page);
 
-        var result = new TaskService(taskMapper, operationLogService, businessAccessService).list(new TaskQueryRequest());
+        var result = new TaskService(taskMapper, operationLogService, businessAccessService, noticeService).list(new TaskQueryRequest());
 
         assertThat(result.total()).isEqualTo(1);
         assertThat(result.records()).extracting("name").containsExactly("Develop API");
+    }
+
+    @Test
+    void batchCreatePersistsParentOrderAndSendsAssignmentNotice() {
+        CurrentUserContext.set(1001L);
+        TaskCreateRequest root = new TaskCreateRequest();
+        root.setProjectId(10L);
+        root.setName("后端接口");
+        root.setPriority("HIGH");
+        root.setAssigneeId(2001L);
+        root.setSortOrder(1);
+
+        TaskCreateRequest child = new TaskCreateRequest();
+        child.setProjectId(10L);
+        child.setParentId(100L);
+        child.setName("用户接口");
+        child.setPriority("MEDIUM");
+        child.setAssigneeId(2002L);
+        child.setSortOrder(2);
+
+        TaskBatchCreateRequest request = new TaskBatchCreateRequest();
+        request.setTasks(java.util.List.of(root, child));
+
+        var responses = new TaskService(taskMapper, operationLogService, businessAccessService, noticeService)
+                .batchCreate(request);
+
+        ArgumentCaptor<TaskEntity> captor = ArgumentCaptor.forClass(TaskEntity.class);
+        verify(taskMapper, org.mockito.Mockito.times(2)).insert(captor.capture());
+        assertThat(captor.getAllValues()).extracting(TaskEntity::getParentId).containsExactly(null, 100L);
+        assertThat(captor.getAllValues()).extracting(TaskEntity::getSortOrder).containsExactly(1, 2);
+        assertThat(responses).hasSize(2);
+        verify(noticeService).create(2001L, NoticeType.TASK_ASSIGNED, "任务分配通知", "后端接口", "Task", null);
+        verify(noticeService).create(2002L, NoticeType.TASK_ASSIGNED, "任务分配通知", "用户接口", "Task", null);
     }
 }

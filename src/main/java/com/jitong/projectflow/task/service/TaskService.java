@@ -1,5 +1,6 @@
 package com.jitong.projectflow.task.service;
 
+import com.alibaba.excel.EasyExcel;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.jitong.projectflow.auth.security.BusinessAccessService;
@@ -8,11 +9,15 @@ import com.jitong.projectflow.common.api.PageResult;
 import com.jitong.projectflow.common.api.PageUtils;
 import com.jitong.projectflow.common.error.BusinessException;
 import com.jitong.projectflow.common.error.ErrorCode;
+import com.jitong.projectflow.notice.domain.NoticeType;
+import com.jitong.projectflow.notice.service.NoticeService;
 import com.jitong.projectflow.system.audit.OperationLogService;
 import com.jitong.projectflow.task.domain.TaskStatus;
 import com.jitong.projectflow.task.domain.TaskStatusCalculator;
 import com.jitong.projectflow.task.dto.TaskActualTimeUpdateRequest;
+import com.jitong.projectflow.task.dto.TaskBatchCreateRequest;
 import com.jitong.projectflow.task.dto.TaskCreateRequest;
+import com.jitong.projectflow.task.dto.TaskImportRow;
 import com.jitong.projectflow.task.dto.TaskQueryRequest;
 import com.jitong.projectflow.task.dto.TaskResponse;
 import com.jitong.projectflow.task.dto.TaskUpdateRequest;
@@ -21,7 +26,10 @@ import com.jitong.projectflow.task.mapper.TaskMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.io.OutputStream;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -31,11 +39,45 @@ public class TaskService {
     private final TaskMapper taskMapper;
     private final OperationLogService operationLogService;
     private final BusinessAccessService businessAccessService;
+    private final NoticeService noticeService;
     private final TaskStatusCalculator statusCalculator = new TaskStatusCalculator();
 
     public TaskResponse create(TaskCreateRequest request) {
+        TaskEntity entity = createEntity(request);
+        taskMapper.insert(entity);
+        afterTaskCreated(entity);
+        return toResponse(entity);
+    }
+
+    public List<TaskResponse> batchCreate(TaskBatchCreateRequest request) {
+        return request.getTasks().stream().map(this::create).toList();
+    }
+
+    public List<TaskResponse> importTasks(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "导入文件不能为空");
+        }
+        try {
+            List<TaskImportRow> rows = EasyExcel.read(file.getInputStream())
+                    .head(TaskImportRow.class)
+                    .sheet()
+                    .doReadSync();
+            TaskBatchCreateRequest request = new TaskBatchCreateRequest();
+            request.setTasks(rows.stream().map(this::toCreateRequest).toList());
+            return batchCreate(request);
+        } catch (IOException ex) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "任务导入失败");
+        }
+    }
+
+    public void writeImportTemplate(OutputStream out) {
+        EasyExcel.write(out, TaskImportRow.class).sheet("任务导入模板").doWrite(List.of());
+    }
+
+    private TaskEntity createEntity(TaskCreateRequest request) {
         TaskEntity entity = new TaskEntity();
         entity.setProjectId(request.getProjectId());
+        entity.setParentId(request.getParentId());
         entity.setName(request.getName());
         entity.setRoleName(request.getRoleName());
         entity.setPriority(request.getPriority());
@@ -45,11 +87,35 @@ public class TaskService {
         entity.setDescription(request.getDescription());
         entity.setTags(request.getTags());
         entity.setRemark(request.getRemark());
+        entity.setSortOrder(request.getSortOrder() == null ? 0 : request.getSortOrder());
         entity.setStatus(calculateStatus(entity).name());
         entity.setCreatedBy(CurrentUserContext.userIdOrNull());
-        taskMapper.insert(entity);
+        return entity;
+    }
+
+    private void afterTaskCreated(TaskEntity entity) {
         operationLogService.record("task", "Task", entity.getId(), "CREATE", entity.getName());
-        return toResponse(entity);
+        if (entity.getAssigneeId() != null) {
+            noticeService.create(entity.getAssigneeId(), NoticeType.TASK_ASSIGNED,
+                    "任务分配通知", entity.getName(), "Task", entity.getId());
+        }
+    }
+
+    private TaskCreateRequest toCreateRequest(TaskImportRow row) {
+        TaskCreateRequest request = new TaskCreateRequest();
+        request.setProjectId(row.getProjectId());
+        request.setParentId(row.getParentId());
+        request.setName(row.getName());
+        request.setRoleName(row.getRoleName());
+        request.setPriority(row.getPriority());
+        request.setAssigneeId(row.getAssigneeId());
+        request.setPlannedStartDate(row.getPlannedStartDate());
+        request.setPlannedEndDate(row.getPlannedEndDate());
+        request.setDescription(row.getDescription());
+        request.setTags(row.getTags());
+        request.setRemark(row.getRemark());
+        request.setSortOrder(row.getSortOrder());
+        return request;
     }
 
     public PageResult<TaskResponse> list(TaskQueryRequest request) {
@@ -159,6 +225,7 @@ public class TaskService {
         return TaskResponse.builder()
                 .id(entity.getId())
                 .projectId(entity.getProjectId())
+                .parentId(entity.getParentId())
                 .name(entity.getName())
                 .roleName(entity.getRoleName())
                 .priority(entity.getPriority())
@@ -171,6 +238,7 @@ public class TaskService {
                 .description(entity.getDescription())
                 .tags(entity.getTags())
                 .remark(entity.getRemark())
+                .sortOrder(entity.getSortOrder())
                 .build();
     }
 }

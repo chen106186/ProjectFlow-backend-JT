@@ -12,12 +12,12 @@ import com.jitong.projectflow.bug.dto.BugCreateRequest;
 import com.jitong.projectflow.bug.dto.BugQueryRequest;
 import com.jitong.projectflow.bug.dto.BugResponse;
 import com.jitong.projectflow.bug.dto.BugUpdateRequest;
-import com.jitong.projectflow.common.api.PageResult;
-import com.jitong.projectflow.common.api.PageUtils;
 import com.jitong.projectflow.bug.entity.BugCommentEntity;
 import com.jitong.projectflow.bug.entity.BugEntity;
 import com.jitong.projectflow.bug.mapper.BugCommentMapper;
 import com.jitong.projectflow.bug.mapper.BugMapper;
+import com.jitong.projectflow.common.api.PageResult;
+import com.jitong.projectflow.common.api.PageUtils;
 import com.jitong.projectflow.common.error.BusinessException;
 import com.jitong.projectflow.common.error.ErrorCode;
 import com.jitong.projectflow.notice.domain.NoticeType;
@@ -53,7 +53,8 @@ public class BugService {
         entity.setCreatedBy(CurrentUserContext.userIdOrNull());
         bugMapper.insert(entity);
         operationLogService.record("bug", "Bug", entity.getId(), "CREATE", entity.getTitle());
-        noticeService.create(entity.getAssigneeId(), NoticeType.BUG_ASSIGNED, "BUG assigned", entity.getTitle(), "Bug", entity.getId());
+        noticeService.create(entity.getAssigneeId(), NoticeType.BUG_ASSIGNED, "缺陷指派通知",
+                entity.getTitle(), "Bug", entity.getId());
         return toResponse(entity);
     }
 
@@ -106,7 +107,12 @@ public class BugService {
         bugMapper.updateById(entity);
         String content = StringUtils.hasText(request.getReason()) ? request.getReason() : entity.getTitle();
         operationLogService.record("bug", "Bug", id, "ASSIGN", content);
-        noticeService.create(request.getAssigneeId(), NoticeType.BUG_ASSIGNED, "BUG assigned", entity.getTitle(), "Bug", id);
+        noticeService.create(request.getAssigneeId(), NoticeType.BUG_ASSIGNED, "缺陷转派通知",
+                entity.getTitle(), "Bug", id);
+        if (entity.getCreatorId() != null && !entity.getCreatorId().equals(request.getAssigneeId())) {
+            noticeService.create(entity.getCreatorId(), NoticeType.BUG_ASSIGNED, "缺陷转派抄送",
+                    entity.getTitle() + " 已转派给用户 " + request.getAssigneeId(), "Bug", id);
+        }
         return toResponse(entity);
     }
 
@@ -132,7 +138,8 @@ public class BugService {
         bugCommentMapper.insert(comment);
         operationLogService.record("bug", "Bug", bugId, "COMMENT", request.getContent());
         if (!CurrentUserContext.userId().equals(bug.getAssigneeId())) {
-            noticeService.create(bug.getAssigneeId(), NoticeType.BUG_COMMENT, "BUG comment", request.getContent(), "Bug", bugId);
+            noticeService.create(bug.getAssigneeId(), NoticeType.BUG_COMMENT, "缺陷评论通知",
+                    request.getContent(), "Bug", bugId);
         }
         return toCommentResponse(comment);
     }

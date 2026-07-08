@@ -51,6 +51,11 @@ public class GanttService {
         if (req.getPlannedEndDate() != null) entity.setPlannedEndDate(req.getPlannedEndDate());
         if (req.getActualStartDate() != null) entity.setActualStartDate(req.getActualStartDate());
         if (req.getActualEndDate() != null) entity.setActualEndDate(req.getActualEndDate());
+        validateNode(entity);
+        if (req.getActualEndDate() != null) {
+            entity.setProgressPercent(100);
+            entity.setStatus("COMPLETED");
+        }
         entity.setUpdatedBy(CurrentUserContext.userId());
 
         projectNodeMapper.updateById(entity);
@@ -88,6 +93,20 @@ public class GanttService {
                 .dueSoon(data.dueSoon())
                 .overallProgress(data.overallProgress())
                 .build();
+    }
+
+    private void validateNode(ProjectNodeEntity entity) {
+        if (entity.getProgressPercent() != null && (entity.getProgressPercent() < 0 || entity.getProgressPercent() > 100)) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "节点进度必须在0到100之间");
+        }
+        if (entity.getPlannedStartDate() != null && entity.getPlannedEndDate() != null
+                && entity.getPlannedStartDate().isAfter(entity.getPlannedEndDate())) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "计划开始日期不能晚于计划结束日期");
+        }
+        if (entity.getActualStartDate() != null && entity.getActualEndDate() != null
+                && entity.getActualStartDate().isAfter(entity.getActualEndDate())) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "实际开始日期不能晚于实际结束日期");
+        }
     }
 
     private GanttNodeResponse toResponse(ProjectNodeEntity entity) {

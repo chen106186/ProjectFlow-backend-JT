@@ -1,18 +1,18 @@
 package com.jitong.projectflow.project.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-
 import lombok.Data;
 
 import java.time.LocalDate;
 
 @Data
+@Schema(description = "甘特图节点更新请求。")
 public class ProjectNodeUpdateRequest {
 
     @Schema(description = "甘特图节点名称。")
     private String nodeName;
 
-    @Schema(description = "状态。")
+    @Schema(description = "节点状态，例如 NOT_STARTED、IN_PROGRESS、COMPLETED。")
     private String status;
 
     @Schema(description = "进度百分比，取值范围 0 到 100。")
@@ -27,6 +27,6 @@ public class ProjectNodeUpdateRequest {
     @Schema(description = "实际开始日期，格式 yyyy-MM-dd。")
     private LocalDate actualStartDate;
 
-    @Schema(description = "实际结束日期，格式 yyyy-MM-dd。")
+    @Schema(description = "实际结束日期，格式 yyyy-MM-dd。填写后节点自动完成且进度为100%。")
     private LocalDate actualEndDate;
 }

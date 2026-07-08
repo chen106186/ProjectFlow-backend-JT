@@ -28,6 +28,7 @@ import java.util.regex.Pattern;
 @RequiredArgsConstructor
 public class FileService {
     private static final String DEFAULT_VERSION = "v1";
+    private static final String DEFAULT_STORAGE_LOCATION = "BUSINESS";
     private static final long MAX_FILE_SIZE = 50L * 1024 * 1024;
     private static final Pattern NUMERIC_VERSION = Pattern.compile("^v(\\d+)$");
     private static final Set<String> ALLOWED_EXTENSIONS = Set.of("docx", "xlsx", "pdf", "png", "jpg", "jpeg", "drawio");
@@ -37,6 +38,11 @@ public class FileService {
     private final BusinessAccessService businessAccessService;
 
     public FileResponse upload(String businessType, Long businessId, String versionNo, MultipartFile file) {
+        return upload(businessType, businessId, versionNo, DEFAULT_STORAGE_LOCATION, null, file);
+    }
+
+    public FileResponse upload(String businessType, Long businessId, String versionNo,
+                               String storageLocation, String fileCategory, MultipartFile file) {
         validateUpload(businessType, businessId, file);
         String originalName = file.getOriginalFilename();
         String resolvedVersionNo = StringUtils.hasText(versionNo) ? versionNo : nextVersionNo(businessType, businessId, originalName);
@@ -54,6 +60,8 @@ public class FileService {
             metadata.setContentType(file.getContentType());
             metadata.setFileSize(storedFile.fileSize());
             metadata.setVersionNo(resolvedVersionNo);
+            metadata.setStorageLocation(StringUtils.hasText(storageLocation) ? storageLocation : DEFAULT_STORAGE_LOCATION);
+            metadata.setFileCategory(StringUtils.hasText(fileCategory) ? fileCategory : null);
             metadata.setStorageType(storedFile.storageType());
             metadata.setStorageKey(storedFile.storageKey());
             metadata.setUploaderId(CurrentUserContext.userIdOrNull());
@@ -66,12 +74,17 @@ public class FileService {
     }
 
     public List<FileResponse> list(String businessType, Long businessId) {
+        return list(businessType, businessId, null);
+    }
+
+    public List<FileResponse> list(String businessType, Long businessId, String fileCategory) {
         if (!StringUtils.hasText(businessType) || businessId == null) {
             throw new BusinessException(ErrorCode.BAD_REQUEST, "查询文件需要指定业务类型和业务ID");
         }
         LambdaQueryWrapper<FileMetadata> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(FileMetadata::getBusinessType, businessType);
         wrapper.eq(FileMetadata::getBusinessId, businessId);
+        wrapper.eq(StringUtils.hasText(fileCategory), FileMetadata::getFileCategory, fileCategory);
         wrapper.orderByDesc(FileMetadata::getUploadedAt);
         return fileMetadataMapper.selectList(wrapper).stream().map(this::toResponse).toList();
     }
@@ -86,6 +99,13 @@ public class FileService {
         businessAccessService.requireFileDelete(metadata);
         fileMetadataMapper.deleteById(id);
         fileStorageService.delete(metadata.getStorageKey());
+    }
+
+    public void deleteBatch(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "文件ID列表不能为空");
+        }
+        ids.forEach(this::delete);
     }
 
     private void validateUpload(String businessType, Long businessId, MultipartFile file) {
@@ -149,6 +169,8 @@ public class FileService {
                 .contentType(metadata.getContentType())
                 .fileSize(metadata.getFileSize())
                 .versionNo(metadata.getVersionNo())
+                .storageLocation(metadata.getStorageLocation())
+                .fileCategory(metadata.getFileCategory())
                 .storageType(metadata.getStorageType())
                 .uploaderId(metadata.getUploaderId())
                 .uploadedAt(metadata.getUploadedAt())

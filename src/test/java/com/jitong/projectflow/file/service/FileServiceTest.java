@@ -1,8 +1,8 @@
 package com.jitong.projectflow.file.service;
 
-import com.jitong.projectflow.common.error.BusinessException;
 import com.jitong.projectflow.auth.security.BusinessAccessService;
 import com.jitong.projectflow.auth.security.CurrentUserContext;
+import com.jitong.projectflow.common.error.BusinessException;
 import com.jitong.projectflow.file.domain.FileStorageService;
 import com.jitong.projectflow.file.domain.StoredFile;
 import com.jitong.projectflow.file.entity.FileMetadata;
@@ -20,6 +20,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -55,6 +56,23 @@ class FileServiceTest {
         assertThat(metadata.getStorageType()).isEqualTo("LOCAL");
         assertThat(metadata.getStorageKey()).isEqualTo("2026-07-07/a.pdf");
         assertThat(metadata.getUploaderId()).isEqualTo(1001L);
+        assertThat(metadata.getStorageLocation()).isEqualTo("BUSINESS");
+    }
+
+    @Test
+    void uploadPersistsStorageLocationAndCategory() {
+        when(fileStorageService.upload(any())).thenReturn(new StoredFile("LOCAL", "2026-07-07/design.pdf", 3));
+        MockMultipartFile file = new MockMultipartFile("file", "design.pdf", "application/pdf", "abc".getBytes());
+
+        var response = new FileService(fileMetadataMapper, fileStorageService, businessAccessService)
+                .upload("PROJECT", 20L, "v2", "DOCUMENT_CENTER", "DESIGN", file);
+
+        ArgumentCaptor<FileMetadata> captor = ArgumentCaptor.forClass(FileMetadata.class);
+        verify(fileMetadataMapper).insert(captor.capture());
+        assertThat(captor.getValue().getStorageLocation()).isEqualTo("DOCUMENT_CENTER");
+        assertThat(captor.getValue().getFileCategory()).isEqualTo("DESIGN");
+        assertThat(response.getStorageLocation()).isEqualTo("DOCUMENT_CENTER");
+        assertThat(response.getFileCategory()).isEqualTo("DESIGN");
     }
 
     @Test
@@ -150,5 +168,45 @@ class FileServiceTest {
         assertThatThrownBy(() -> new FileService(fileMetadataMapper, fileStorageService, businessAccessService).list("TASK", null))
                 .isInstanceOf(BusinessException.class)
                 .hasMessage("查询文件需要指定业务类型和业务ID");
+    }
+
+    @Test
+    void listReturnsCategoryMetadata() {
+        FileMetadata metadata = new FileMetadata();
+        metadata.setId(1L);
+        metadata.setBusinessType("PROJECT");
+        metadata.setBusinessId(20L);
+        metadata.setOriginalName("design.pdf");
+        metadata.setVersionNo("v1");
+        metadata.setStorageLocation("DOCUMENT_CENTER");
+        metadata.setFileCategory("DESIGN");
+        when(fileMetadataMapper.selectList(any())).thenReturn(List.of(metadata));
+
+        var result = new FileService(fileMetadataMapper, fileStorageService, businessAccessService)
+                .list("PROJECT", 20L, "DESIGN");
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getStorageLocation()).isEqualTo("DOCUMENT_CENTER");
+        assertThat(result.get(0).getFileCategory()).isEqualTo("DESIGN");
+    }
+
+    @Test
+    void deleteBatchDeletesEveryFile() {
+        FileMetadata first = new FileMetadata();
+        first.setId(1L);
+        first.setStorageKey("a.pdf");
+        FileMetadata second = new FileMetadata();
+        second.setId(2L);
+        second.setStorageKey("b.pdf");
+        when(fileMetadataMapper.selectById(1L)).thenReturn(first);
+        when(fileMetadataMapper.selectById(2L)).thenReturn(second);
+
+        new FileService(fileMetadataMapper, fileStorageService, businessAccessService).deleteBatch(List.of(1L, 2L));
+
+        verify(businessAccessService).requireFileDelete(first);
+        verify(businessAccessService).requireFileDelete(second);
+        verify(fileMetadataMapper).deleteById(1L);
+        verify(fileMetadataMapper).deleteById(2L);
+        verify(fileStorageService, times(2)).delete(any());
     }
 }

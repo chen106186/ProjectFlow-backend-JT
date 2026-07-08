@@ -18,6 +18,8 @@ public class TaskEntity {
 
     private Long projectId;
 
+    private Long parentId;
+
     private String name;
 
     private String roleName;
@@ -41,6 +43,8 @@ public class TaskEntity {
     private String tags;
 
     private String remark;
+
+    private Integer sortOrder;
 
     private Long createdBy;
 

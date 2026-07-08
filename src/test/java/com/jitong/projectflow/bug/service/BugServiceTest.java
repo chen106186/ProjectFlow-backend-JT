@@ -55,7 +55,9 @@ class BugServiceTest {
         assertThat(bug.getAssigneeId()).isEqualTo(2002L);
         verify(businessAccessService).requireBugEdit(bug);
         verify(bugMapper).updateById(bug);
-        verify(noticeService).create(2002L, NoticeType.BUG_ASSIGNED, "BUG assigned", "Login fails", "Bug", 10L);
+        verify(noticeService).create(2002L, NoticeType.BUG_ASSIGNED, "缺陷转派通知", "Login fails", "Bug", 10L);
+        verify(noticeService).create(1001L, NoticeType.BUG_ASSIGNED, "缺陷转派抄送",
+                "Login fails 已转派给用户 2002", "Bug", 10L);
         verify(operationLogService).record("bug", "Bug", 10L, "ASSIGN", "handoff");
     }
 
@@ -89,7 +91,7 @@ class BugServiceTest {
         assertThat(captor.getValue().getBugId()).isEqualTo(10L);
         assertThat(captor.getValue().getUserId()).isEqualTo(1001L);
         assertThat(captor.getValue().getContent()).isEqualTo("please verify");
-        verify(noticeService).create(2002L, NoticeType.BUG_COMMENT, "BUG comment", "please verify", "Bug", 10L);
+        verify(noticeService).create(2002L, NoticeType.BUG_COMMENT, "缺陷评论通知", "please verify", "Bug", 10L);
     }
 
     private BugEntity bug(Long id) {
