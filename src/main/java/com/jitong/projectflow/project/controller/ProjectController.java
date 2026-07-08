@@ -11,6 +11,8 @@ import com.jitong.projectflow.project.dto.ProjectResponse;
 import com.jitong.projectflow.project.dto.ProjectUpdateRequest;
 import com.jitong.projectflow.project.service.GanttService;
 import com.jitong.projectflow.project.service.ProjectService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.slf4j.MDC;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -29,6 +31,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/projects")
+@Tag(name = "项目管理", description = "管理类项目、执行类项目、项目详情和甘特图相关接口")
 public class ProjectController {
 
     private final ProjectService projectService;
@@ -39,42 +42,56 @@ public class ProjectController {
         this.ganttService = ganttService;
     }
 
-    @PostMapping
+    @Operation(summary = "新建项目",
+            description = "创建管理类或执行类项目，写入项目基础信息，并初始化项目状态。")
     @PreAuthorize("hasAuthority('project:create')")
+    @PostMapping
     public ApiResponse<ProjectResponse> create(@Valid @RequestBody ProjectCreateRequest request) {
         return ApiResponse.success(projectService.create(request), MDC.get("traceId"));
     }
 
+    @Operation(summary = "分页查询项目列表",
+            description = "按项目类型、状态、合同状态、项目经理和关键字查询项目清单。")
     @GetMapping
     public ApiResponse<PageResult<ProjectResponse>> listProjects(@Valid @ModelAttribute ProjectQueryRequest request) {
         return ApiResponse.success(projectService.list(request), MDC.get("traceId"));
     }
 
+    @Operation(summary = "查询项目详情",
+            description = "根据项目 ID 查询项目基础信息、状态、日期和负责人等详情。")
     @GetMapping("/{id}")
     public ApiResponse<ProjectResponse> getById(@PathVariable Long id) {
         return ApiResponse.success(projectService.getById(id), MDC.get("traceId"));
     }
 
-    @PutMapping("/{id}")
+    @Operation(summary = "编辑项目",
+            description = "更新项目基础信息，系统会进行接口权限和业务数据归属校验。")
     @PreAuthorize("hasAuthority('project:update')")
+    @PutMapping("/{id}")
     public ApiResponse<ProjectResponse> update(@PathVariable Long id, @Valid @RequestBody ProjectUpdateRequest request) {
         return ApiResponse.success(projectService.update(id, request), MDC.get("traceId"));
     }
 
-    @DeleteMapping("/{id}")
+    @Operation(summary = "删除项目",
+            description = "逻辑删除指定项目，适用于项目误建或需要下线的场景。")
     @PreAuthorize("hasAuthority('project:update')")
+    @DeleteMapping("/{id}")
     public ApiResponse<Void> delete(@PathVariable Long id) {
         projectService.delete(id);
         return ApiResponse.success(null, MDC.get("traceId"));
     }
 
+    @Operation(summary = "查询项目甘特图节点",
+            description = "返回指定项目的甘特图节点列表，用于项目进度时间轴展示。")
     @GetMapping("/{projectId}/gantt")
     public ApiResponse<List<GanttNodeResponse>> getGanttNodes(@PathVariable Long projectId) {
         return ApiResponse.success(ganttService.getGanttNodes(projectId), MDC.get("traceId"));
     }
 
-    @PatchMapping("/{projectId}/nodes/{nodeId}")
+    @Operation(summary = "编辑项目甘特图节点",
+            description = "更新项目节点的计划时间、实际时间、状态和进度等甘特图信息。")
     @PreAuthorize("hasAuthority('project:update')")
+    @PatchMapping("/{projectId}/nodes/{nodeId}")
     public ApiResponse<GanttNodeResponse> updateNode(
             @PathVariable Long projectId,
             @PathVariable Long nodeId,
@@ -82,6 +99,8 @@ public class ProjectController {
         return ApiResponse.success(ganttService.updateNode(projectId, nodeId, req), MDC.get("traceId"));
     }
 
+    @Operation(summary = "查询项目甘特图统计",
+            description = "统计指定项目的整体进度、延期任务和即将到期任务等摘要信息。")
     @GetMapping("/{projectId}/gantt/summary")
     public ApiResponse<GanttSummaryResponse> getGanttSummary(@PathVariable Long projectId) {
         return ApiResponse.success(ganttService.getSummary(projectId), MDC.get("traceId"));

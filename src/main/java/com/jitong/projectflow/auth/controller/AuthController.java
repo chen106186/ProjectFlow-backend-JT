@@ -9,6 +9,8 @@ import com.jitong.projectflow.common.error.ErrorCode;
 import com.jitong.projectflow.system.entity.SystemUser;
 import com.jitong.projectflow.system.mapper.SystemUserMapper;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.slf4j.MDC;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -19,6 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/auth")
+@Tag(name = "认证管理", description = "用户登录和访问令牌签发接口")
 public class AuthController {
     private final SystemUserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
@@ -30,6 +33,8 @@ public class AuthController {
         this.tokenService = tokenService;
     }
 
+    @Operation(summary = "用户登录",
+            description = "校验用户名和密码，登录成功后返回 JWT 访问令牌和用户基础信息。")
     @PostMapping("/login")
     public ApiResponse<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
         SystemUser user = userMapper.selectOne(

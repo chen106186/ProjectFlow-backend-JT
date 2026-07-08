@@ -31,6 +31,8 @@ import com.jitong.projectflow.system.service.OperationLogQueryService;
 import com.jitong.projectflow.system.service.RoleManagementService;
 import com.jitong.projectflow.system.service.SystemUserManagementService;
 import com.jitong.projectflow.system.service.SystemQueryService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.MDC;
@@ -52,6 +54,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/system")
 @RequiredArgsConstructor
+@Tag(name = "系统管理", description = "当前用户、用户管理、部门管理、角色权限、菜单和操作日志接口")
 public class SystemController {
     private final SystemQueryService systemQueryService;
     private final SystemUserManagementService systemUserManagementService;
@@ -61,46 +64,62 @@ public class SystemController {
     private final CurrentUserPermissionService currentUserPermissionService;
     private final OperationLogQueryService operationLogQueryService;
 
+    @Operation(summary = "查询当前用户信息",
+            description = "查询当前登录用户的基础资料、角色、菜单和权限码。")
     @GetMapping("/me")
     public ApiResponse<CurrentUserProfileResponse> getCurrentUser() {
         return ApiResponse.success(currentUserPermissionService.getCurrentUser(), MDC.get("traceId"));
     }
 
+    @Operation(summary = "查询当前用户权限码",
+            description = "返回当前登录用户拥有的全部菜单和按钮权限码。")
     @GetMapping("/me/permissions")
     public ApiResponse<List<String>> getCurrentUserPermissions() {
         return ApiResponse.success(currentUserPermissionService.getCurrentUserPermissions(), MDC.get("traceId"));
     }
 
+    @Operation(summary = "分页查询操作日志",
+            description = "按模块、业务类型、操作人和时间范围分页查询系统操作日志。")
     @GetMapping("/logs")
     @PreAuthorize("hasAuthority('system:log:view')")
     public ApiResponse<PageResult<OperationLogResponse>> listOperationLogs(@Valid @ModelAttribute OperationLogQueryRequest request) {
         return ApiResponse.success(operationLogQueryService.list(request), MDC.get("traceId"));
     }
 
+    @Operation(summary = "分页查询用户列表",
+            description = "按用户名、姓名、部门和启用状态分页查询系统用户。")
     @GetMapping("/users")
     @PreAuthorize("hasAuthority('system:user:view')")
     public ApiResponse<PageResult<SystemUserResponse>> listUsers(@Valid @ModelAttribute SystemUserQueryRequest request) {
         return ApiResponse.success(systemQueryService.listUsers(request), MDC.get("traceId"));
     }
 
+    @Operation(summary = "新增用户",
+            description = "创建系统用户并设置所属部门、岗位、账号状态和初始角色。")
     @PostMapping("/users")
     @PreAuthorize("hasAuthority('system:user:create')")
     public ApiResponse<UserDetailResponse> createUser(@Valid @RequestBody UserCreateRequest request) {
         return ApiResponse.success(systemUserManagementService.create(request), MDC.get("traceId"));
     }
 
+    @Operation(summary = "查询用户详情",
+            description = "根据用户 ID 查询系统用户基础资料、部门和角色信息。")
     @GetMapping("/users/{id}")
     @PreAuthorize("hasAuthority('system:user:view')")
     public ApiResponse<UserDetailResponse> getUser(@PathVariable Long id) {
         return ApiResponse.success(systemUserManagementService.getById(id), MDC.get("traceId"));
     }
 
+    @Operation(summary = "编辑用户",
+            description = "修改系统用户基础资料、所属部门和账号信息。")
     @PutMapping("/users/{id}")
     @PreAuthorize("hasAuthority('system:user:update')")
     public ApiResponse<UserDetailResponse> updateUser(@PathVariable Long id, @Valid @RequestBody UserUpdateRequest request) {
         return ApiResponse.success(systemUserManagementService.update(id, request), MDC.get("traceId"));
     }
 
+    @Operation(summary = "启用或禁用用户",
+            description = "更新系统用户启用状态，禁用后该用户不可继续登录。")
     @PatchMapping("/users/{id}/enabled")
     @PreAuthorize("hasAuthority('system:user:update')")
     public ApiResponse<UserDetailResponse> updateUserEnabled(
@@ -109,6 +128,8 @@ public class SystemController {
         return ApiResponse.success(systemUserManagementService.updateEnabled(id, request), MDC.get("traceId"));
     }
 
+    @Operation(summary = "重置用户密码",
+            description = "为指定系统用户重置登录密码。")
     @PatchMapping("/users/{id}/password")
     @PreAuthorize("hasAuthority('system:user:update')")
     public ApiResponse<Void> resetUserPassword(
@@ -118,6 +139,8 @@ public class SystemController {
         return ApiResponse.success(null, MDC.get("traceId"));
     }
 
+    @Operation(summary = "分配用户角色",
+            description = "为指定系统用户重新分配角色列表。")
     @PutMapping("/users/{id}/roles")
     @PreAuthorize("hasAuthority('system:user:update')")
     public ApiResponse<List<Long>> assignUserRoles(
@@ -126,18 +149,24 @@ public class SystemController {
         return ApiResponse.success(systemUserManagementService.assignRoles(id, request), MDC.get("traceId"));
     }
 
+    @Operation(summary = "查询部门树",
+            description = "查询系统部门树形结构，用于用户归属和组织架构展示。")
     @GetMapping("/departments")
     @PreAuthorize("hasAuthority('system:department:view')")
     public ApiResponse<List<DepartmentResponse>> listDepartments() {
         return ApiResponse.success(systemQueryService.listDepartments(), MDC.get("traceId"));
     }
 
+    @Operation(summary = "新增部门",
+            description = "新增部门节点并设置上级部门、排序和负责人信息。")
     @PostMapping("/departments")
     @PreAuthorize("hasAuthority('system:department:create')")
     public ApiResponse<DepartmentResponse> createDepartment(@Valid @RequestBody DepartmentCreateRequest request) {
         return ApiResponse.success(departmentManagementService.create(request), MDC.get("traceId"));
     }
 
+    @Operation(summary = "编辑部门",
+            description = "修改部门名称、上级部门、排序和负责人信息。")
     @PutMapping("/departments/{id}")
     @PreAuthorize("hasAuthority('system:department:update')")
     public ApiResponse<DepartmentResponse> updateDepartment(
@@ -146,6 +175,8 @@ public class SystemController {
         return ApiResponse.success(departmentManagementService.update(id, request), MDC.get("traceId"));
     }
 
+    @Operation(summary = "删除部门",
+            description = "删除指定部门，存在子部门或关联用户时不允许删除。")
     @DeleteMapping("/departments/{id}")
     @PreAuthorize("hasAuthority('system:department:update')")
     public ApiResponse<Void> deleteDepartment(@PathVariable Long id) {
@@ -153,30 +184,40 @@ public class SystemController {
         return ApiResponse.success(null, MDC.get("traceId"));
     }
 
+    @Operation(summary = "查询角色列表",
+            description = "查询系统角色列表，用于权限分配和用户授权。")
     @GetMapping("/roles")
     @PreAuthorize("hasAuthority('system:role:view')")
     public ApiResponse<List<RoleResponse>> listRoles() {
         return ApiResponse.success(systemQueryService.listRoles(), MDC.get("traceId"));
     }
 
+    @Operation(summary = "新增角色",
+            description = "新增系统角色并设置角色编码、名称和启用状态。")
     @PostMapping("/roles")
     @PreAuthorize("hasAuthority('system:role:create')")
     public ApiResponse<RoleResponse> createRole(@Valid @RequestBody RoleCreateRequest request) {
         return ApiResponse.success(roleManagementService.create(request), MDC.get("traceId"));
     }
 
+    @Operation(summary = "查询角色详情",
+            description = "根据角色 ID 查询角色基础信息和已分配菜单权限。")
     @GetMapping("/roles/{id}")
     @PreAuthorize("hasAuthority('system:role:view')")
     public ApiResponse<RoleDetailResponse> getRole(@PathVariable Long id) {
         return ApiResponse.success(roleManagementService.getById(id), MDC.get("traceId"));
     }
 
+    @Operation(summary = "编辑角色",
+            description = "修改系统角色名称、编码、排序和启用状态。")
     @PutMapping("/roles/{id}")
     @PreAuthorize("hasAuthority('system:role:update')")
     public ApiResponse<RoleResponse> updateRole(@PathVariable Long id, @Valid @RequestBody RoleUpdateRequest request) {
         return ApiResponse.success(roleManagementService.update(id, request), MDC.get("traceId"));
     }
 
+    @Operation(summary = "删除角色",
+            description = "删除指定角色，已分配给用户时不允许删除。")
     @DeleteMapping("/roles/{id}")
     @PreAuthorize("hasAuthority('system:role:update')")
     public ApiResponse<Void> deleteRole(@PathVariable Long id) {
@@ -184,36 +225,48 @@ public class SystemController {
         return ApiResponse.success(null, MDC.get("traceId"));
     }
 
+    @Operation(summary = "查询角色菜单权限",
+            description = "查询指定角色已分配的菜单和按钮权限 ID 列表。")
     @GetMapping("/roles/{id}/menus")
     @PreAuthorize("hasAuthority('system:role:view')")
     public ApiResponse<List<Long>> getRoleMenus(@PathVariable Long id) {
         return ApiResponse.success(roleManagementService.getMenuIds(id), MDC.get("traceId"));
     }
 
+    @Operation(summary = "分配角色菜单权限",
+            description = "为指定角色重新分配菜单和按钮权限。")
     @PutMapping("/roles/{id}/menus")
     @PreAuthorize("hasAuthority('system:role:assign-menu')")
     public ApiResponse<List<Long>> assignRoleMenus(@PathVariable Long id, @Valid @RequestBody RoleMenuAssignRequest request) {
         return ApiResponse.success(roleManagementService.assignMenus(id, request), MDC.get("traceId"));
     }
 
+    @Operation(summary = "查询菜单列表",
+            description = "查询系统菜单、目录和按钮权限列表。")
     @GetMapping("/menus")
     @PreAuthorize("hasAuthority('system:menu:view')")
     public ApiResponse<List<MenuResponse>> listMenus() {
         return ApiResponse.success(systemQueryService.listMenus(), MDC.get("traceId"));
     }
 
+    @Operation(summary = "新增菜单",
+            description = "新增目录、菜单或按钮权限节点。")
     @PostMapping("/menus")
     @PreAuthorize("hasAuthority('system:menu:create')")
     public ApiResponse<MenuResponse> createMenu(@Valid @RequestBody MenuCreateRequest request) {
         return ApiResponse.success(menuManagementService.create(request), MDC.get("traceId"));
     }
 
+    @Operation(summary = "编辑菜单",
+            description = "修改目录、菜单或按钮权限的名称、路径、权限码和排序。")
     @PutMapping("/menus/{id}")
     @PreAuthorize("hasAuthority('system:menu:update')")
     public ApiResponse<MenuResponse> updateMenu(@PathVariable Long id, @Valid @RequestBody MenuUpdateRequest request) {
         return ApiResponse.success(menuManagementService.update(id, request), MDC.get("traceId"));
     }
 
+    @Operation(summary = "删除菜单",
+            description = "删除指定菜单或按钮权限节点，存在子节点时不允许删除。")
     @DeleteMapping("/menus/{id}")
     @PreAuthorize("hasAuthority('system:menu:update')")
     public ApiResponse<Void> deleteMenu(@PathVariable Long id) {
