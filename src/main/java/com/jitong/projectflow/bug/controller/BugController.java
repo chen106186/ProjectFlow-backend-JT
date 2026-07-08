@@ -31,7 +31,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/bugs")
 @RequiredArgsConstructor
-@Tag(name = "缺陷管理", description = "Bug 提交、查询、指派、关闭和评论接口")
+@Tag(name = "BUG管理", description = "Bug 提交、查询、指派、关闭和评论接口")
 public class BugController {
     private final BugService bugService;
 
