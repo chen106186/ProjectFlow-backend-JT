@@ -39,7 +39,15 @@ public class SystemUserManagementService {
         user.setRealName(request.getRealName());
         user.setPhone(request.getPhone());
         user.setEmail(request.getEmail());
-        user.setJobNo(request.getJobNo());
+        String jobNo = request.getJobNo();
+        if (jobNo == null || jobNo.isBlank()) {
+            // 统计同部门下的用户数，生成顺序工号
+            long countInDept = systemUserMapper.selectCount(
+                new LambdaQueryWrapper<SystemUser>()
+                    .eq(SystemUser::getDepartmentId, request.getDepartmentId()));
+            jobNo = String.format("%04d", countInDept + 1);
+        }
+        user.setJobNo(jobNo);
         user.setPositionName(request.getPositionName());
         user.setEnabled(request.getEnabled() == null || request.getEnabled());
         user.setHireDate(request.getHireDate());
