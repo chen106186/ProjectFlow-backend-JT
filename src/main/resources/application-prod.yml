@@ -1,0 +1,28 @@
+spring:
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      database: ${REDIS_DATABASE:0}
+
+projectflow:
+  jwt:
+    secret: ${JWT_SECRET}
+    ttl-minutes: ${JWT_TTL_MINUTES:720}
+  storage:
+    type: ${PROJECTFLOW_STORAGE_TYPE:local}
+    local-root: ${PROJECTFLOW_LOCAL_ROOT:./data/uploads}
+    aliyun-oss:
+      endpoint: ${ALIYUN_OSS_ENDPOINT:https://oss-cn-hangzhou.aliyuncs.com}
+      access-key-id: ${ALIYUN_OSS_ACCESS_KEY_ID:}
+      access-key-secret: ${ALIYUN_OSS_ACCESS_KEY_SECRET:}
+      bucket-name: ${ALIYUN_OSS_BUCKET:}
+      object-prefix: ${ALIYUN_OSS_OBJECT_PREFIX:projectflow}
+  notice:
+    task-deadline-cron: ${TASK_DEADLINE_NOTICE_CRON:0 0 9 * * ?}
