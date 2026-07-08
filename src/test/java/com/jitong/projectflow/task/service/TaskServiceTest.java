@@ -1,6 +1,7 @@
 package com.jitong.projectflow.task.service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.jitong.projectflow.auth.security.BusinessAccessService;
 import com.jitong.projectflow.auth.security.CurrentUserContext;
 import com.jitong.projectflow.system.audit.OperationLogService;
 import com.jitong.projectflow.task.dto.TaskActualTimeUpdateRequest;
@@ -28,6 +29,9 @@ class TaskServiceTest {
     @Mock
     OperationLogService operationLogService;
 
+    @Mock
+    BusinessAccessService businessAccessService;
+
     @AfterEach
     void clearCurrentUser() {
         CurrentUserContext.clear();
@@ -47,7 +51,7 @@ class TaskServiceTest {
         request.setActualStartDate(LocalDate.now());
         request.setActualEndDate(LocalDate.now());
 
-        TaskService service = new TaskService(taskMapper, operationLogService);
+        TaskService service = new TaskService(taskMapper, operationLogService, businessAccessService);
         service.updateActualTime(10L, request);
 
         ArgumentCaptor<TaskEntity> captor = ArgumentCaptor.forClass(TaskEntity.class);
@@ -55,6 +59,7 @@ class TaskServiceTest {
         TaskEntity updated = captor.getValue();
         assertThat(updated.getStatus()).isEqualTo("COMPLETED");
         assertThat(updated.getUpdatedBy()).isEqualTo(1001L);
+        verify(businessAccessService).requireTaskActualTimeManage(task);
         verify(operationLogService).record("task", "Task", 10L, "UPDATE_ACTUAL_TIME", "Develop API");
     }
 
@@ -67,7 +72,7 @@ class TaskServiceTest {
         page.setRecords(java.util.List.of(task));
         when(taskMapper.selectPage(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any())).thenReturn(page);
 
-        var result = new TaskService(taskMapper, operationLogService).list(new TaskQueryRequest());
+        var result = new TaskService(taskMapper, operationLogService, businessAccessService).list(new TaskQueryRequest());
 
         assertThat(result.total()).isEqualTo(1);
         assertThat(result.records()).extracting("name").containsExactly("Develop API");

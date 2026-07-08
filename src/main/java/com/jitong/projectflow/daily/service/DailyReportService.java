@@ -2,6 +2,7 @@ package com.jitong.projectflow.daily.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.jitong.projectflow.auth.security.BusinessAccessService;
 import com.jitong.projectflow.auth.security.CurrentUserContext;
 import com.jitong.projectflow.common.api.PageResult;
 import com.jitong.projectflow.common.api.PageUtils;
@@ -25,6 +26,7 @@ import java.util.List;
 public class DailyReportService {
     private final DailyReportMapper dailyReportMapper;
     private final OperationLogService operationLogService;
+    private final BusinessAccessService businessAccessService;
 
     public DailyReportResponse create(DailyReportCreateRequest request) {
         DailyReportEntity entity = new DailyReportEntity();
@@ -55,6 +57,7 @@ public class DailyReportService {
 
     public DailyReportResponse update(Long id, DailyReportUpdateRequest request) {
         DailyReportEntity entity = requireReport(id);
+        businessAccessService.requireDailyReportManage(entity);
         if (request.getProjectId() != null) entity.setProjectId(request.getProjectId());
         if (request.getReportDate() != null) entity.setReportDate(request.getReportDate());
         if (request.getContent() != null) entity.setContent(request.getContent());
@@ -66,6 +69,7 @@ public class DailyReportService {
 
     public void delete(Long id) {
         DailyReportEntity entity = requireReport(id);
+        businessAccessService.requireDailyReportManage(entity);
         dailyReportMapper.deleteById(id);
         operationLogService.record("daily-report", "DailyReport", id, "DELETE", entity.getContent());
     }

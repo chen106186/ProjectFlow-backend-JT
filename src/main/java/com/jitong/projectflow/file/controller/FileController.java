@@ -65,7 +65,6 @@ public class FileController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority('file:delete')")
     public ApiResponse<Void> delete(@PathVariable Long id) {
         fileService.delete(id);
         return ApiResponse.success(null, MDC.get("traceId"));

@@ -54,25 +54,21 @@ public class BugController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('bug:update')")
     public ApiResponse<BugResponse> update(@PathVariable Long id, @Valid @RequestBody BugUpdateRequest request) {
         return ApiResponse.success(bugService.update(id, request), MDC.get("traceId"));
     }
 
     @PatchMapping("/{id}/assign")
-    @PreAuthorize("hasAuthority('bug:update')")
     public ApiResponse<BugResponse> assign(@PathVariable Long id, @Valid @RequestBody BugAssignRequest request) {
         return ApiResponse.success(bugService.assign(id, request), MDC.get("traceId"));
     }
 
     @PatchMapping("/{id}/close")
-    @PreAuthorize("hasAuthority('bug:update')")
     public ApiResponse<BugResponse> close(@PathVariable Long id) {
         return ApiResponse.success(bugService.close(id), MDC.get("traceId"));
     }
 
     @PostMapping("/{id}/comments")
-    @PreAuthorize("hasAuthority('bug:update')")
     public ApiResponse<BugCommentResponse> addComment(@PathVariable Long id, @Valid @RequestBody BugCommentCreateRequest request) {
         return ApiResponse.success(bugService.addComment(id, request), MDC.get("traceId"));
     }

@@ -51,13 +51,11 @@ public class DailyReportController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('daily-report:update')")
     public ApiResponse<DailyReportResponse> update(@PathVariable Long id, @Valid @RequestBody DailyReportUpdateRequest request) {
         return ApiResponse.success(dailyReportService.update(id, request), MDC.get("traceId"));
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority('daily-report:update')")
     public ApiResponse<Void> delete(@PathVariable Long id) {
         dailyReportService.delete(id);
         return ApiResponse.success(null, MDC.get("traceId"));

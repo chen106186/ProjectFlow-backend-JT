@@ -1,6 +1,7 @@
 package com.jitong.projectflow.project.service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.jitong.projectflow.auth.security.BusinessAccessService;
 import com.jitong.projectflow.auth.security.CurrentUserContext;
 import com.jitong.projectflow.project.dto.ProjectCreateRequest;
 import com.jitong.projectflow.project.dto.ProjectQueryRequest;
@@ -28,6 +29,9 @@ class ProjectServiceTest {
     @Mock
     OperationLogService operationLogService;
 
+    @Mock
+    BusinessAccessService businessAccessService;
+
     @AfterEach
     void clearCurrentUser() {
         CurrentUserContext.clear();
@@ -36,7 +40,7 @@ class ProjectServiceTest {
     @Test
     void createDefaultsStatusAndWritesOperationLog() {
         CurrentUserContext.set(1001L);
-        ProjectService service = new ProjectService(projectMapper, operationLogService);
+        ProjectService service = new ProjectService(projectMapper, operationLogService, businessAccessService);
         ProjectCreateRequest request = new ProjectCreateRequest();
         request.setProjectType("EXECUTION");
         request.setName("Project A");
@@ -67,7 +71,7 @@ class ProjectServiceTest {
         when(projectMapper.selectPage(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any())).thenReturn(page);
 
         ProjectQueryRequest request = new ProjectQueryRequest();
-        var result = new ProjectService(projectMapper, operationLogService).list(request);
+        var result = new ProjectService(projectMapper, operationLogService, businessAccessService).list(request);
 
         assertThat(result.total()).isEqualTo(1);
         assertThat(result.records()).extracting("name").containsExactly("Project A");

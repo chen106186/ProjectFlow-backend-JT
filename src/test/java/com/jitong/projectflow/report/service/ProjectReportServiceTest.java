@@ -1,6 +1,7 @@
 package com.jitong.projectflow.report.service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.jitong.projectflow.auth.security.BusinessAccessService;
 import com.jitong.projectflow.auth.security.CurrentUserContext;
 import com.jitong.projectflow.report.dto.ProjectReportCreateRequest;
 import com.jitong.projectflow.report.dto.ProjectReportItemCreateRequest;
@@ -36,6 +37,9 @@ class ProjectReportServiceTest {
     @Mock
     OperationLogService operationLogService;
 
+    @Mock
+    BusinessAccessService businessAccessService;
+
     @AfterEach
     void clearCurrentUser() {
         CurrentUserContext.clear();
@@ -53,7 +57,7 @@ class ProjectReportServiceTest {
         request.setLocationMethod("Meeting room");
         request.setDescription("Prepare Q2 report");
 
-        ProjectReportService service = new ProjectReportService(projectReportMapper, projectReportItemMapper, operationLogService);
+        ProjectReportService service = new ProjectReportService(projectReportMapper, projectReportItemMapper, operationLogService, businessAccessService);
         service.create(request);
 
         ArgumentCaptor<ProjectReportEntity> captor = ArgumentCaptor.forClass(ProjectReportEntity.class);
@@ -75,7 +79,7 @@ class ProjectReportServiceTest {
         page.setRecords(java.util.List.of(report));
         when(projectReportMapper.selectPage(any(), any())).thenReturn(page);
 
-        var result = new ProjectReportService(projectReportMapper, projectReportItemMapper, operationLogService).list(new ProjectReportQueryRequest());
+        var result = new ProjectReportService(projectReportMapper, projectReportItemMapper, operationLogService, businessAccessService).list(new ProjectReportQueryRequest());
 
         assertThat(result.total()).isEqualTo(1);
         assertThat(result.records()).extracting("title").containsExactly("Q2 progress");
@@ -94,9 +98,10 @@ class ProjectReportServiceTest {
         ProjectReportStatusUpdateRequest request = new ProjectReportStatusUpdateRequest();
         request.setStatus("COMPLETED");
 
-        new ProjectReportService(projectReportMapper, projectReportItemMapper, operationLogService).updateStatus(10L, request);
+        new ProjectReportService(projectReportMapper, projectReportItemMapper, operationLogService, businessAccessService).updateStatus(10L, request);
 
         ArgumentCaptor<ProjectReportEntity> captor = ArgumentCaptor.forClass(ProjectReportEntity.class);
+        verify(businessAccessService).requireProjectReportManage(report);
         verify(projectReportMapper).updateById(captor.capture());
         assertThat(captor.getValue().getStatus()).isEqualTo("COMPLETED");
         assertThat(captor.getValue().getUpdatedBy()).isEqualTo(1001L);
@@ -116,9 +121,10 @@ class ProjectReportServiceTest {
         request.setPriority("HIGH");
         request.setStatus("NOT_STARTED");
 
-        new ProjectReportService(projectReportMapper, projectReportItemMapper, operationLogService).createItem(10L, request);
+        new ProjectReportService(projectReportMapper, projectReportItemMapper, operationLogService, businessAccessService).createItem(10L, request);
 
         ArgumentCaptor<ProjectReportItemEntity> captor = ArgumentCaptor.forClass(ProjectReportItemEntity.class);
+        verify(businessAccessService).requireProjectReportManage(report);
         verify(projectReportItemMapper).insert(captor.capture());
         assertThat(captor.getValue().getReportId()).isEqualTo(10L);
         assertThat(captor.getValue().getContent()).isEqualTo("Prepare slides");

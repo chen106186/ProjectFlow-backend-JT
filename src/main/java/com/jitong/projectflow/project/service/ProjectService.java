@@ -2,6 +2,7 @@ package com.jitong.projectflow.project.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.jitong.projectflow.auth.security.BusinessAccessService;
 import com.jitong.projectflow.auth.security.CurrentUserContext;
 import com.jitong.projectflow.common.api.PageResult;
 import com.jitong.projectflow.common.api.PageUtils;
@@ -25,6 +26,7 @@ import java.util.List;
 public class ProjectService {
     private final ProjectMapper projectMapper;
     private final OperationLogService operationLogService;
+    private final BusinessAccessService businessAccessService;
 
     public ProjectResponse create(ProjectCreateRequest request) {
         ProjectEntity entity = new ProjectEntity();
@@ -63,6 +65,7 @@ public class ProjectService {
 
     public ProjectResponse update(Long id, ProjectUpdateRequest request) {
         ProjectEntity entity = requireProject(id);
+        businessAccessService.requireProjectManage(entity);
         if (request.getProjectType() != null) entity.setProjectType(request.getProjectType());
         if (request.getName() != null) entity.setName(request.getName());
         if (request.getStage() != null) entity.setStage(request.getStage());
@@ -82,6 +85,7 @@ public class ProjectService {
 
     public void delete(Long id) {
         ProjectEntity entity = requireProject(id);
+        businessAccessService.requireProjectManage(entity);
         projectMapper.deleteById(id);
         operationLogService.record("project", "Project", id, "DELETE", entity.getName());
     }

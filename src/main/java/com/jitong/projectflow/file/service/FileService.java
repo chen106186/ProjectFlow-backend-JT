@@ -1,6 +1,7 @@
 package com.jitong.projectflow.file.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.jitong.projectflow.auth.security.BusinessAccessService;
 import com.jitong.projectflow.auth.security.CurrentUserContext;
 import com.jitong.projectflow.common.error.BusinessException;
 import com.jitong.projectflow.common.error.ErrorCode;
@@ -33,6 +34,7 @@ public class FileService {
 
     private final FileMetadataMapper fileMetadataMapper;
     private final FileStorageService fileStorageService;
+    private final BusinessAccessService businessAccessService;
 
     public FileResponse upload(String businessType, Long businessId, String versionNo, MultipartFile file) {
         validateUpload(businessType, businessId, file);
@@ -81,6 +83,7 @@ public class FileService {
 
     public void delete(Long id) {
         FileMetadata metadata = requireFile(id);
+        businessAccessService.requireFileDelete(metadata);
         fileMetadataMapper.deleteById(id);
         fileStorageService.delete(metadata.getStorageKey());
     }

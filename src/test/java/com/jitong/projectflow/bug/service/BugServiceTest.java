@@ -1,6 +1,7 @@
 package com.jitong.projectflow.bug.service;
 
 import com.jitong.projectflow.auth.security.CurrentUserContext;
+import com.jitong.projectflow.auth.security.BusinessAccessService;
 import com.jitong.projectflow.bug.domain.BugStatus;
 import com.jitong.projectflow.bug.dto.BugAssignRequest;
 import com.jitong.projectflow.bug.dto.BugCommentCreateRequest;
@@ -32,6 +33,8 @@ class BugServiceTest {
     OperationLogService operationLogService;
     @Mock
     NoticeService noticeService;
+    @Mock
+    BusinessAccessService businessAccessService;
 
     @AfterEach
     void clearCurrentUser() {
@@ -47,9 +50,10 @@ class BugServiceTest {
         request.setAssigneeId(2002L);
         request.setReason("handoff");
 
-        new BugService(bugMapper, bugCommentMapper, operationLogService, noticeService).assign(10L, request);
+        new BugService(bugMapper, bugCommentMapper, operationLogService, noticeService, businessAccessService).assign(10L, request);
 
         assertThat(bug.getAssigneeId()).isEqualTo(2002L);
+        verify(businessAccessService).requireBugEdit(bug);
         verify(bugMapper).updateById(bug);
         verify(noticeService).create(2002L, NoticeType.BUG_ASSIGNED, "BUG assigned", "Login fails", "Bug", 10L);
         verify(operationLogService).record("bug", "Bug", 10L, "ASSIGN", "handoff");
@@ -61,10 +65,11 @@ class BugServiceTest {
         BugEntity bug = bug(10L);
         when(bugMapper.selectById(10L)).thenReturn(bug);
 
-        new BugService(bugMapper, bugCommentMapper, operationLogService, noticeService).close(10L);
+        new BugService(bugMapper, bugCommentMapper, operationLogService, noticeService, businessAccessService).close(10L);
 
         assertThat(bug.getStatus()).isEqualTo(BugStatus.CLOSED.name());
         assertThat(bug.getClosedAt()).isNotNull();
+        verify(businessAccessService).requireBugClose(bug);
         verify(operationLogService).record("bug", "Bug", 10L, "CLOSE", "Login fails");
     }
 
@@ -76,9 +81,10 @@ class BugServiceTest {
         BugCommentCreateRequest request = new BugCommentCreateRequest();
         request.setContent("please verify");
 
-        new BugService(bugMapper, bugCommentMapper, operationLogService, noticeService).addComment(10L, request);
+        new BugService(bugMapper, bugCommentMapper, operationLogService, noticeService, businessAccessService).addComment(10L, request);
 
         ArgumentCaptor<BugCommentEntity> captor = ArgumentCaptor.forClass(BugCommentEntity.class);
+        verify(businessAccessService).requireBugEdit(bug);
         verify(bugCommentMapper).insert(captor.capture());
         assertThat(captor.getValue().getBugId()).isEqualTo(10L);
         assertThat(captor.getValue().getUserId()).isEqualTo(1001L);

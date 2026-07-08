@@ -2,6 +2,7 @@ package com.jitong.projectflow.bug.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.jitong.projectflow.auth.security.BusinessAccessService;
 import com.jitong.projectflow.auth.security.CurrentUserContext;
 import com.jitong.projectflow.bug.domain.BugStatus;
 import com.jitong.projectflow.bug.dto.BugAssignRequest;
@@ -36,6 +37,7 @@ public class BugService {
     private final BugCommentMapper bugCommentMapper;
     private final OperationLogService operationLogService;
     private final NoticeService noticeService;
+    private final BusinessAccessService businessAccessService;
 
     public BugResponse create(BugCreateRequest request) {
         BugEntity entity = new BugEntity();
@@ -80,6 +82,7 @@ public class BugService {
 
     public BugResponse update(Long id, BugUpdateRequest request) {
         BugEntity entity = requireBug(id);
+        businessAccessService.requireBugEdit(entity);
         if (request.getProjectId() != null) entity.setProjectId(request.getProjectId());
         if (request.getTaskId() != null) entity.setTaskId(request.getTaskId());
         if (request.getTitle() != null) entity.setTitle(request.getTitle());
@@ -96,6 +99,7 @@ public class BugService {
 
     public BugResponse assign(Long id, BugAssignRequest request) {
         BugEntity entity = requireBug(id);
+        businessAccessService.requireBugEdit(entity);
         entity.setAssigneeId(request.getAssigneeId());
         entity.setUpdatedBy(CurrentUserContext.userIdOrNull());
         bugMapper.updateById(entity);
@@ -107,6 +111,7 @@ public class BugService {
 
     public BugResponse close(Long id) {
         BugEntity entity = requireBug(id);
+        businessAccessService.requireBugClose(entity);
         entity.setStatus(BugStatus.CLOSED.name());
         entity.setClosedAt(LocalDateTime.now());
         entity.setUpdatedBy(CurrentUserContext.userIdOrNull());
@@ -117,6 +122,7 @@ public class BugService {
 
     public BugCommentResponse addComment(Long bugId, BugCommentCreateRequest request) {
         BugEntity bug = requireBug(bugId);
+        businessAccessService.requireBugEdit(bug);
         BugCommentEntity comment = new BugCommentEntity();
         comment.setBugId(bugId);
         comment.setUserId(CurrentUserContext.userId());

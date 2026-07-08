@@ -164,13 +164,13 @@ class SecurityConfigTest {
     }
 
     @Test
-    void fileDeleteRequiresDeletePermission() throws Exception {
+    void fileDeleteUsesServiceLevelBusinessAccess() throws Exception {
         when(currentUserPermissionService.getPermissionsByUserId(1L)).thenReturn(List.of());
 
         mockMvc.perform(delete("/api/files/10")
                         .header("Authorization", bearerToken(1L)))
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code").value(403));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0));
     }
 
     private String bearerToken(Long userId) {

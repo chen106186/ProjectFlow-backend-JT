@@ -2,6 +2,7 @@ package com.jitong.projectflow.task.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.jitong.projectflow.auth.security.BusinessAccessService;
 import com.jitong.projectflow.auth.security.CurrentUserContext;
 import com.jitong.projectflow.common.api.PageResult;
 import com.jitong.projectflow.common.api.PageUtils;
@@ -29,6 +30,7 @@ import java.util.List;
 public class TaskService {
     private final TaskMapper taskMapper;
     private final OperationLogService operationLogService;
+    private final BusinessAccessService businessAccessService;
     private final TaskStatusCalculator statusCalculator = new TaskStatusCalculator();
 
     public TaskResponse create(TaskCreateRequest request) {
@@ -67,6 +69,7 @@ public class TaskService {
 
     public TaskResponse update(Long id, TaskUpdateRequest request) {
         TaskEntity entity = requireTask(id);
+        businessAccessService.requireTaskManage(entity);
         if (request.getProjectId() != null) entity.setProjectId(request.getProjectId());
         if (request.getName() != null) entity.setName(request.getName());
         if (request.getRoleName() != null) entity.setRoleName(request.getRoleName());
@@ -88,6 +91,7 @@ public class TaskService {
 
     public TaskResponse updateActualTime(Long id, TaskActualTimeUpdateRequest request) {
         TaskEntity entity = requireTask(id);
+        businessAccessService.requireTaskActualTimeManage(entity);
         if (request.getActualStartDate() != null) entity.setActualStartDate(request.getActualStartDate());
         if (request.getActualEndDate() != null) entity.setActualEndDate(request.getActualEndDate());
         if (request.getRemark() != null) entity.setRemark(request.getRemark());
@@ -100,6 +104,7 @@ public class TaskService {
 
     public void delete(Long id) {
         TaskEntity entity = requireTask(id);
+        businessAccessService.requireTaskManage(entity);
         taskMapper.deleteById(id);
         operationLogService.record("task", "Task", id, "DELETE", entity.getName());
     }

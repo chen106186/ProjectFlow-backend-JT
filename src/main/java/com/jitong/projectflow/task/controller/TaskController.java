@@ -66,7 +66,6 @@ public class TaskController {
     }
 
     @PatchMapping("/{id}/actual-time")
-    @PreAuthorize("hasAuthority('task:update')")
     public ApiResponse<TaskResponse> updateActualTime(@PathVariable Long id, @Valid @RequestBody TaskActualTimeUpdateRequest request) {
         return ApiResponse.success(taskService.updateActualTime(id, request), MDC.get("traceId"));
     }

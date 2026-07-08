@@ -2,6 +2,7 @@ package com.jitong.projectflow.report.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.jitong.projectflow.auth.security.BusinessAccessService;
 import com.jitong.projectflow.auth.security.CurrentUserContext;
 import com.jitong.projectflow.common.api.PageResult;
 import com.jitong.projectflow.common.api.PageUtils;
@@ -34,6 +35,7 @@ public class ProjectReportService {
     private final ProjectReportMapper projectReportMapper;
     private final ProjectReportItemMapper projectReportItemMapper;
     private final OperationLogService operationLogService;
+    private final BusinessAccessService businessAccessService;
 
     public ProjectReportResponse create(ProjectReportCreateRequest request) {
         ProjectReportEntity entity = new ProjectReportEntity();
@@ -64,6 +66,7 @@ public class ProjectReportService {
 
     public ProjectReportResponse update(Long id, ProjectReportUpdateRequest request) {
         ProjectReportEntity entity = requireReport(id);
+        businessAccessService.requireProjectReportManage(entity);
         if (request.getProjectId() != null) entity.setProjectId(request.getProjectId());
         if (request.getTitle() != null) entity.setTitle(request.getTitle());
         if (request.getReportType() != null) entity.setReportType(request.getReportType());
@@ -81,6 +84,7 @@ public class ProjectReportService {
 
     public ProjectReportResponse updateStatus(Long id, ProjectReportStatusUpdateRequest request) {
         ProjectReportEntity entity = requireReport(id);
+        businessAccessService.requireProjectReportManage(entity);
         entity.setStatus(request.getStatus());
         entity.setUpdatedBy(CurrentUserContext.userIdOrNull());
         projectReportMapper.updateById(entity);
@@ -90,12 +94,14 @@ public class ProjectReportService {
 
     public void delete(Long id) {
         ProjectReportEntity entity = requireReport(id);
+        businessAccessService.requireProjectReportManage(entity);
         projectReportMapper.deleteById(id);
         operationLogService.record("project-report", "ProjectReport", id, "DELETE", entity.getTitle());
     }
 
     public ProjectReportItemResponse createItem(Long reportId, ProjectReportItemCreateRequest request) {
-        requireReport(reportId);
+        ProjectReportEntity report = requireReport(reportId);
+        businessAccessService.requireProjectReportManage(report);
         ProjectReportItemEntity entity = new ProjectReportItemEntity();
         entity.setReportId(reportId);
         entity.setContent(request.getContent());
@@ -111,7 +117,8 @@ public class ProjectReportService {
     }
 
     public ProjectReportItemResponse updateItem(Long reportId, Long itemId, ProjectReportItemUpdateRequest request) {
-        requireReport(reportId);
+        ProjectReportEntity report = requireReport(reportId);
+        businessAccessService.requireProjectReportManage(report);
         ProjectReportItemEntity entity = requireItem(reportId, itemId);
         if (request.getContent() != null) entity.setContent(request.getContent());
         if (request.getOwnerId() != null) entity.setOwnerId(request.getOwnerId());
@@ -126,7 +133,8 @@ public class ProjectReportService {
     }
 
     public void deleteItem(Long reportId, Long itemId) {
-        requireReport(reportId);
+        ProjectReportEntity report = requireReport(reportId);
+        businessAccessService.requireProjectReportManage(report);
         ProjectReportItemEntity entity = requireItem(reportId, itemId);
         projectReportItemMapper.deleteById(itemId);
         operationLogService.record("project-report", "ProjectReport", reportId, "DELETE_ITEM", entity.getContent());
