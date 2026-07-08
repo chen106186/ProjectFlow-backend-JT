@@ -71,16 +71,22 @@ public class GlobalExceptionHandler {
     ResponseEntity<ApiResponse<Void>> handleDataAccess(DataAccessException ex, HttpServletRequest request) {
         log.error("数据库异常 traceId={} path={}", traceId(), requestPath(request), ex);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ApiResponse.failure(ErrorCode.INTERNAL_ERROR.code(),
-                        "数据保存或查询失败，请检查提交内容后重试。", traceId()));
+                .body(ApiResponse.failure(
+                        ErrorCode.INTERNAL_ERROR.code(),
+                        "数据保存或查询失败，请检查提交内容后重试。",
+                        traceId()
+                ));
     }
 
     @ExceptionHandler(Exception.class)
     ResponseEntity<ApiResponse<Void>> handleOther(Exception ex, HttpServletRequest request) {
         log.error("系统异常 traceId={} path={}", traceId(), requestPath(request), ex);
         return ResponseEntity.internalServerError()
-                .body(ApiResponse.failure(ErrorCode.INTERNAL_ERROR.code(),
-                        "系统处理失败，请联系管理员并提供追踪ID：" + traceId(), traceId()));
+                .body(ApiResponse.failure(
+                        ErrorCode.INTERNAL_ERROR.code(),
+                        "系统处理失败，请联系管理员并提供追踪ID：" + traceId(),
+                        traceId()
+                ));
     }
 
     private String fieldErrorMessage(FieldError error) {
