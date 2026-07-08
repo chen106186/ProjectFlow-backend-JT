@@ -3,21 +3,21 @@ package com.jitong.projectflow.system.controller;
 import com.jitong.projectflow.common.api.ApiResponse;
 import com.jitong.projectflow.common.api.PageResult;
 import com.jitong.projectflow.system.dto.CurrentUserProfileResponse;
-import com.jitong.projectflow.system.dto.DepartmentResponse;
 import com.jitong.projectflow.system.dto.DepartmentCreateRequest;
+import com.jitong.projectflow.system.dto.DepartmentResponse;
 import com.jitong.projectflow.system.dto.DepartmentUpdateRequest;
-import com.jitong.projectflow.system.dto.MenuResponse;
 import com.jitong.projectflow.system.dto.MenuCreateRequest;
+import com.jitong.projectflow.system.dto.MenuResponse;
 import com.jitong.projectflow.system.dto.MenuUpdateRequest;
 import com.jitong.projectflow.system.dto.OperationLogQueryRequest;
 import com.jitong.projectflow.system.dto.OperationLogResponse;
-import com.jitong.projectflow.system.dto.RoleResponse;
 import com.jitong.projectflow.system.dto.RoleCreateRequest;
 import com.jitong.projectflow.system.dto.RoleDetailResponse;
 import com.jitong.projectflow.system.dto.RoleMenuAssignRequest;
+import com.jitong.projectflow.system.dto.RoleResponse;
 import com.jitong.projectflow.system.dto.RoleUpdateRequest;
-import com.jitong.projectflow.system.dto.SystemUserResponse;
 import com.jitong.projectflow.system.dto.SystemUserQueryRequest;
+import com.jitong.projectflow.system.dto.SystemUserResponse;
 import com.jitong.projectflow.system.dto.UserCreateRequest;
 import com.jitong.projectflow.system.dto.UserDetailResponse;
 import com.jitong.projectflow.system.dto.UserEnabledUpdateRequest;
@@ -29,8 +29,8 @@ import com.jitong.projectflow.system.service.DepartmentManagementService;
 import com.jitong.projectflow.system.service.MenuManagementService;
 import com.jitong.projectflow.system.service.OperationLogQueryService;
 import com.jitong.projectflow.system.service.RoleManagementService;
-import com.jitong.projectflow.system.service.SystemUserManagementService;
 import com.jitong.projectflow.system.service.SystemQueryService;
+import com.jitong.projectflow.system.service.SystemUserManagementService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -46,7 +46,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -87,7 +86,7 @@ public class SystemController {
     }
 
     @Operation(summary = "分页查询用户列表",
-            description = "按用户名、姓名、部门和启用状态分页查询系统用户。")
+            description = "按账号、姓名、部门和启用状态分页查询系统用户。")
     @GetMapping("/users")
     @PreAuthorize("hasAuthority('system:user:view')")
     public ApiResponse<PageResult<SystemUserResponse>> listUsers(@Valid @ModelAttribute SystemUserQueryRequest request) {
@@ -95,7 +94,7 @@ public class SystemController {
     }
 
     @Operation(summary = "新增用户",
-            description = "创建系统用户并设置所属部门、岗位、账号状态和初始角色。")
+            description = "创建系统用户，设置所属部门、岗位、账号状态、初始密码和初始角色。")
     @PostMapping("/users")
     @PreAuthorize("hasAuthority('system:user:create')")
     public ApiResponse<UserDetailResponse> createUser(@Valid @RequestBody UserCreateRequest request) {

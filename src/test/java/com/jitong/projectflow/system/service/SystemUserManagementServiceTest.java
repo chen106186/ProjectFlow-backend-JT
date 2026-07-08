@@ -61,6 +61,26 @@ class SystemUserManagementServiceTest {
     }
 
     @Test
+    void createAssignsInitialRoles() {
+        when(systemUserMapper.selectCount(any())).thenReturn(0L);
+        when(passwordEncoder.encode("secret")).thenReturn("hashed");
+        UserCreateRequest request = new UserCreateRequest();
+        request.setUsername("wangwu");
+        request.setRealName("Wang Wu");
+        request.setPassword("secret");
+        request.setRoleIds(List.of(10L, 20L));
+
+        var response = new SystemUserManagementService(systemUserMapper, userRoleMapper, passwordEncoder, operationLogService)
+                .create(request);
+
+        ArgumentCaptor<SystemUser> captor = ArgumentCaptor.forClass(SystemUser.class);
+        verify(systemUserMapper).insert(captor.capture());
+        verify(userRoleMapper).insertRelation(captor.getValue().getId(), 10L);
+        verify(userRoleMapper).insertRelation(captor.getValue().getId(), 20L);
+        assertThat(response.getRoleIds()).containsExactly(10L, 20L);
+    }
+
+    @Test
     void updateEnabledChangesFlagAndWritesLog() {
         SystemUser user = new SystemUser();
         user.setId(1L);

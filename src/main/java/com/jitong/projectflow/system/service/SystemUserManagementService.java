@@ -46,8 +46,12 @@ public class SystemUserManagementService {
         user.setCreatedBy(CurrentUserContext.userIdOrNull());
         user.setCreatedAt(LocalDateTime.now());
         systemUserMapper.insert(user);
+        List<Long> roleIds = request.getRoleIds() == null ? List.of() : request.getRoleIds();
+        for (Long roleId : roleIds) {
+            userRoleMapper.insertRelation(user.getId(), roleId);
+        }
         operationLogService.record("system", "User", user.getId(), "CREATE", "Create user " + user.getUsername());
-        return toDetailResponse(user, List.of());
+        return toDetailResponse(user, new ArrayList<>(roleIds));
     }
 
     public UserDetailResponse getById(Long id) {
