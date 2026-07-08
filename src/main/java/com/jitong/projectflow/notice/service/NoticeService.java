@@ -42,6 +42,17 @@ public class NoticeService {
         noticeMapper.insert(entity);
     }
 
+    public boolean existsBusinessNotice(Long receiverId, NoticeType type, String title,
+                                        String businessType, Long businessId) {
+        LambdaQueryWrapper<NoticeEntity> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(NoticeEntity::getReceiverId, receiverId)
+               .eq(NoticeEntity::getNoticeType, type.name())
+               .eq(NoticeEntity::getTitle, title)
+               .eq(NoticeEntity::getBusinessType, businessType)
+               .eq(NoticeEntity::getBusinessId, businessId);
+        return noticeMapper.selectCount(wrapper) > 0;
+    }
+
     public long unreadCount(Long receiverId) {
         LambdaQueryWrapper<NoticeEntity> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(NoticeEntity::getReceiverId, receiverId)
