@@ -1,6 +1,7 @@
 package com.jitong.projectflow.auth.security;
 
 import com.jitong.projectflow.system.service.CurrentUserPermissionService;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -20,6 +21,12 @@ public class SecurityConfig {
     private final CurrentUserPermissionService currentUserPermissionService;
     private final SecurityErrorResponseWriter securityErrorResponseWriter;
 
+    @Value("${projectflow.security.enabled:true}")
+    private boolean securityEnabled;
+
+    @Value("${projectflow.security.dev-user-id:1}")
+    private long devUserId;
+
     public SecurityConfig(JwtTokenService jwtTokenService,
                           CurrentUserPermissionService currentUserPermissionService,
                           SecurityErrorResponseWriter securityErrorResponseWriter) {
@@ -30,6 +37,17 @@ public class SecurityConfig {
 
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        if (!securityEnabled) {
+            return http
+                    .csrf(csrf -> csrf.disable())
+                    .formLogin(form -> form.disable())
+                    .httpBasic(basic -> basic.disable())
+                    .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                    .addFilterBefore(new DevBypassFilter(jwtTokenService, currentUserPermissionService, devUserId),
+                            UsernamePasswordAuthenticationFilter.class)
+                    .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
+                    .build();
+        }
         return http
                 .csrf(csrf -> csrf.disable())
                 .formLogin(form -> form.disable())

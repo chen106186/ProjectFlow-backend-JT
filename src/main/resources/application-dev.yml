@@ -1,0 +1,4 @@
+projectflow:
+  security:
+    enabled: false
+    dev-user-id: 1

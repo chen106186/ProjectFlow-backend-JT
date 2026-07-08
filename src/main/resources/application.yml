@@ -35,6 +35,9 @@ mybatis-plus:
       logic-not-delete-value: 0
 
 projectflow:
+  security:
+    enabled: true
+    dev-user-id: 1
   jwt:
     secret: "replace-with-at-least-32-byte-local-secret"
     ttl-minutes: 720
