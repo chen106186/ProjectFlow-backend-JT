@@ -2,11 +2,14 @@ package com.jitong.projectflow.requirement.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.jitong.projectflow.auth.security.BusinessAccessService;
 import com.jitong.projectflow.auth.security.CurrentUserContext;
 import com.jitong.projectflow.common.api.PageResult;
 import com.jitong.projectflow.common.api.PageUtils;
 import com.jitong.projectflow.common.error.BusinessException;
 import com.jitong.projectflow.common.error.ErrorCode;
+import com.jitong.projectflow.notice.domain.NoticeType;
+import com.jitong.projectflow.notice.service.NoticeService;
 import com.jitong.projectflow.requirement.domain.RequirementStatus;
 import com.jitong.projectflow.requirement.domain.RequirementStatusPolicy;
 import com.jitong.projectflow.requirement.dto.RequirementCreateRequest;
@@ -27,11 +30,18 @@ public class RequirementService {
 
     private final RequirementMapper requirementMapper;
     private final OperationLogService operationLogService;
+    private final NoticeService noticeService;
+    private final BusinessAccessService businessAccessService;
     private final RequirementStatusPolicy statusPolicy = new RequirementStatusPolicy();
 
-    public RequirementService(RequirementMapper requirementMapper, OperationLogService operationLogService) {
+    public RequirementService(RequirementMapper requirementMapper,
+                              OperationLogService operationLogService,
+                              NoticeService noticeService,
+                              BusinessAccessService businessAccessService) {
         this.requirementMapper = requirementMapper;
         this.operationLogService = operationLogService;
+        this.noticeService = noticeService;
+        this.businessAccessService = businessAccessService;
     }
 
     public RequirementResponse create(RequirementCreateRequest req) {
@@ -57,6 +67,8 @@ public class RequirementService {
         if (request.getProjectId() != null) {
             wrapper.eq(RequirementEntity::getProjectId, request.getProjectId());
         }
+        applyReadScope(wrapper);
+        wrapper.orderByDesc(RequirementEntity::getCreatedAt);
         Page<RequirementEntity> page = requirementMapper.selectPage(PageUtils.toPage(request), wrapper);
         return PageUtils.toResult(page, page.getRecords().stream().map(this::toResponse).collect(Collectors.toList()));
     }
@@ -74,6 +86,7 @@ public class RequirementService {
         if (entity == null) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "需求不存在");
         }
+        businessAccessService.requireRequirementManage(entity);
 
         if (req.title() != null) entity.setTitle(req.title());
         if (req.requirementType() != null) entity.setRequirementType(req.requirementType());
@@ -95,6 +108,7 @@ public class RequirementService {
         if (entity == null) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "需求不存在");
         }
+        businessAccessService.requireRequirementManage(entity);
 
         RequirementStatus from = RequirementStatus.valueOf(entity.getStatus());
         RequirementStatus to;
@@ -115,6 +129,15 @@ public class RequirementService {
 
         operationLogService.record("requirement", "Requirement", id, "STATUS_CHANGE",
                 from.name() + " -> " + to.name());
+        Long currentUserId = CurrentUserContext.userIdOrNull();
+        if (entity.getCreatedBy() != null && !entity.getCreatedBy().equals(currentUserId)) {
+            noticeService.create(entity.getCreatedBy(),
+                    NoticeType.REQUIREMENT_STATUS_CHANGED,
+                    "需求状态变更",
+                    entity.getTitle() + "：" + from.name() + " -> " + to.name(),
+                    "Requirement",
+                    id);
+        }
 
         return toResponse(entity);
     }
@@ -125,6 +148,20 @@ public class RequirementService {
         wrapper.eq(RequirementEntity::getCreatedBy, userId);
         List<RequirementEntity> entities = requirementMapper.selectList(wrapper);
         return entities.stream().map(this::toResponse).collect(Collectors.toList());
+    }
+
+    private void applyReadScope(LambdaQueryWrapper<RequirementEntity> wrapper) {
+        if (businessAccessService.isSystemAdmin()) {
+            return;
+        }
+        Long userId = CurrentUserContext.userId();
+        wrapper.and(scope -> scope.eq(RequirementEntity::getCreatedBy, userId)
+                .or()
+                .inSql(RequirementEntity::getProjectId, managedProjectSql(userId)));
+    }
+
+    private String managedProjectSql(Long userId) {
+        return "select id from pf_project where deleted = 0 and (manager_id = " + userId + " or created_by = " + userId + ")";
     }
 
     private RequirementResponse toResponse(RequirementEntity entity) {

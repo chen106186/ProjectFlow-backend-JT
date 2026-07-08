@@ -63,6 +63,7 @@ public class BugService {
         wrapper.eq(StringUtils.hasText(request.getPriority()), BugEntity::getPriority, request.getPriority());
         wrapper.eq(request.getProjectId() != null, BugEntity::getProjectId, request.getProjectId());
         wrapper.like(StringUtils.hasText(request.getKeyword()), BugEntity::getTitle, request.getKeyword());
+        applyReadScope(wrapper);
         wrapper.orderByDesc(BugEntity::getCreatedAt);
         Page<BugEntity> page = bugMapper.selectPage(PageUtils.toPage(request), wrapper);
         return PageUtils.toResult(page, page.getRecords().stream().map(this::toResponse).toList());
@@ -149,6 +150,22 @@ public class BugService {
             throw new BusinessException(ErrorCode.NOT_FOUND, "缺陷不存在");
         }
         return entity;
+    }
+
+    private void applyReadScope(LambdaQueryWrapper<BugEntity> wrapper) {
+        if (businessAccessService.isSystemAdmin()) {
+            return;
+        }
+        Long userId = CurrentUserContext.userId();
+        wrapper.and(scope -> scope.eq(BugEntity::getCreatorId, userId)
+                .or()
+                .eq(BugEntity::getAssigneeId, userId)
+                .or()
+                .inSql(BugEntity::getProjectId, managedProjectSql(userId)));
+    }
+
+    private String managedProjectSql(Long userId) {
+        return "select id from pf_project where deleted = 0 and (manager_id = " + userId + " or created_by = " + userId + ")";
     }
 
     private BugResponse toResponse(BugEntity entity) {

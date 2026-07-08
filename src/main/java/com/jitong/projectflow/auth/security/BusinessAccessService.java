@@ -7,6 +7,7 @@ import com.jitong.projectflow.daily.entity.DailyReportEntity;
 import com.jitong.projectflow.file.entity.FileMetadata;
 import com.jitong.projectflow.project.entity.ProjectEntity;
 import com.jitong.projectflow.project.mapper.ProjectMapper;
+import com.jitong.projectflow.requirement.entity.RequirementEntity;
 import com.jitong.projectflow.report.entity.ProjectReportEntity;
 import com.jitong.projectflow.task.entity.TaskEntity;
 import lombok.RequiredArgsConstructor;
@@ -56,6 +57,14 @@ public class BusinessAccessService {
     public void requireBugClose(BugEntity bug) {
         Long userId = currentUserId();
         if (isSystemAdmin() || same(userId, bug.getCreatorId())) {
+            return;
+        }
+        throwForbidden();
+    }
+
+    public void requireRequirementManage(RequirementEntity requirement) {
+        Long userId = currentUserId();
+        if (isSystemAdmin() || same(userId, requirement.getCreatedBy()) || canManageProject(requirement.getProjectId(), userId)) {
             return;
         }
         throwForbidden();

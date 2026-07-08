@@ -65,6 +65,7 @@ class TaskServiceTest {
 
     @Test
     void listReturnsPagedTasks() {
+        CurrentUserContext.set(1001L);
         TaskEntity task = new TaskEntity();
         task.setId(1L);
         task.setName("Develop API");

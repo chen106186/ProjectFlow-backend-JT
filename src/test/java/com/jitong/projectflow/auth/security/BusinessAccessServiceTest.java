@@ -5,6 +5,7 @@ import com.jitong.projectflow.common.error.BusinessException;
 import com.jitong.projectflow.file.entity.FileMetadata;
 import com.jitong.projectflow.project.entity.ProjectEntity;
 import com.jitong.projectflow.project.mapper.ProjectMapper;
+import com.jitong.projectflow.requirement.entity.RequirementEntity;
 import com.jitong.projectflow.task.entity.TaskEntity;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -109,6 +110,19 @@ class BusinessAccessServiceTest {
         metadata.setUploaderId(1001L);
 
         assertThatCode(() -> new BusinessAccessService(projectMapper).requireFileDelete(metadata))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    void projectManagerCanManageRequirement() {
+        authenticate(1001L);
+        RequirementEntity requirement = new RequirementEntity();
+        requirement.setProjectId(10L);
+        ProjectEntity project = new ProjectEntity();
+        project.setManagerId(1001L);
+        when(projectMapper.selectById(10L)).thenReturn(project);
+
+        assertThatCode(() -> new BusinessAccessService(projectMapper).requireRequirementManage(requirement))
                 .doesNotThrowAnyException();
     }
 

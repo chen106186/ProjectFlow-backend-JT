@@ -54,6 +54,7 @@ public class ProjectService {
         wrapper.eq(StringUtils.hasText(request.getContractStatus()), ProjectEntity::getContractStatus, request.getContractStatus());
         wrapper.eq(request.getManagerId() != null, ProjectEntity::getManagerId, request.getManagerId());
         wrapper.like(StringUtils.hasText(request.getKeyword()), ProjectEntity::getName, request.getKeyword());
+        applyReadScope(wrapper);
         wrapper.orderByDesc(ProjectEntity::getCreatedAt);
         Page<ProjectEntity> page = projectMapper.selectPage(PageUtils.toPage(request), wrapper);
         return PageUtils.toResult(page, page.getRecords().stream().map(this::toResponse).toList());
@@ -96,6 +97,16 @@ public class ProjectService {
             throw new BusinessException(ErrorCode.NOT_FOUND, "项目不存在");
         }
         return entity;
+    }
+
+    private void applyReadScope(LambdaQueryWrapper<ProjectEntity> wrapper) {
+        if (businessAccessService.isSystemAdmin()) {
+            return;
+        }
+        Long userId = CurrentUserContext.userId();
+        wrapper.and(scope -> scope.eq(ProjectEntity::getManagerId, userId)
+                .or()
+                .eq(ProjectEntity::getCreatedBy, userId));
     }
 
     private ProjectResponse toResponse(ProjectEntity entity) {

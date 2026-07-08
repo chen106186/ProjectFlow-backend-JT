@@ -117,8 +117,25 @@ public class TaskService {
         wrapper.eq(StringUtils.hasText(request.getStatus()), TaskEntity::getStatus, request.getStatus());
         wrapper.eq(request.getPlannedEndDate() != null, TaskEntity::getPlannedEndDate, request.getPlannedEndDate());
         wrapper.like(StringUtils.hasText(request.getKeyword()), TaskEntity::getName, request.getKeyword());
+        applyReadScope(wrapper);
         wrapper.orderByDesc(TaskEntity::getCreatedAt);
         return wrapper;
+    }
+
+    private void applyReadScope(LambdaQueryWrapper<TaskEntity> wrapper) {
+        if (businessAccessService.isSystemAdmin()) {
+            return;
+        }
+        Long userId = CurrentUserContext.userId();
+        wrapper.and(scope -> scope.eq(TaskEntity::getAssigneeId, userId)
+                .or()
+                .eq(TaskEntity::getCreatedBy, userId)
+                .or()
+                .inSql(TaskEntity::getProjectId, managedProjectSql(userId)));
+    }
+
+    private String managedProjectSql(Long userId) {
+        return "select id from pf_project where deleted = 0 and (manager_id = " + userId + " or created_by = " + userId + ")";
     }
 
     private TaskStatus calculateStatus(TaskEntity entity) {

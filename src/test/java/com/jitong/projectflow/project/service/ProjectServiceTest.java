@@ -63,6 +63,7 @@ class ProjectServiceTest {
 
     @Test
     void listReturnsPagedProjects() {
+        CurrentUserContext.set(1001L);
         ProjectEntity project = new ProjectEntity();
         project.setId(1L);
         project.setName("Project A");
