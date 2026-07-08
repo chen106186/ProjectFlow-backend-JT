@@ -28,14 +28,15 @@ public class DashboardController {
             description = "返回管理类项目、执行类项目、进行中项目和已完成项目统计。")
     @GetMapping("/summary")
     public ApiResponse<DashboardSummaryResponse> summary() {
-        return ApiResponse.success(new DashboardSummaryResponse(0, 0, 0, 0), MDC.get("traceId"));
+        return ApiResponse.success(dashboardService.getSummary(), MDC.get("traceId"));
     }
 
     @Operation(summary = "查询首页待办列表",
             description = "返回首页待办事项列表，包含任务、缺陷等提醒数据。")
     @GetMapping("/todos")
     public ApiResponse<List<TodoItemResponse>> todos() {
-        return ApiResponse.success(List.of(), MDC.get("traceId"));
+        Long userId = CurrentUserContext.userId();
+        return ApiResponse.success(dashboardService.listTodos(userId), MDC.get("traceId"));
     }
 
     @Operation(summary = "查询我的统计",
