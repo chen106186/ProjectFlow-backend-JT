@@ -81,31 +81,26 @@ public class DailyReportService {
     }
 
     public int syncFilesToProject(Long reportId) {
-        // 1. 加载日报，不存在时抛异常
         DailyReportEntity report = requireReport(reportId);
         Long projectId = report.getProjectId();
 
-        // 2. 查询该日报下的所有文件
         List<FileMetadata> reportFiles = fileMetadataMapper.selectList(
-            new LambdaQueryWrapper<FileMetadata>()
-                .eq(FileMetadata::getBusinessType, "DAILY_REPORT")
-                .eq(FileMetadata::getBusinessId, reportId));
-
+                new LambdaQueryWrapper<FileMetadata>()
+                        .eq(FileMetadata::getBusinessType, "DAILY_REPORT")
+                        .eq(FileMetadata::getBusinessId, reportId));
         if (reportFiles.isEmpty()) {
             return 0;
         }
 
-        // 3. 查询已同步到该项目的 storageKey 集合（避免重复）
         List<FileMetadata> existingProjectFiles = fileMetadataMapper.selectList(
-            new LambdaQueryWrapper<FileMetadata>()
-                .eq(FileMetadata::getBusinessType, "PROJECT")
-                .eq(FileMetadata::getBusinessId, projectId));
+                new LambdaQueryWrapper<FileMetadata>()
+                        .eq(FileMetadata::getBusinessType, "PROJECT")
+                        .eq(FileMetadata::getBusinessId, projectId));
         Set<String> existingKeys = existingProjectFiles.stream()
-            .map(FileMetadata::getStorageKey)
-            .filter(Objects::nonNull)
-            .collect(Collectors.toSet());
+                .map(FileMetadata::getStorageKey)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
 
-        // 4. 对每个尚未同步的文件，插入 PROJECT 类型的镜像记录
         int count = 0;
         for (FileMetadata src : reportFiles) {
             if (src.getStorageKey() != null && existingKeys.contains(src.getStorageKey())) {

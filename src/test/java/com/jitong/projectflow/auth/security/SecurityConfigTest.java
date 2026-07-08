@@ -48,7 +48,7 @@ class SecurityConfigTest {
         mockMvc.perform(get("/api/system/users"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value(401))
-                .andExpect(jsonPath("$.message").value("Unauthorized"));
+                .andExpect(jsonPath("$.message").value("未登录或登录已过期"));
     }
 
     @Test
@@ -65,7 +65,7 @@ class SecurityConfigTest {
                         .header("Authorization", bearerToken(1L)))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value(403))
-                .andExpect(jsonPath("$.message").value("Forbidden"));
+                .andExpect(jsonPath("$.message").value("无权限访问该资源"));
     }
 
     @Test

@@ -55,9 +55,9 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .exceptionHandling(exceptions -> exceptions
                         .authenticationEntryPoint((request, response, authException) ->
-                                securityErrorResponseWriter.write(response, 401, "Unauthorized"))
+                                securityErrorResponseWriter.write(response, 401, "未登录或登录已过期"))
                         .accessDeniedHandler((request, response, accessDeniedException) ->
-                                securityErrorResponseWriter.write(response, 403, "Forbidden")))
+                                securityErrorResponseWriter.write(response, 403, "无权限访问该资源")))
                 .addFilterBefore(new JwtAuthenticationFilter(jwtTokenService, currentUserPermissionService), UsernamePasswordAuthenticationFilter.class)
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/login", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
