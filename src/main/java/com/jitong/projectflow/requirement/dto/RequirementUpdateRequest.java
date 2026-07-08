@@ -1,17 +1,25 @@
 package com.jitong.projectflow.requirement.dto;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+
 public class RequirementUpdateRequest {
 
+    @Schema(description = "标题。")
     private String title;
 
+    @Schema(description = "需求类型。")
     private String requirementType;
 
+    @Schema(description = "优先级，例如 LOW、MEDIUM、HIGH、URGENT。")
     private String priority;
 
+    @Schema(description = "项目 ID。")
     private Long projectId;
 
+    @Schema(description = "详细描述。")
     private String description;
 
+    @Schema(description = "标签，多个标签可用逗号分隔。")
     private String tags;
 
     public String title() { return title; }

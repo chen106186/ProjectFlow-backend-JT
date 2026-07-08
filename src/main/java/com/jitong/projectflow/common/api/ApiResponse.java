@@ -1,6 +1,20 @@
 package com.jitong.projectflow.common.api;
 
-public record ApiResponse<T>(int code, String message, T data, String traceId) {
+import io.swagger.v3.oas.annotations.media.Schema;
+
+@Schema(description = "统一接口响应结构。")
+public record ApiResponse<T>(
+        @Schema(description = "业务状态码，0 表示成功。")
+        int code,
+
+        @Schema(description = "响应消息。")
+        String message,
+
+        @Schema(description = "响应数据。")
+        T data,
+
+        @Schema(description = "请求链路追踪 ID，便于排查问题。")
+        String traceId) {
     public static <T> ApiResponse<T> success(T data, String traceId) {
         return new ApiResponse<>(0, "success", data, traceId);
     }
