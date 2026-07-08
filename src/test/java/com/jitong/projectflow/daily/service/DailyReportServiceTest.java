@@ -8,6 +8,7 @@ import com.jitong.projectflow.daily.dto.DailyReportQueryRequest;
 import com.jitong.projectflow.daily.dto.DailyReportUpdateRequest;
 import com.jitong.projectflow.daily.entity.DailyReportEntity;
 import com.jitong.projectflow.daily.mapper.DailyReportMapper;
+import com.jitong.projectflow.file.mapper.FileMetadataMapper;
 import com.jitong.projectflow.system.audit.OperationLogService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -34,6 +35,9 @@ class DailyReportServiceTest {
     @Mock
     BusinessAccessService businessAccessService;
 
+    @Mock
+    FileMetadataMapper fileMetadataMapper;
+
     @AfterEach
     void clearCurrentUser() {
         CurrentUserContext.clear();
@@ -47,7 +51,7 @@ class DailyReportServiceTest {
         request.setReportDate(LocalDate.of(2026, 7, 7));
         request.setContent("Completed API design");
 
-        DailyReportService service = new DailyReportService(dailyReportMapper, operationLogService, businessAccessService);
+        DailyReportService service = new DailyReportService(dailyReportMapper, operationLogService, businessAccessService, fileMetadataMapper);
         service.create(request);
 
         ArgumentCaptor<DailyReportEntity> captor = ArgumentCaptor.forClass(DailyReportEntity.class);
@@ -71,7 +75,7 @@ class DailyReportServiceTest {
         page.setRecords(java.util.List.of(report));
         when(dailyReportMapper.selectPage(any(), any())).thenReturn(page);
 
-        var result = new DailyReportService(dailyReportMapper, operationLogService, businessAccessService).list(new DailyReportQueryRequest());
+        var result = new DailyReportService(dailyReportMapper, operationLogService, businessAccessService, fileMetadataMapper).list(new DailyReportQueryRequest());
 
         assertThat(result.total()).isEqualTo(1);
         assertThat(result.records()).extracting("content").containsExactly("Daily note");
@@ -91,7 +95,7 @@ class DailyReportServiceTest {
         DailyReportUpdateRequest request = new DailyReportUpdateRequest();
         request.setContent("New content");
 
-        new DailyReportService(dailyReportMapper, operationLogService, businessAccessService).update(10L, request);
+        new DailyReportService(dailyReportMapper, operationLogService, businessAccessService, fileMetadataMapper).update(10L, request);
 
         ArgumentCaptor<DailyReportEntity> captor = ArgumentCaptor.forClass(DailyReportEntity.class);
         verify(businessAccessService).requireDailyReportManage(report);

@@ -12,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import org.slf4j.MDC;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -40,10 +41,11 @@ public class DashboardController {
     }
 
     @Operation(summary = "查询我的统计",
-            description = "统计当前登录用户的任务、Bug、需求和未读通知数量。")
+            description = "统计当前登录用户的任务、Bug、需求和未读通知数量。period 支持 today/week/month/year/all（默认 all）。")
     @GetMapping("/my-statistics")
-    public ApiResponse<MyStatisticsResponse> myStatistics() {
+    public ApiResponse<MyStatisticsResponse> myStatistics(
+            @RequestParam(defaultValue = "all") String period) {
         Long userId = CurrentUserContext.userId();
-        return ApiResponse.success(dashboardService.getMyStatistics(userId), MDC.get("traceId"));
+        return ApiResponse.success(dashboardService.getMyStatistics(userId, period), MDC.get("traceId"));
     }
 }

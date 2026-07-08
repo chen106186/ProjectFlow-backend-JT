@@ -63,7 +63,7 @@ class DashboardServiceTest {
                 bug(11L, 100L, "保存异常", "LOW", "CLOSED", 1L)
         ));
 
-        MyStatisticsResponse result = dashboardService.getMyStatistics(1L);
+        MyStatisticsResponse result = dashboardService.getMyStatistics(1L, "all");
 
         assertThat(result.getMyTaskTotal()).isEqualTo(5L);
         assertThat(result.getMyTaskCompleted()).isEqualTo(3L);

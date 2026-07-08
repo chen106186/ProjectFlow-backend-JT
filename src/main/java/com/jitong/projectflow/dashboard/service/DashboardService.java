@@ -8,6 +8,7 @@ import com.jitong.projectflow.dashboard.domain.TodoSortKey;
 import com.jitong.projectflow.dashboard.dto.DashboardSummaryResponse;
 import com.jitong.projectflow.dashboard.dto.MyStatisticsResponse;
 import com.jitong.projectflow.dashboard.dto.TodoItemResponse;
+import com.jitong.projectflow.dashboard.dto.TrendDataPoint;
 import com.jitong.projectflow.notice.entity.NoticeEntity;
 import com.jitong.projectflow.notice.mapper.NoticeMapper;
 import com.jitong.projectflow.project.entity.ProjectEntity;
@@ -24,10 +25,12 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -98,44 +101,82 @@ public class DashboardService {
                 .toList();
     }
 
-    public MyStatisticsResponse getMyStatistics(Long userId) {
+    public MyStatisticsResponse getMyStatistics(Long userId, String period) {
+        // 计算时间范围
+        LocalDate today = LocalDate.now();
+        LocalDate startDate = null;
+        LocalDate endDate = null;
+        if ("today".equals(period)) {
+            startDate = today;
+            endDate = today;
+        } else if ("week".equals(period)) {
+            startDate = today.minusDays(6);
+            endDate = today;
+        } else if ("month".equals(period)) {
+            startDate = today.minusDays(29);
+            endDate = today;
+        } else if ("year".equals(period)) {
+            startDate = today.minusDays(364);
+            endDate = today;
+        }
+        boolean hasPeriod = startDate != null;
+        final LocalDate fStart = startDate;
+        final LocalDate fEnd = endDate;
+
+        // 聚合统计（带时间过滤）
         long myTaskTotal = taskMapper.selectCount(
                 new LambdaQueryWrapper<TaskEntity>()
-                        .eq(TaskEntity::getAssigneeId, userId));
+                        .eq(TaskEntity::getAssigneeId, userId)
+                        .ge(hasPeriod, TaskEntity::getCreatedAt, hasPeriod ? startOfDay(fStart) : null)
+                        .le(hasPeriod, TaskEntity::getCreatedAt, hasPeriod ? endOfDay(fEnd) : null));
 
         long myTaskCompleted = taskMapper.selectCount(
                 new LambdaQueryWrapper<TaskEntity>()
                         .eq(TaskEntity::getAssigneeId, userId)
-                        .eq(TaskEntity::getStatus, TaskStatus.COMPLETED.name()));
+                        .eq(TaskEntity::getStatus, TaskStatus.COMPLETED.name())
+                        .ge(hasPeriod, TaskEntity::getCreatedAt, hasPeriod ? startOfDay(fStart) : null)
+                        .le(hasPeriod, TaskEntity::getCreatedAt, hasPeriod ? endOfDay(fEnd) : null));
 
         long myTaskOverdue = taskMapper.selectCount(
                 new LambdaQueryWrapper<TaskEntity>()
                         .eq(TaskEntity::getAssigneeId, userId)
-                        .eq(TaskEntity::getStatus, TaskStatus.OVERDUE.name()));
+                        .eq(TaskEntity::getStatus, TaskStatus.OVERDUE.name())
+                        .ge(hasPeriod, TaskEntity::getCreatedAt, hasPeriod ? startOfDay(fStart) : null)
+                        .le(hasPeriod, TaskEntity::getCreatedAt, hasPeriod ? endOfDay(fEnd) : null));
 
         long myBugTotal = bugMapper.selectCount(
                 new LambdaQueryWrapper<BugEntity>()
-                        .eq(BugEntity::getCreatorId, userId));
+                        .eq(BugEntity::getCreatorId, userId)
+                        .ge(hasPeriod, BugEntity::getCreatedAt, hasPeriod ? startOfDay(fStart) : null)
+                        .le(hasPeriod, BugEntity::getCreatedAt, hasPeriod ? endOfDay(fEnd) : null));
 
         long myBugOpen = bugMapper.selectCount(
                 new LambdaQueryWrapper<BugEntity>()
                         .eq(BugEntity::getCreatorId, userId)
-                        .ne(BugEntity::getStatus, BugStatus.CLOSED.name()));
+                        .ne(BugEntity::getStatus, BugStatus.CLOSED.name())
+                        .ge(hasPeriod, BugEntity::getCreatedAt, hasPeriod ? startOfDay(fStart) : null)
+                        .le(hasPeriod, BugEntity::getCreatedAt, hasPeriod ? endOfDay(fEnd) : null));
 
         long myRequirementTotal = requirementMapper.selectCount(
                 new LambdaQueryWrapper<RequirementEntity>()
-                        .eq(RequirementEntity::getCreatedBy, userId));
+                        .eq(RequirementEntity::getCreatedBy, userId)
+                        .ge(hasPeriod, RequirementEntity::getCreatedAt, hasPeriod ? startOfDay(fStart) : null)
+                        .le(hasPeriod, RequirementEntity::getCreatedAt, hasPeriod ? endOfDay(fEnd) : null));
 
         long myRequirementAccepted = requirementMapper.selectCount(
                 new LambdaQueryWrapper<RequirementEntity>()
                         .eq(RequirementEntity::getCreatedBy, userId)
-                        .eq(RequirementEntity::getStatus, RequirementStatus.ACCEPTED.name()));
+                        .eq(RequirementEntity::getStatus, RequirementStatus.ACCEPTED.name())
+                        .ge(hasPeriod, RequirementEntity::getCreatedAt, hasPeriod ? startOfDay(fStart) : null)
+                        .le(hasPeriod, RequirementEntity::getCreatedAt, hasPeriod ? endOfDay(fEnd) : null));
 
+        // 未读通知不加时间过滤
         long unreadNoticeCount = noticeMapper.selectCount(
                 new LambdaQueryWrapper<NoticeEntity>()
                         .eq(NoticeEntity::getReceiverId, userId)
                         .eq(NoticeEntity::getReadFlag, 0));
 
+        // 状态/优先级分布（全量）
         List<TaskEntity> myTasks = safeList(taskMapper.selectList(
                 new LambdaQueryWrapper<TaskEntity>()
                         .eq(TaskEntity::getAssigneeId, userId)));
@@ -144,6 +185,48 @@ public class DashboardService {
                         .and(wrapper -> wrapper.eq(BugEntity::getAssigneeId, userId)
                                 .or()
                                 .eq(BugEntity::getCreatorId, userId))));
+
+        // 任务完成趋势（按 actualEndDate 分组，仅在 period != "all" 时计算）
+        List<TrendDataPoint> completionTrend;
+        if (hasPeriod) {
+            List<TaskEntity> completedInPeriod = safeList(taskMapper.selectList(
+                    new LambdaQueryWrapper<TaskEntity>()
+                            .eq(TaskEntity::getAssigneeId, userId)
+                            .eq(TaskEntity::getStatus, TaskStatus.COMPLETED.name())
+                            .ge(TaskEntity::getActualEndDate, startDate)
+                            .le(TaskEntity::getActualEndDate, endDate)));
+            Map<LocalDate, Long> byDate = completedInPeriod.stream()
+                    .filter(t -> t.getActualEndDate() != null)
+                    .collect(Collectors.groupingBy(TaskEntity::getActualEndDate, Collectors.counting()));
+            List<TrendDataPoint> trend = new ArrayList<>();
+            for (LocalDate d = startDate; !d.isAfter(endDate); d = d.plusDays(1)) {
+                trend.add(new TrendDataPoint(d, byDate.getOrDefault(d, 0L)));
+            }
+            completionTrend = trend;
+        } else {
+            completionTrend = List.of();
+        }
+
+        // 项目分布（已完成任务按项目名分布）
+        LambdaQueryWrapper<TaskEntity> completedQ = new LambdaQueryWrapper<TaskEntity>()
+                .eq(TaskEntity::getAssigneeId, userId)
+                .eq(TaskEntity::getStatus, TaskStatus.COMPLETED.name());
+        if (hasPeriod) {
+            completedQ.ge(TaskEntity::getCreatedAt, startOfDay(startDate))
+                      .le(TaskEntity::getCreatedAt, endOfDay(endDate));
+        }
+        List<TaskEntity> completedTasks = safeList(taskMapper.selectList(completedQ));
+        Map<Long, Long> byProjectId = completedTasks.stream()
+                .filter(t -> t.getProjectId() != null)
+                .collect(Collectors.groupingBy(TaskEntity::getProjectId, Collectors.counting()));
+
+        Map<String, Long> projectDistribution = new LinkedHashMap<>();
+        if (!byProjectId.isEmpty()) {
+            List<ProjectEntity> projects = safeList(projectMapper.selectByIds(byProjectId.keySet()));
+            for (ProjectEntity p : projects) {
+                projectDistribution.put(p.getName(), byProjectId.getOrDefault(p.getId(), 0L));
+            }
+        }
 
         return MyStatisticsResponse.builder()
                 .myTaskTotal(myTaskTotal)
@@ -157,7 +240,17 @@ public class DashboardService {
                 .taskStatusDistribution(countBy(myTasks, TaskEntity::getStatus))
                 .taskPriorityDistribution(countBy(myTasks, TaskEntity::getPriority))
                 .bugStatusDistribution(countBy(myBugs, BugEntity::getStatus))
+                .completionTrend(completionTrend)
+                .projectDistribution(projectDistribution)
                 .build();
+    }
+
+    private static LocalDateTime startOfDay(LocalDate date) {
+        return date.atStartOfDay();
+    }
+
+    private static LocalDateTime endOfDay(LocalDate date) {
+        return date.atTime(23, 59, 59);
     }
 
     private <T> List<T> safeList(List<T> values) {

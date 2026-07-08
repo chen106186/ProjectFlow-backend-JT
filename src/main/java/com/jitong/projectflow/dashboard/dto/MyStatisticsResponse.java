@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Builder;
 import lombok.Data;
 
+import java.util.List;
 import java.util.Map;
 
 @Data
@@ -32,4 +33,8 @@ public class MyStatisticsResponse {
     private Map<String, Long> taskPriorityDistribution;
     @Schema(description = "我的Bug状态分布，key为状态编码，value为数量。")
     private Map<String, Long> bugStatusDistribution;
+    @Schema(description = "任务完成趋势，每天已完成任务数列表。")
+    private List<TrendDataPoint> completionTrend;
+    @Schema(description = "各项目完成任务分布，key为项目名称，value为已完成任务数。")
+    private Map<String, Long> projectDistribution;
 }
