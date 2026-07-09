@@ -19,6 +19,10 @@ public class ProjectEntity {
     private String stage;
     private String status;
     private String contractStatus;
+    private String businessDepartment;
+    private String contractorUnit;
+    private String businessSupervisor;
+    private java.math.BigDecimal receivableAmount;
     private Long managerId;
     private String description;
     private LocalDate plannedStartDate;

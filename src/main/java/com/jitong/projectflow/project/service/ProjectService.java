@@ -35,6 +35,10 @@ public class ProjectService {
         entity.setStage(request.getStage());
         entity.setStatus(StringUtils.hasText(request.getStatus()) ? request.getStatus() : "NOT_STARTED");
         entity.setContractStatus(request.getContractStatus());
+        entity.setBusinessDepartment(request.getBusinessDepartment());
+        entity.setContractorUnit(request.getContractorUnit());
+        entity.setBusinessSupervisor(request.getBusinessSupervisor());
+        entity.setReceivableAmount(request.getReceivableAmount());
         entity.setManagerId(request.getManagerId());
         entity.setDescription(request.getDescription());
         entity.setPlannedStartDate(request.getPlannedStartDate());
@@ -54,6 +58,7 @@ public class ProjectService {
         wrapper.eq(StringUtils.hasText(request.getContractStatus()), ProjectEntity::getContractStatus, request.getContractStatus());
         wrapper.eq(request.getManagerId() != null, ProjectEntity::getManagerId, request.getManagerId());
         wrapper.like(StringUtils.hasText(request.getKeyword()), ProjectEntity::getName, request.getKeyword());
+        wrapper.eq(StringUtils.hasText(request.getStage()), ProjectEntity::getStage, request.getStage());
         applyReadScope(wrapper);
         wrapper.orderByDesc(ProjectEntity::getCreatedAt);
         Page<ProjectEntity> page = projectMapper.selectPage(PageUtils.toPage(request), wrapper);
@@ -72,6 +77,10 @@ public class ProjectService {
         if (request.getStage() != null) entity.setStage(request.getStage());
         if (request.getStatus() != null) entity.setStatus(request.getStatus());
         if (request.getContractStatus() != null) entity.setContractStatus(request.getContractStatus());
+        if (request.getBusinessDepartment() != null) entity.setBusinessDepartment(request.getBusinessDepartment());
+        if (request.getContractorUnit() != null) entity.setContractorUnit(request.getContractorUnit());
+        if (request.getBusinessSupervisor() != null) entity.setBusinessSupervisor(request.getBusinessSupervisor());
+        if (request.getReceivableAmount() != null) entity.setReceivableAmount(request.getReceivableAmount());
         if (request.getManagerId() != null) entity.setManagerId(request.getManagerId());
         if (request.getDescription() != null) entity.setDescription(request.getDescription());
         if (request.getPlannedStartDate() != null) entity.setPlannedStartDate(request.getPlannedStartDate());
@@ -117,6 +126,10 @@ public class ProjectService {
                 .stage(entity.getStage())
                 .status(entity.getStatus())
                 .contractStatus(entity.getContractStatus())
+                .businessDepartment(entity.getBusinessDepartment())
+                .contractorUnit(entity.getContractorUnit())
+                .businessSupervisor(entity.getBusinessSupervisor())
+                .receivableAmount(entity.getReceivableAmount())
                 .managerId(entity.getManagerId())
                 .description(entity.getDescription())
                 .plannedStartDate(entity.getPlannedStartDate())

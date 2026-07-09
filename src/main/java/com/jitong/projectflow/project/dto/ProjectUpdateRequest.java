@@ -8,7 +8,7 @@ import java.time.LocalDate;
 
 @Data
 public class ProjectUpdateRequest {
-    @Schema(description = "项目类型，例如管理类项目或执行类项目。")
+    @Schema(description = "项目类型：DIGITALIZATION（数字化）、INFORMATIZATION（信息化）、RESEARCH（科研）。")
     private String projectType;
     @Schema(description = "名称。")
     private String name;
@@ -18,6 +18,14 @@ public class ProjectUpdateRequest {
     private String status;
     @Schema(description = "合同状态。")
     private String contractStatus;
+    @Schema(description = "业务部门。")
+    private String businessDepartment;
+    @Schema(description = "承建单位。")
+    private String contractorUnit;
+    @Schema(description = "业务主管。")
+    private String businessSupervisor;
+    @Schema(description = "回款金额（元）。")
+    private java.math.BigDecimal receivableAmount;
     @Schema(description = "项目经理用户 ID。")
     private Long managerId;
     @Schema(description = "详细描述。")

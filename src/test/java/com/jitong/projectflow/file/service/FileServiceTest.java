@@ -6,6 +6,7 @@ import com.jitong.projectflow.common.error.BusinessException;
 import com.jitong.projectflow.file.domain.FileStorageService;
 import com.jitong.projectflow.file.domain.StoredFile;
 import com.jitong.projectflow.file.entity.FileMetadata;
+import com.jitong.projectflow.file.mapper.FileFolderMapper;
 import com.jitong.projectflow.file.mapper.FileMetadataMapper;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -32,6 +33,8 @@ class FileServiceTest {
     FileStorageService fileStorageService;
     @Mock
     BusinessAccessService businessAccessService;
+    @Mock
+    FileFolderMapper fileFolderMapper;
 
     @AfterEach
     void clearCurrentUser() {
@@ -44,7 +47,7 @@ class FileServiceTest {
         when(fileStorageService.upload(any())).thenReturn(new StoredFile("LOCAL", "2026-07-07/a.pdf", 3));
         MockMultipartFile file = new MockMultipartFile("file", "a.pdf", "application/pdf", "abc".getBytes());
 
-        new FileService(fileMetadataMapper, fileStorageService, businessAccessService).upload("TASK", 10L, "v1", file);
+        new FileService(fileMetadataMapper, fileStorageService, businessAccessService, fileFolderMapper).upload("TASK", 10L, "v1", file);
 
         ArgumentCaptor<FileMetadata> captor = ArgumentCaptor.forClass(FileMetadata.class);
         verify(fileStorageService).upload(any());
@@ -64,7 +67,7 @@ class FileServiceTest {
         when(fileStorageService.upload(any())).thenReturn(new StoredFile("LOCAL", "2026-07-07/design.pdf", 3));
         MockMultipartFile file = new MockMultipartFile("file", "design.pdf", "application/pdf", "abc".getBytes());
 
-        var response = new FileService(fileMetadataMapper, fileStorageService, businessAccessService)
+        var response = new FileService(fileMetadataMapper, fileStorageService, businessAccessService, fileFolderMapper)
                 .upload("PROJECT", 20L, "v2", "DOCUMENT_CENTER", "DESIGN", file);
 
         ArgumentCaptor<FileMetadata> captor = ArgumentCaptor.forClass(FileMetadata.class);
@@ -79,7 +82,7 @@ class FileServiceTest {
     void uploadRejectsUnsupportedExtension() {
         MockMultipartFile file = new MockMultipartFile("file", "a.exe", "application/octet-stream", "abc".getBytes());
 
-        assertThatThrownBy(() -> new FileService(fileMetadataMapper, fileStorageService, businessAccessService).upload("TASK", 10L, null, file))
+        assertThatThrownBy(() -> new FileService(fileMetadataMapper, fileStorageService, businessAccessService, fileFolderMapper).upload("TASK", 10L, null, file))
                 .isInstanceOf(BusinessException.class)
                 .hasMessage("不支持的文件类型");
     }
@@ -98,7 +101,7 @@ class FileServiceTest {
             }
         };
 
-        assertThatThrownBy(() -> new FileService(fileMetadataMapper, fileStorageService, businessAccessService).upload("TASK", 10L, null, file))
+        assertThatThrownBy(() -> new FileService(fileMetadataMapper, fileStorageService, businessAccessService, fileFolderMapper).upload("TASK", 10L, null, file))
                 .isInstanceOf(BusinessException.class)
                 .hasMessage("文件大小不能超过50MB");
     }
@@ -107,7 +110,7 @@ class FileServiceTest {
     void uploadRejectsBlankOriginalFilename() {
         MockMultipartFile file = new MockMultipartFile("file", "", "application/pdf", "abc".getBytes());
 
-        assertThatThrownBy(() -> new FileService(fileMetadataMapper, fileStorageService, businessAccessService).upload("TASK", 10L, null, file))
+        assertThatThrownBy(() -> new FileService(fileMetadataMapper, fileStorageService, businessAccessService, fileFolderMapper).upload("TASK", 10L, null, file))
                 .isInstanceOf(BusinessException.class)
                 .hasMessage("文件名不能为空");
     }
@@ -118,7 +121,7 @@ class FileServiceTest {
         when(fileStorageService.upload(any())).thenReturn(new StoredFile("LOCAL", "2026-07-07/a.pdf", 3));
         MockMultipartFile file = new MockMultipartFile("file", "a.pdf", "application/pdf", "abc".getBytes());
 
-        new FileService(fileMetadataMapper, fileStorageService, businessAccessService).upload("TASK", 10L, null, file);
+        new FileService(fileMetadataMapper, fileStorageService, businessAccessService, fileFolderMapper).upload("TASK", 10L, null, file);
 
         ArgumentCaptor<FileMetadata> captor = ArgumentCaptor.forClass(FileMetadata.class);
         verify(fileMetadataMapper).insert(captor.capture());
@@ -137,7 +140,7 @@ class FileServiceTest {
         when(fileStorageService.upload(any())).thenReturn(new StoredFile("LOCAL", "2026-07-07/a.pdf", 3));
         MockMultipartFile file = new MockMultipartFile("file", "a.pdf", "application/pdf", "abc".getBytes());
 
-        new FileService(fileMetadataMapper, fileStorageService, businessAccessService).upload("TASK", 10L, "", file);
+        new FileService(fileMetadataMapper, fileStorageService, businessAccessService, fileFolderMapper).upload("TASK", 10L, "", file);
 
         ArgumentCaptor<FileMetadata> captor = ArgumentCaptor.forClass(FileMetadata.class);
         verify(fileMetadataMapper).insert(captor.capture());
@@ -149,7 +152,7 @@ class FileServiceTest {
         when(fileStorageService.upload(any())).thenReturn(new StoredFile("LOCAL", "2026-07-07/a.pdf", 3));
         MockMultipartFile file = new MockMultipartFile("file", "a.pdf", "application/pdf", "abc".getBytes());
 
-        new FileService(fileMetadataMapper, fileStorageService, businessAccessService).upload("TASK", 10L, "review", file);
+        new FileService(fileMetadataMapper, fileStorageService, businessAccessService, fileFolderMapper).upload("TASK", 10L, "review", file);
 
         ArgumentCaptor<FileMetadata> captor = ArgumentCaptor.forClass(FileMetadata.class);
         verify(fileMetadataMapper).insert(captor.capture());
@@ -158,14 +161,14 @@ class FileServiceTest {
 
     @Test
     void listRejectsMissingBusinessType() {
-        assertThatThrownBy(() -> new FileService(fileMetadataMapper, fileStorageService, businessAccessService).list(null, 10L))
+        assertThatThrownBy(() -> new FileService(fileMetadataMapper, fileStorageService, businessAccessService, fileFolderMapper).list(null, 10L))
                 .isInstanceOf(BusinessException.class)
                 .hasMessage("查询文件需要指定业务类型和业务ID");
     }
 
     @Test
     void listRejectsMissingBusinessId() {
-        assertThatThrownBy(() -> new FileService(fileMetadataMapper, fileStorageService, businessAccessService).list("TASK", null))
+        assertThatThrownBy(() -> new FileService(fileMetadataMapper, fileStorageService, businessAccessService, fileFolderMapper).list("TASK", null))
                 .isInstanceOf(BusinessException.class)
                 .hasMessage("查询文件需要指定业务类型和业务ID");
     }
@@ -182,7 +185,7 @@ class FileServiceTest {
         metadata.setFileCategory("DESIGN");
         when(fileMetadataMapper.selectList(any())).thenReturn(List.of(metadata));
 
-        var result = new FileService(fileMetadataMapper, fileStorageService, businessAccessService)
+        var result = new FileService(fileMetadataMapper, fileStorageService, businessAccessService, fileFolderMapper)
                 .list("PROJECT", 20L, "DESIGN");
 
         assertThat(result).hasSize(1);
@@ -201,7 +204,7 @@ class FileServiceTest {
         when(fileMetadataMapper.selectById(1L)).thenReturn(first);
         when(fileMetadataMapper.selectById(2L)).thenReturn(second);
 
-        new FileService(fileMetadataMapper, fileStorageService, businessAccessService).deleteBatch(List.of(1L, 2L));
+        new FileService(fileMetadataMapper, fileStorageService, businessAccessService, fileFolderMapper).deleteBatch(List.of(1L, 2L));
 
         verify(businessAccessService).requireFileDelete(first);
         verify(businessAccessService).requireFileDelete(second);

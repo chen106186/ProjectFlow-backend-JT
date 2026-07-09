@@ -81,12 +81,13 @@ class DashboardServiceTest {
     @SuppressWarnings("unchecked")
     @Test
     void aggregatesProjectSummaryCorrectly() {
-        when(projectMapper.selectCount(any(Wrapper.class))).thenReturn(2L, 8L, 4L, 6L);
+        when(projectMapper.selectCount(any(Wrapper.class))).thenReturn(2L, 8L, 3L, 4L, 6L);
 
         DashboardSummaryResponse result = dashboardService.getSummary();
 
-        assertThat(result.managementProjectCount()).isEqualTo(2L);
-        assertThat(result.executionProjectCount()).isEqualTo(8L);
+        assertThat(result.digitalizationProjectCount()).isEqualTo(2L);
+        assertThat(result.informatizationProjectCount()).isEqualTo(8L);
+        assertThat(result.researchProjectCount()).isEqualTo(3L);
         assertThat(result.inProgressProjectCount()).isEqualTo(4L);
         assertThat(result.completedProjectCount()).isEqualTo(6L);
     }

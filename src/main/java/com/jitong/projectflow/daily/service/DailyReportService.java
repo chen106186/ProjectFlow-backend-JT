@@ -14,6 +14,7 @@ import com.jitong.projectflow.daily.dto.DailyReportResponse;
 import com.jitong.projectflow.daily.dto.DailyReportUpdateRequest;
 import com.jitong.projectflow.daily.entity.DailyReportEntity;
 import com.jitong.projectflow.daily.mapper.DailyReportMapper;
+import com.jitong.projectflow.daily.mapper.DailyReportTaskMapper;
 import com.jitong.projectflow.file.entity.FileMetadata;
 import com.jitong.projectflow.file.mapper.FileMetadataMapper;
 import com.jitong.projectflow.system.audit.OperationLogService;
@@ -33,6 +34,7 @@ public class DailyReportService {
     private final OperationLogService operationLogService;
     private final BusinessAccessService businessAccessService;
     private final FileMetadataMapper fileMetadataMapper;
+    private final DailyReportTaskMapper dailyReportTaskMapper;
 
     public DailyReportResponse create(DailyReportCreateRequest request) {
         DailyReportEntity entity = new DailyReportEntity();
@@ -42,6 +44,11 @@ public class DailyReportService {
         entity.setContent(request.getContent());
         entity.setCreatedBy(CurrentUserContext.userIdOrNull());
         dailyReportMapper.insert(entity);
+        if (request.getRelatedTaskIds() != null) {
+            for (Long taskId : request.getRelatedTaskIds()) {
+                dailyReportTaskMapper.insert(entity.getId(), taskId);
+            }
+        }
         operationLogService.record("daily-report", "DailyReport", entity.getId(), "CREATE", entity.getContent());
         return toResponse(entity);
     }
@@ -69,6 +76,12 @@ public class DailyReportService {
         if (request.getContent() != null) entity.setContent(request.getContent());
         entity.setUpdatedBy(CurrentUserContext.userIdOrNull());
         dailyReportMapper.updateById(entity);
+        if (request.getRelatedTaskIds() != null) {
+            dailyReportTaskMapper.deleteByReportId(id);
+            for (Long taskId : request.getRelatedTaskIds()) {
+                dailyReportTaskMapper.insert(id, taskId);
+            }
+        }
         operationLogService.record("daily-report", "DailyReport", id, "UPDATE", entity.getContent());
         return toResponse(entity);
     }
@@ -146,6 +159,7 @@ public class DailyReportService {
     }
 
     private DailyReportResponse toResponse(DailyReportEntity entity) {
+        List<Long> relatedTaskIds = dailyReportTaskMapper.findTaskIdsByReportId(entity.getId());
         return DailyReportResponse.builder()
                 .id(entity.getId())
                 .projectId(entity.getProjectId())
@@ -156,6 +170,7 @@ public class DailyReportService {
                 .createdAt(entity.getCreatedAt())
                 .updatedBy(entity.getUpdatedBy())
                 .updatedAt(entity.getUpdatedAt())
+                .relatedTaskIds(relatedTaskIds)
                 .build();
     }
 }

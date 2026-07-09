@@ -21,4 +21,7 @@ public class DailyReportCreateRequest {
     @NotBlank(message = "日报内容不能为空")
     @Schema(description = "日报内容。")
     private String content;
+
+    @Schema(description = "关联任务 ID 列表（可选）。")
+    private java.util.List<Long> relatedTaskIds;
 }

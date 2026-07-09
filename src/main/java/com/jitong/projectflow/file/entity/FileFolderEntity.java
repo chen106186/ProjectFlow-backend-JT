@@ -5,27 +5,18 @@ import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
-
 import java.time.LocalDateTime;
 
 @Data
-@TableName("pf_file")
-public class FileMetadata {
+@TableName("pf_file_folder")
+public class FileFolderEntity {
     @TableId(type = IdType.ASSIGN_ID)
     private Long id;
     private String businessType;
     private Long businessId;
-    private String originalName;
-    private String contentType;
-    private Long fileSize;
-    private String versionNo;
-    private String storageLocation;
-    private String fileCategory;
-    private Long folderId;
-    private String storageType;
-    private String storageKey;
-    private Long uploaderId;
-    private LocalDateTime uploadedAt;
+    private String name;
+    private Long createdBy;
+    private LocalDateTime createdAt;
     @TableLogic
     private Integer deleted;
 }

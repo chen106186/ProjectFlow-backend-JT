@@ -8,8 +8,12 @@ import com.jitong.projectflow.common.error.ErrorCode;
 import com.jitong.projectflow.file.domain.FileStorageService;
 import com.jitong.projectflow.file.domain.FileUploadCommand;
 import com.jitong.projectflow.file.domain.StoredFile;
+import com.jitong.projectflow.file.dto.FileFolderCreateRequest;
+import com.jitong.projectflow.file.dto.FileFolderResponse;
 import com.jitong.projectflow.file.dto.FileResponse;
+import com.jitong.projectflow.file.entity.FileFolderEntity;
 import com.jitong.projectflow.file.entity.FileMetadata;
+import com.jitong.projectflow.file.mapper.FileFolderMapper;
 import com.jitong.projectflow.file.mapper.FileMetadataMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -36,6 +40,7 @@ public class FileService {
     private final FileMetadataMapper fileMetadataMapper;
     private final FileStorageService fileStorageService;
     private final BusinessAccessService businessAccessService;
+    private final FileFolderMapper fileFolderMapper;
 
     public FileResponse upload(String businessType, Long businessId, String versionNo, MultipartFile file) {
         return upload(businessType, businessId, versionNo, DEFAULT_STORAGE_LOCATION, null, file);
@@ -74,10 +79,14 @@ public class FileService {
     }
 
     public List<FileResponse> list(String businessType, Long businessId) {
-        return list(businessType, businessId, null);
+        return list(businessType, businessId, null, null, null);
     }
 
     public List<FileResponse> list(String businessType, Long businessId, String fileCategory) {
+        return list(businessType, businessId, fileCategory, null, null);
+    }
+
+    public List<FileResponse> list(String businessType, Long businessId, String fileCategory, String keyword, Long folderId) {
         if (!StringUtils.hasText(businessType) || businessId == null) {
             throw new BusinessException(ErrorCode.BAD_REQUEST, "查询文件需要指定业务类型和业务ID");
         }
@@ -85,6 +94,8 @@ public class FileService {
         wrapper.eq(FileMetadata::getBusinessType, businessType);
         wrapper.eq(FileMetadata::getBusinessId, businessId);
         wrapper.eq(StringUtils.hasText(fileCategory), FileMetadata::getFileCategory, fileCategory);
+        wrapper.like(org.springframework.util.StringUtils.hasText(keyword), FileMetadata::getOriginalName, keyword);
+        wrapper.eq(folderId != null, FileMetadata::getFolderId, folderId);
         wrapper.orderByDesc(FileMetadata::getUploadedAt);
         return fileMetadataMapper.selectList(wrapper).stream().map(this::toResponse).toList();
     }
@@ -158,6 +169,55 @@ public class FileService {
             throw new BusinessException(ErrorCode.NOT_FOUND, "文件不存在");
         }
         return metadata;
+    }
+
+    public FileFolderResponse createFolder(FileFolderCreateRequest request) {
+        FileFolderEntity entity = new FileFolderEntity();
+        entity.setBusinessType(request.getBusinessType());
+        entity.setBusinessId(request.getBusinessId());
+        entity.setName(request.getName());
+        entity.setCreatedBy(com.jitong.projectflow.auth.security.CurrentUserContext.userIdOrNull());
+        fileFolderMapper.insert(entity);
+        return toFolderResponse(entity);
+    }
+
+    public List<FileFolderResponse> listFolders(String businessType, Long businessId) {
+        return fileFolderMapper.selectList(
+                new LambdaQueryWrapper<FileFolderEntity>()
+                        .eq(org.springframework.util.StringUtils.hasText(businessType), FileFolderEntity::getBusinessType, businessType)
+                        .eq(businessId != null, FileFolderEntity::getBusinessId, businessId)
+                        .orderByAsc(FileFolderEntity::getCreatedAt))
+                .stream().map(this::toFolderResponse).toList();
+    }
+
+    public void batchDownload(List<Long> ids, java.io.OutputStream out) {
+        List<FileMetadata> files = fileMetadataMapper.selectBatchIds(ids);
+        if (files.isEmpty()) {
+            throw new com.jitong.projectflow.common.error.BusinessException(
+                    com.jitong.projectflow.common.error.ErrorCode.BAD_REQUEST, "未找到可下载的文件");
+        }
+        try (java.util.zip.ZipOutputStream zip = new java.util.zip.ZipOutputStream(out)) {
+            for (FileMetadata meta : files) {
+                FileDownloadResult result = download(meta.getId());
+                String entryName = meta.getOriginalName() != null ? meta.getOriginalName() : meta.getId().toString();
+                zip.putNextEntry(new java.util.zip.ZipEntry(entryName));
+                result.inputStream().transferTo(zip);
+                zip.closeEntry();
+            }
+        } catch (java.io.IOException e) {
+            throw new com.jitong.projectflow.common.error.BusinessException(
+                    com.jitong.projectflow.common.error.ErrorCode.BAD_REQUEST, "批量下载失败：" + e.getMessage());
+        }
+    }
+
+    private FileFolderResponse toFolderResponse(FileFolderEntity entity) {
+        return FileFolderResponse.builder()
+                .id(entity.getId())
+                .businessType(entity.getBusinessType())
+                .businessId(entity.getBusinessId())
+                .name(entity.getName())
+                .createdAt(entity.getCreatedAt())
+                .build();
     }
 
     private FileResponse toResponse(FileMetadata metadata) {

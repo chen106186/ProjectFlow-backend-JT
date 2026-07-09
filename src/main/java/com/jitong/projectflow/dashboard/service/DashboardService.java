@@ -50,12 +50,15 @@ public class DashboardService {
     private final SystemUserMapper systemUserMapper;
 
     public DashboardSummaryResponse getSummary() {
-        long managementProjectCount = projectMapper.selectCount(
+        long digitalizationProjectCount = projectMapper.selectCount(
                 new LambdaQueryWrapper<ProjectEntity>()
-                        .eq(ProjectEntity::getProjectType, "MANAGEMENT"));
-        long executionProjectCount = projectMapper.selectCount(
+                        .eq(ProjectEntity::getProjectType, "DIGITALIZATION"));
+        long informatizationProjectCount = projectMapper.selectCount(
                 new LambdaQueryWrapper<ProjectEntity>()
-                        .eq(ProjectEntity::getProjectType, "EXECUTION"));
+                        .eq(ProjectEntity::getProjectType, "INFORMATIZATION"));
+        long researchProjectCount = projectMapper.selectCount(
+                new LambdaQueryWrapper<ProjectEntity>()
+                        .eq(ProjectEntity::getProjectType, "RESEARCH"));
         long inProgressProjectCount = projectMapper.selectCount(
                 new LambdaQueryWrapper<ProjectEntity>()
                         .eq(ProjectEntity::getStatus, "IN_PROGRESS"));
@@ -64,8 +67,9 @@ public class DashboardService {
                         .eq(ProjectEntity::getStatus, "COMPLETED"));
 
         return new DashboardSummaryResponse(
-                managementProjectCount,
-                executionProjectCount,
+                digitalizationProjectCount,
+                informatizationProjectCount,
+                researchProjectCount,
                 inProgressProjectCount,
                 completedProjectCount);
     }

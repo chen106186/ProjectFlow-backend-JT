@@ -17,4 +17,6 @@ public class ProjectQueryRequest extends PageQuery {
     private Long managerId;
     @Schema(description = "关键字，支持按名称、标题或内容模糊查询。")
     private String keyword;
+    @Schema(description = "项目阶段筛选。")
+    private String stage;
 }

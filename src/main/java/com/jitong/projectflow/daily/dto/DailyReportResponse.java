@@ -29,4 +29,7 @@ public class DailyReportResponse {
     private Long updatedBy;
     @Schema(description = "更新时间，格式 yyyy-MM-dd HH:mm:ss。")
     private LocalDateTime updatedAt;
+
+    @Schema(description = "关联任务 ID 列表。")
+    private java.util.List<Long> relatedTaskIds;
 }
