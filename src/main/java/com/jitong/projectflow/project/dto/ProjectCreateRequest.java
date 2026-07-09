@@ -6,6 +6,7 @@ import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
 import java.time.LocalDate;
+import java.util.List;
 
 @Data
 public class ProjectCreateRequest {
@@ -48,6 +49,12 @@ public class ProjectCreateRequest {
 
     @Schema(description = "项目经理用户 ID。")
     private Long managerId;
+
+    @Schema(description = "关联管理类项目 ID（执行类项目专用）。")
+    private Long managementProjectId;
+
+    @Schema(description = "参与人员用户 ID 列表。")
+    private List<Long> participantIds;
 
     @Schema(description = "详细描述。")
     private String description;

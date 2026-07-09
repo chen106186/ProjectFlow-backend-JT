@@ -25,6 +25,7 @@ public class ProjectEntity {
     private String businessSupervisor;
     private java.math.BigDecimal receivableAmount;
     private Long managerId;
+    private Long managementProjectId;
     private String description;
     private LocalDate plannedStartDate;
     private LocalDate plannedEndDate;

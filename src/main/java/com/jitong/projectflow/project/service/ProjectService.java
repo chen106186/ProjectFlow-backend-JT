@@ -14,18 +14,25 @@ import com.jitong.projectflow.project.dto.ProjectResponse;
 import com.jitong.projectflow.project.dto.ProjectUpdateRequest;
 import com.jitong.projectflow.project.entity.ProjectEntity;
 import com.jitong.projectflow.project.mapper.ProjectMapper;
+import com.jitong.projectflow.project.mapper.ProjectParticipantMapper;
 import com.jitong.projectflow.system.audit.OperationLogService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
+
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 public class ProjectService {
     private final ProjectMapper projectMapper;
+    private final ProjectParticipantMapper participantMapper;
     private final OperationLogService operationLogService;
     private final BusinessAccessService businessAccessService;
 
+    @Transactional
     public ProjectResponse create(ProjectCreateRequest request) {
         ProjectEntity entity = new ProjectEntity();
         entity.setProjectType(request.getProjectType());
@@ -39,6 +46,7 @@ public class ProjectService {
         entity.setBusinessSupervisor(request.getBusinessSupervisor());
         entity.setReceivableAmount(request.getReceivableAmount());
         entity.setManagerId(request.getManagerId());
+        entity.setManagementProjectId(request.getManagementProjectId());
         entity.setDescription(request.getDescription());
         entity.setPlannedStartDate(request.getPlannedStartDate());
         entity.setPlannedEndDate(request.getPlannedEndDate());
@@ -46,6 +54,7 @@ public class ProjectService {
         entity.setActualEndDate(request.getActualEndDate());
         entity.setCreatedBy(CurrentUserContext.userIdOrNull());
         projectMapper.insert(entity);
+        saveParticipants(entity.getId(), request.getParticipantIds());
         operationLogService.record("project", "Project", entity.getId(), "CREATE", entity.getName());
         return toResponse(entity);
     }
@@ -69,6 +78,7 @@ public class ProjectService {
         return toResponse(requireProject(id));
     }
 
+    @Transactional
     public ProjectResponse update(Long id, ProjectUpdateRequest request) {
         ProjectEntity entity = requireProject(id);
         businessAccessService.requireProjectManage(entity);
@@ -83,6 +93,7 @@ public class ProjectService {
         if (request.getBusinessSupervisor() != null) entity.setBusinessSupervisor(request.getBusinessSupervisor());
         if (request.getReceivableAmount() != null) entity.setReceivableAmount(request.getReceivableAmount());
         if (request.getManagerId() != null) entity.setManagerId(request.getManagerId());
+        if (request.getManagementProjectId() != null) entity.setManagementProjectId(request.getManagementProjectId());
         if (request.getDescription() != null) entity.setDescription(request.getDescription());
         if (request.getPlannedStartDate() != null) entity.setPlannedStartDate(request.getPlannedStartDate());
         if (request.getPlannedEndDate() != null) entity.setPlannedEndDate(request.getPlannedEndDate());
@@ -90,6 +101,9 @@ public class ProjectService {
         if (request.getActualEndDate() != null) entity.setActualEndDate(request.getActualEndDate());
         entity.setUpdatedBy(CurrentUserContext.userIdOrNull());
         projectMapper.updateById(entity);
+        if (request.getParticipantIds() != null) {
+            saveParticipants(id, request.getParticipantIds());
+        }
         operationLogService.record("project", "Project", id, "UPDATE", entity.getName());
         return toResponse(entity);
     }
@@ -133,6 +147,8 @@ public class ProjectService {
         response.setBusinessSupervisor(entity.getBusinessSupervisor());
         response.setReceivableAmount(entity.getReceivableAmount());
         response.setManagerId(entity.getManagerId());
+        response.setManagementProjectId(entity.getManagementProjectId());
+        response.setParticipantIds(participantMapper.selectUserIdsByProjectId(entity.getId()));
         response.setType(projectBusinessTypeLabel(entity.getProjectBusinessType()));
         response.setDepartment(entity.getBusinessDepartment());
         response.setContractor(entity.getContractorUnit());
@@ -144,6 +160,13 @@ public class ProjectService {
         response.setActualStartDate(entity.getActualStartDate());
         response.setActualEndDate(entity.getActualEndDate());
         return response;
+    }
+
+    private void saveParticipants(Long projectId, List<Long> participantIds) {
+        participantMapper.deleteByProjectId(projectId);
+        if (!CollectionUtils.isEmpty(participantIds)) {
+            participantMapper.batchInsert(projectId, participantIds);
+        }
     }
 
     private String projectBusinessTypeLabel(String projectBusinessType) {

@@ -6,6 +6,7 @@ import com.jitong.projectflow.common.error.BusinessException;
 import com.jitong.projectflow.common.error.ErrorCode;
 import com.jitong.projectflow.system.entity.SystemUser;
 import com.jitong.projectflow.system.mapper.SystemUserMapper;
+import com.jitong.projectflow.system.service.CurrentUserPermissionService;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
@@ -21,7 +22,8 @@ class AuthControllerTest {
         SystemUserMapper userMapper = mock(SystemUserMapper.class);
         PasswordEncoder passwordEncoder = mock(PasswordEncoder.class);
         JwtTokenService tokenService = mock(JwtTokenService.class);
-        AuthController controller = new AuthController(userMapper, passwordEncoder, tokenService);
+        CurrentUserPermissionService permissionService = mock(CurrentUserPermissionService.class);
+        AuthController controller = new AuthController(userMapper, passwordEncoder, tokenService, permissionService);
 
         SystemUser user = new SystemUser();
         user.setId(1L);

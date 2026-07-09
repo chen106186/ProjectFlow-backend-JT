@@ -8,9 +8,11 @@ import com.jitong.projectflow.project.dto.ProjectCreateRequest;
 import com.jitong.projectflow.project.dto.ProjectNodeUpdateRequest;
 import com.jitong.projectflow.project.dto.ProjectQueryRequest;
 import com.jitong.projectflow.project.dto.ProjectResponse;
+import com.jitong.projectflow.project.dto.ProjectStatsResponse;
 import com.jitong.projectflow.project.dto.ProjectUpdateRequest;
 import com.jitong.projectflow.project.service.GanttService;
 import com.jitong.projectflow.project.service.ProjectService;
+import com.jitong.projectflow.project.service.ProjectStatsService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -36,10 +38,12 @@ public class ProjectController {
 
     private final ProjectService projectService;
     private final GanttService ganttService;
+    private final ProjectStatsService projectStatsService;
 
-    public ProjectController(ProjectService projectService, GanttService ganttService) {
+    public ProjectController(ProjectService projectService, GanttService ganttService, ProjectStatsService projectStatsService) {
         this.projectService = projectService;
         this.ganttService = ganttService;
+        this.projectStatsService = projectStatsService;
     }
 
     @Operation(summary = "新建项目",
@@ -55,6 +59,19 @@ public class ProjectController {
     @GetMapping
     public ApiResponse<PageResult<ProjectResponse>> listProjects(@Valid @ModelAttribute ProjectQueryRequest request) {
         return ApiResponse.success(projectService.list(request), MDC.get("traceId"));
+    }
+
+    @Operation(summary = "批量查询项目任务和 Bug 数量",
+            description = "传入逗号分隔的项目 ID 列表，一次返回每个项目的任务数和 Bug 数，用于列表页展示，避免 N+1 请求。")
+    @GetMapping("/stats")
+    public ApiResponse<List<ProjectStatsResponse>> getStats(
+            @org.springframework.web.bind.annotation.RequestParam String projectIds) {
+        List<Long> ids = java.util.Arrays.stream(projectIds.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .map(Long::parseLong)
+                .toList();
+        return ApiResponse.success(projectStatsService.batchStats(ids), MDC.get("traceId"));
     }
 
     @Operation(summary = "查询项目详情",

@@ -35,7 +35,6 @@ public class DailyReportController {
     @Operation(summary = "填写日报",
             description = "当前登录用户填写指定项目和日期的日报内容。")
     @PostMapping
-    @PreAuthorize("hasAuthority('daily-report:create')")
     public ApiResponse<DailyReportResponse> create(@Valid @RequestBody DailyReportCreateRequest request) {
         return ApiResponse.success(dailyReportService.create(request), MDC.get("traceId"));
     }

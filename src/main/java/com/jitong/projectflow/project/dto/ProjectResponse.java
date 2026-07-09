@@ -5,6 +5,7 @@ import lombok.Data;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 
 @Data
 public class ProjectResponse {
@@ -32,6 +33,10 @@ public class ProjectResponse {
     private BigDecimal receivableAmount;
     @Schema(description = "项目经理用户 ID。")
     private Long managerId;
+    @Schema(description = "关联管理类项目 ID（执行类项目专用）。")
+    private Long managementProjectId;
+    @Schema(description = "参与人员用户 ID 列表。")
+    private List<Long> participantIds;
     @Schema(description = "项目类型标签，兼容前端 type 字段。")
     private String type;
     @Schema(description = "业务部门，兼容前端 department 字段。")
