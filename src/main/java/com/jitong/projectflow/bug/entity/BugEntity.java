@@ -33,6 +33,10 @@ public class BugEntity {
 
     private String reproduceSteps;
 
+    private String fixAnalysis;
+
+    private String fixDetail;
+
     private LocalDateTime closedAt;
 
     private Long createdBy;

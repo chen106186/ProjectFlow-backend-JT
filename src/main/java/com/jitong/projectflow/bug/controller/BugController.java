@@ -6,6 +6,7 @@ import com.jitong.projectflow.bug.dto.BugAssignRequest;
 import com.jitong.projectflow.bug.dto.BugCommentCreateRequest;
 import com.jitong.projectflow.bug.dto.BugCommentResponse;
 import com.jitong.projectflow.bug.dto.BugCreateRequest;
+import com.jitong.projectflow.bug.dto.BugFixRequest;
 import com.jitong.projectflow.bug.dto.BugQueryRequest;
 import com.jitong.projectflow.bug.dto.BugResponse;
 import com.jitong.projectflow.bug.dto.BugUpdateRequest;
@@ -16,6 +17,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.MDC;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -83,6 +85,21 @@ public class BugController {
     @PatchMapping("/{id}/close")
     public ApiResponse<BugResponse> close(@PathVariable Long id) {
         return ApiResponse.success(bugService.close(id), MDC.get("traceId"));
+    }
+
+    @Operation(summary = "删除 Bug",
+            description = "逻辑删除指定 Bug，只有创建人或系统管理员可操作。")
+    @DeleteMapping("/{id}")
+    public ApiResponse<Void> delete(@PathVariable Long id) {
+        bugService.delete(id);
+        return ApiResponse.success(null, MDC.get("traceId"));
+    }
+
+    @Operation(summary = "提交修复详情",
+            description = "负责人填写问题分析和修复细节，Bug 状态自动变更为待验证。")
+    @PostMapping("/{id}/fix")
+    public ApiResponse<BugResponse> fix(@PathVariable Long id, @RequestBody BugFixRequest request) {
+        return ApiResponse.success(bugService.fix(id, request), MDC.get("traceId"));
     }
 
     @Operation(summary = "新增 Bug 评论",

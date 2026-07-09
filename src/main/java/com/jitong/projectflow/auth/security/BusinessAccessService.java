@@ -62,6 +62,14 @@ public class BusinessAccessService {
         throwForbidden();
     }
 
+    public void requireBugDelete(BugEntity bug) {
+        Long userId = currentUserId();
+        if (isSystemAdmin() || same(userId, bug.getCreatorId())) {
+            return;
+        }
+        throwForbidden();
+    }
+
     public void requireRequirementManage(RequirementEntity requirement) {
         Long userId = currentUserId();
         if (isSystemAdmin() || same(userId, requirement.getCreatedBy()) || canManageProject(requirement.getProjectId(), userId)) {

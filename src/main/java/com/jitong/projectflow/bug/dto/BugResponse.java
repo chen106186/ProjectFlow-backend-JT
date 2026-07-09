@@ -30,6 +30,12 @@ public class BugResponse {
     private String description;
     @Schema(description = "复现步骤。")
     private String reproduceSteps;
+    @Schema(description = "问题分析（开发填写）。")
+    private String fixAnalysis;
+    @Schema(description = "修复细节（开发填写）。")
+    private String fixDetail;
     @Schema(description = "关闭时间，格式 yyyy-MM-dd HH:mm:ss。")
     private LocalDateTime closedAt;
+    @Schema(description = "创建时间。")
+    private java.time.LocalDateTime createdAt;
 }

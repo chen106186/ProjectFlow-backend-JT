@@ -9,6 +9,7 @@ import com.jitong.projectflow.bug.dto.BugAssignRequest;
 import com.jitong.projectflow.bug.dto.BugCommentCreateRequest;
 import com.jitong.projectflow.bug.dto.BugCommentResponse;
 import com.jitong.projectflow.bug.dto.BugCreateRequest;
+import com.jitong.projectflow.bug.dto.BugFixRequest;
 import com.jitong.projectflow.bug.dto.BugQueryRequest;
 import com.jitong.projectflow.bug.dto.BugResponse;
 import com.jitong.projectflow.bug.dto.BugUpdateRequest;
@@ -128,6 +129,29 @@ public class BugService {
         return toResponse(entity);
     }
 
+    public void delete(Long id) {
+        BugEntity entity = requireBug(id);
+        businessAccessService.requireBugDelete(entity);
+        bugMapper.deleteById(id);
+        operationLogService.record("bug", "Bug", id, "DELETE", entity.getTitle());
+    }
+
+    public BugResponse fix(Long id, BugFixRequest request) {
+        BugEntity entity = requireBug(id);
+        businessAccessService.requireBugEdit(entity);
+        if (request.getFixAnalysis() != null) entity.setFixAnalysis(request.getFixAnalysis());
+        if (request.getFixDetail() != null) entity.setFixDetail(request.getFixDetail());
+        entity.setStatus(BugStatus.PENDING_VERIFY.name());
+        entity.setUpdatedBy(CurrentUserContext.userIdOrNull());
+        bugMapper.updateById(entity);
+        operationLogService.record("bug", "Bug", id, "FIX", entity.getTitle());
+        if (entity.getCreatorId() != null && !entity.getCreatorId().equals(CurrentUserContext.userId())) {
+            noticeService.create(entity.getCreatorId(), NoticeType.BUG_ASSIGNED, "缺陷修复通知",
+                    entity.getTitle() + " 已修复，请验证", "Bug", id);
+        }
+        return toResponse(entity);
+    }
+
     public BugCommentResponse addComment(Long bugId, BugCommentCreateRequest request) {
         BugEntity bug = requireBug(bugId);
         businessAccessService.requireBugEdit(bug);
@@ -188,7 +212,10 @@ public class BugService {
                 .assigneeId(entity.getAssigneeId())
                 .description(entity.getDescription())
                 .reproduceSteps(entity.getReproduceSteps())
+                .fixAnalysis(entity.getFixAnalysis())
+                .fixDetail(entity.getFixDetail())
                 .closedAt(entity.getClosedAt())
+                .createdAt(entity.getCreatedAt())
                 .build();
     }
 
