@@ -63,6 +63,7 @@ public class BugService {
         wrapper.eq(StringUtils.hasText(request.getStatus()), BugEntity::getStatus, request.getStatus());
         wrapper.eq(StringUtils.hasText(request.getPriority()), BugEntity::getPriority, request.getPriority());
         wrapper.eq(request.getProjectId() != null, BugEntity::getProjectId, request.getProjectId());
+        wrapper.eq(request.getAssigneeId() != null, BugEntity::getAssigneeId, request.getAssigneeId());
         wrapper.like(StringUtils.hasText(request.getKeyword()), BugEntity::getTitle, request.getKeyword());
         applyReadScope(wrapper);
         wrapper.orderByDesc(BugEntity::getCreatedAt);

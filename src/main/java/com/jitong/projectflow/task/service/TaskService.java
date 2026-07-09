@@ -20,6 +20,7 @@ import com.jitong.projectflow.task.dto.TaskCreateRequest;
 import com.jitong.projectflow.task.dto.TaskImportRow;
 import com.jitong.projectflow.task.dto.TaskQueryRequest;
 import com.jitong.projectflow.task.dto.TaskResponse;
+import com.jitong.projectflow.task.dto.TaskRiskStatisticsResponse;
 import com.jitong.projectflow.task.dto.TaskUpdateRequest;
 import com.jitong.projectflow.task.entity.TaskEntity;
 import com.jitong.projectflow.task.mapper.TaskMapper;
@@ -239,6 +240,26 @@ public class TaskService {
                 .tags(entity.getTags())
                 .remark(entity.getRemark())
                 .sortOrder(entity.getSortOrder())
+                .build();
+    }
+
+    public TaskRiskStatisticsResponse getRiskStatistics(Long projectId) {
+        long total           = taskMapper.selectCount(new LambdaQueryWrapper<TaskEntity>().eq(projectId != null, TaskEntity::getProjectId, projectId));
+        long overdueCount    = taskMapper.selectCount(new LambdaQueryWrapper<TaskEntity>().eq(projectId != null, TaskEntity::getProjectId, projectId).eq(TaskEntity::getStatus, TaskStatus.OVERDUE.name()));
+        long dueSoonCount    = taskMapper.selectCount(new LambdaQueryWrapper<TaskEntity>().eq(projectId != null, TaskEntity::getProjectId, projectId).eq(TaskEntity::getStatus, TaskStatus.DUE_SOON.name()));
+        long inProgressCount = taskMapper.selectCount(new LambdaQueryWrapper<TaskEntity>().eq(projectId != null, TaskEntity::getProjectId, projectId).eq(TaskEntity::getStatus, TaskStatus.IN_PROGRESS.name()));
+        long notStartedCount = taskMapper.selectCount(new LambdaQueryWrapper<TaskEntity>().eq(projectId != null, TaskEntity::getProjectId, projectId).eq(TaskEntity::getStatus, TaskStatus.NOT_STARTED.name()));
+        long pausedCount     = taskMapper.selectCount(new LambdaQueryWrapper<TaskEntity>().eq(projectId != null, TaskEntity::getProjectId, projectId).eq(TaskEntity::getStatus, TaskStatus.PAUSED.name()));
+        long completedCount  = taskMapper.selectCount(new LambdaQueryWrapper<TaskEntity>().eq(projectId != null, TaskEntity::getProjectId, projectId).eq(TaskEntity::getStatus, TaskStatus.COMPLETED.name()));
+
+        return TaskRiskStatisticsResponse.builder()
+                .total(total)
+                .overdueCount(overdueCount)
+                .dueSoonCount(dueSoonCount)
+                .inProgressCount(inProgressCount)
+                .notStartedCount(notStartedCount)
+                .pausedCount(pausedCount)
+                .completedCount(completedCount)
                 .build();
     }
 }

@@ -7,6 +7,7 @@ import com.jitong.projectflow.task.dto.TaskBatchCreateRequest;
 import com.jitong.projectflow.task.dto.TaskCreateRequest;
 import com.jitong.projectflow.task.dto.TaskQueryRequest;
 import com.jitong.projectflow.task.dto.TaskResponse;
+import com.jitong.projectflow.task.dto.TaskRiskStatisticsResponse;
 import com.jitong.projectflow.task.dto.TaskUpdateRequest;
 import com.jitong.projectflow.task.service.TaskService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -28,6 +29,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
@@ -93,6 +95,14 @@ public class TaskController {
     @GetMapping("/my")
     public ApiResponse<List<TaskResponse>> listMine() {
         return ApiResponse.success(taskService.listMine(), MDC.get("traceId"));
+    }
+
+    @Operation(summary = "任务风险统计",
+            description = "统计各状态任务数量，用于风险看板。projectId 不传则统计全部项目。")
+    @GetMapping("/risk-statistics")
+    public ApiResponse<TaskRiskStatisticsResponse> riskStatistics(
+            @RequestParam(required = false) Long projectId) {
+        return ApiResponse.success(taskService.getRiskStatistics(projectId), MDC.get("traceId"));
     }
 
     @Operation(summary = "查询任务详情",

@@ -15,4 +15,6 @@ public class BugQueryRequest extends PageQuery {
     private Long projectId;
     @Schema(description = "关键字，支持按名称、标题或内容模糊查询。")
     private String keyword;
+    @Schema(description = "指定处理人用户 ID。")
+    private Long assigneeId;
 }
