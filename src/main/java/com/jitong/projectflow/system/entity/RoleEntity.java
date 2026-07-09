@@ -13,6 +13,9 @@ public class RoleEntity {
     private Long id;
     private String code;
     private String name;
+    private String description;
+    private Boolean enabled;
+    private Integer sortOrder;
     @TableLogic
     private Integer deleted;
 }

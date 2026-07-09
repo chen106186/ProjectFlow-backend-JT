@@ -15,6 +15,7 @@ public class ProjectEntity {
     @TableId(type = IdType.ASSIGN_ID)
     private Long id;
     private String projectType;
+    private String projectBusinessType;
     private String name;
     private String stage;
     private String status;

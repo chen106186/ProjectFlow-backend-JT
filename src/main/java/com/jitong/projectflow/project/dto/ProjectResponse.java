@@ -1,20 +1,19 @@
 package com.jitong.projectflow.project.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-
-import lombok.Builder;
 import lombok.Data;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
 @Data
-@Builder
 public class ProjectResponse {
     @Schema(description = "主键 ID。")
     private Long id;
-    @Schema(description = "项目类型：DIGITALIZATION（数字化）、INFORMATIZATION（信息化）、RESEARCH（科研）。")
+    @Schema(description = "项目分类。")
     private String projectType;
+    @Schema(description = "项目业务类型。")
+    private String projectBusinessType;
     @Schema(description = "名称。")
     private String name;
     @Schema(description = "项目阶段。")
@@ -33,6 +32,16 @@ public class ProjectResponse {
     private BigDecimal receivableAmount;
     @Schema(description = "项目经理用户 ID。")
     private Long managerId;
+    @Schema(description = "项目类型标签，兼容前端 type 字段。")
+    private String type;
+    @Schema(description = "业务部门，兼容前端 department 字段。")
+    private String department;
+    @Schema(description = "承建单位，兼容前端 contractor 字段。")
+    private String contractor;
+    @Schema(description = "业务主管，兼容前端 supervisor 字段。")
+    private String supervisor;
+    @Schema(description = "回款金额，兼容前端 amount 字段。")
+    private BigDecimal amount;
     @Schema(description = "详细描述。")
     private String description;
     @Schema(description = "计划开始日期，格式 yyyy-MM-dd。")

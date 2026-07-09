@@ -14,4 +14,10 @@ public class RoleResponse {
     private String code;
     @Schema(description = "名称。")
     private String name;
+    @Schema(description = "描述。")
+    private String description;
+    @Schema(description = "是否启用。")
+    private Boolean enabled;
+    @Schema(description = "排序。")
+    private Integer sortOrder;
 }

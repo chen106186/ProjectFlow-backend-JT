@@ -26,6 +26,21 @@ public class DictService {
         add("projectType", "项目类型",
                 item("MANAGEMENT", "管理类项目"),
                 item("EXECUTION", "执行类项目"));
+        add("projectBusinessType", "项目业务类型",
+                item("DIGITALIZATION", "数字化项目"),
+                item("INFORMATIZATION", "信息化项目"),
+                item("RESEARCH", "科研项目"));
+        add("projectStage", "项目阶段",
+                item("BUSINESS_OPPORTUNITY", "商机跟进"),
+                item("FEASIBILITY_APPROVAL", "可研批复"),
+                item("BIDDING", "招标"),
+                item("CONTRACT_SIGNING", "合同签订"),
+                item("PRELIMINARY_APPROVAL", "概设批复"),
+                item("REQUIREMENT_ANALYSIS", "需求分析"),
+                item("UI_DESIGN", "UI设计"),
+                item("DEVELOPMENT", "开发"),
+                item("TESTING", "测试"),
+                item("TRIAL_RUN", "上线试运行"));
         add("projectStatus", "项目状态",
                 item("NOT_STARTED", "未开始"),
                 item("IN_PROGRESS", "进行中"),

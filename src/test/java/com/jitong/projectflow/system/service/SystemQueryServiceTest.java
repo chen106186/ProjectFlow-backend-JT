@@ -10,6 +10,7 @@ import com.jitong.projectflow.system.mapper.DepartmentMapper;
 import com.jitong.projectflow.system.mapper.MenuMapper;
 import com.jitong.projectflow.system.mapper.RoleMapper;
 import com.jitong.projectflow.system.mapper.SystemUserMapper;
+import com.jitong.projectflow.system.mapper.UserRoleMapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -19,18 +20,20 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class SystemQueryServiceTest {
-    @Mock
-    SystemUserMapper systemUserMapper;
-    @Mock
-    DepartmentMapper departmentMapper;
-    @Mock
-    RoleMapper roleMapper;
-    @Mock
-    MenuMapper menuMapper;
+    @Mock SystemUserMapper systemUserMapper;
+    @Mock DepartmentMapper departmentMapper;
+    @Mock RoleMapper roleMapper;
+    @Mock MenuMapper menuMapper;
+    @Mock UserRoleMapper userRoleMapper;
+
+    private SystemQueryService service() {
+        return new SystemQueryService(systemUserMapper, departmentMapper, roleMapper, menuMapper, userRoleMapper);
+    }
 
     @Test
     void listUsersMapsRowsToResponses() {
@@ -43,13 +46,14 @@ class SystemQueryServiceTest {
         Page<SystemUser> page = new Page<>(1, 20, 1);
         page.setRecords(List.of(user));
         when(systemUserMapper.selectPage(any(), any())).thenReturn(page);
+        when(roleMapper.selectList(any())).thenReturn(List.of());
+        when(userRoleMapper.selectRoleIdsByUserId(anyLong())).thenReturn(List.of());
 
         SystemUserQueryRequest request = new SystemUserQueryRequest();
         request.setKeyword("zhang");
         request.setDepartmentId(2L);
         request.setEnabled(true);
-        var responses = new SystemQueryService(systemUserMapper, departmentMapper, roleMapper, menuMapper)
-                .listUsers(request);
+        var responses = service().listUsers(request);
 
         assertThat(responses.total()).isEqualTo(1);
         assertThat(responses.records().getFirst().getUsername()).isEqualTo("zhangsan");
@@ -80,10 +84,8 @@ class SystemQueryServiceTest {
         when(roleMapper.selectList(any())).thenReturn(List.of(role));
         when(menuMapper.selectList(any())).thenReturn(List.of(menu));
 
-        SystemQueryService service = new SystemQueryService(systemUserMapper, departmentMapper, roleMapper, menuMapper);
-
-        assertThat(service.listDepartments().getFirst().getName()).isEqualTo("R&D");
-        assertThat(service.listRoles().getFirst().getCode()).isEqualTo("PM");
-        assertThat(service.listMenus().getFirst().getPath()).isEqualTo("/projects");
+        assertThat(service().listDepartments().getFirst().getName()).isEqualTo("R&D");
+        assertThat(service().listRoles().getFirst().getCode()).isEqualTo("PM");
+        assertThat(service().listMenus().getFirst().getPath()).isEqualTo("/projects");
     }
 }

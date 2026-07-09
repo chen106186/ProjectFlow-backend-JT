@@ -35,6 +35,9 @@ public class RoleManagementService {
         RoleEntity entity = new RoleEntity();
         entity.setCode(request.getCode());
         entity.setName(request.getName());
+        entity.setDescription(request.getDescription());
+        entity.setEnabled(request.getEnabled() != null ? request.getEnabled() : Boolean.TRUE);
+        entity.setSortOrder(request.getSortOrder() != null ? request.getSortOrder() : 0);
         roleMapper.insert(entity);
         operationLogService.record("system", "Role", entity.getId(), "CREATE", "Create role " + entity.getCode());
         return toResponse(entity);
@@ -52,6 +55,9 @@ public class RoleManagementService {
             entity.setCode(request.getCode());
         }
         if (request.getName() != null) entity.setName(request.getName());
+        if (request.getDescription() != null) entity.setDescription(request.getDescription());
+        if (request.getEnabled() != null) entity.setEnabled(request.getEnabled());
+        if (request.getSortOrder() != null) entity.setSortOrder(request.getSortOrder());
         roleMapper.updateById(entity);
         operationLogService.record("system", "Role", id, "UPDATE", "Update role " + entity.getCode());
         return toResponse(entity);
@@ -113,6 +119,9 @@ public class RoleManagementService {
                 .id(entity.getId())
                 .code(entity.getCode())
                 .name(entity.getName())
+                .description(entity.getDescription())
+                .enabled(entity.getEnabled())
+                .sortOrder(entity.getSortOrder())
                 .build();
     }
 
@@ -121,6 +130,9 @@ public class RoleManagementService {
                 .id(entity.getId())
                 .code(entity.getCode())
                 .name(entity.getName())
+                .description(entity.getDescription())
+                .enabled(entity.getEnabled())
+                .sortOrder(entity.getSortOrder())
                 .menuIds(menuIds)
                 .build();
     }

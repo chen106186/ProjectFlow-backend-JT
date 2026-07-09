@@ -25,6 +25,8 @@ import java.util.Set;
 @Service
 @RequiredArgsConstructor
 public class CurrentUserPermissionService {
+    private static final String ADMIN_ROLE_CODE = "ADMIN";
+
     private final SystemUserMapper systemUserMapper;
     private final UserRoleMapper userRoleMapper;
     private final RoleMapper roleMapper;
@@ -33,29 +35,10 @@ public class CurrentUserPermissionService {
 
     public CurrentUserProfileResponse getCurrentUser() {
         Long userId = CurrentUserContext.userId();
-        SystemUser user = systemUserMapper.selectById(userId);
-        if (user == null) {
-            throw new BusinessException(ErrorCode.UNAUTHORIZED, "当前用户不存在");
-        }
-        if (!Boolean.TRUE.equals(user.getEnabled())) {
-            throw new BusinessException(ErrorCode.FORBIDDEN, "当前用户已被禁用");
-        }
-        List<Long> roleIds = userRoleMapper.selectRoleIdsByUserId(userId);
-        List<RoleEntity> roles = roleIds.isEmpty()
-                ? List.of()
-                : roleMapper.selectList(new LambdaQueryWrapper<RoleEntity>().in(RoleEntity::getId, roleIds));
-        List<Long> menuIds = roleIds.isEmpty()
-                ? List.of()
-                : roleMenuMapper.selectMenuIdsByRoleIds(roleIds).stream().distinct().toList();
-        List<MenuEntity> allMenus = menuIds.isEmpty()
-                ? List.of()
-                : menuMapper.selectList(new LambdaQueryWrapper<MenuEntity>().in(MenuEntity::getId, menuIds)
-                .orderByAsc(MenuEntity::getSortOrder)
-                .orderByAsc(MenuEntity::getId));
-        Set<String> permissions = new LinkedHashSet<>();
-        for (MenuEntity menu : allMenus) {
-            permissions.add(menu.getCode());
-        }
+        SystemUser user = requireEnabledUser(userId);
+        List<RoleEntity> roles = loadUserRoles(userId);
+        List<MenuEntity> allMenus = loadMenusForRoles(roles, userId);
+
         return CurrentUserProfileResponse.builder()
                 .id(user.getId())
                 .departmentId(user.getDepartmentId())
@@ -63,7 +46,7 @@ public class CurrentUserPermissionService {
                 .realName(user.getRealName())
                 .roles(roles.stream().map(this::toRoleResponse).toList())
                 .menus(allMenus.stream().filter(menu -> "MENU".equals(menu.getType())).map(this::toMenuResponse).toList())
-                .permissions(List.copyOf(permissions))
+                .permissions(extractPermissions(allMenus))
                 .build();
     }
 
@@ -72,6 +55,12 @@ public class CurrentUserPermissionService {
     }
 
     public List<String> getPermissionsByUserId(Long userId) {
+        List<RoleEntity> roles = loadUserRoles(userId);
+        List<MenuEntity> menus = loadMenusForRoles(roles, userId);
+        return extractPermissions(menus);
+    }
+
+    private SystemUser requireEnabledUser(Long userId) {
         SystemUser user = systemUserMapper.selectById(userId);
         if (user == null) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED, "当前用户不存在");
@@ -79,23 +68,50 @@ public class CurrentUserPermissionService {
         if (!Boolean.TRUE.equals(user.getEnabled())) {
             throw new BusinessException(ErrorCode.FORBIDDEN, "当前用户已被禁用");
         }
+        return user;
+    }
+
+    private List<RoleEntity> loadUserRoles(Long userId) {
+        requireEnabledUser(userId);
         List<Long> roleIds = userRoleMapper.selectRoleIdsByUserId(userId);
         if (roleIds.isEmpty()) {
             return List.of();
         }
+        return roleMapper.selectList(new LambdaQueryWrapper<RoleEntity>().in(RoleEntity::getId, roleIds));
+    }
+
+    private List<MenuEntity> loadMenusForRoles(List<RoleEntity> roles, Long userId) {
+        requireEnabledUser(userId);
+        if (roles.isEmpty()) {
+            return List.of();
+        }
+
+        LambdaQueryWrapper<MenuEntity> wrapper = new LambdaQueryWrapper<MenuEntity>()
+                .orderByAsc(MenuEntity::getSortOrder)
+                .orderByAsc(MenuEntity::getId);
+
+        if (roles.stream().anyMatch(role -> ADMIN_ROLE_CODE.equalsIgnoreCase(role.getCode()))) {
+            return menuMapper.selectList(wrapper);
+        }
+
+        List<Long> roleIds = roles.stream().map(RoleEntity::getId).toList();
         List<Long> menuIds = roleMenuMapper.selectMenuIdsByRoleIds(roleIds).stream().distinct().toList();
         if (menuIds.isEmpty()) {
             return List.of();
         }
-        List<MenuEntity> menus = menuMapper.selectList(new LambdaQueryWrapper<MenuEntity>().in(MenuEntity::getId, menuIds)
-                .orderByAsc(MenuEntity::getSortOrder)
-                .orderByAsc(MenuEntity::getId));
-        return menus.stream()
-                .map(MenuEntity::getCode)
-                .filter(code -> code != null && !code.isBlank())
-                .collect(java.util.stream.Collectors.collectingAndThen(
-                        java.util.stream.Collectors.toCollection(LinkedHashSet::new),
-                        List::copyOf));
+
+        wrapper.in(MenuEntity::getId, menuIds);
+        return menuMapper.selectList(wrapper);
+    }
+
+    private List<String> extractPermissions(List<MenuEntity> menus) {
+        Set<String> permissions = new LinkedHashSet<>();
+        for (MenuEntity menu : menus) {
+            if (menu.getCode() != null && !menu.getCode().isBlank()) {
+                permissions.add(menu.getCode());
+            }
+        }
+        return List.copyOf(permissions);
     }
 
     private RoleResponse toRoleResponse(RoleEntity role) {

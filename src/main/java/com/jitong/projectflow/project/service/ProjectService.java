@@ -19,8 +19,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
-import java.util.List;
-
 @Service
 @RequiredArgsConstructor
 public class ProjectService {
@@ -31,6 +29,7 @@ public class ProjectService {
     public ProjectResponse create(ProjectCreateRequest request) {
         ProjectEntity entity = new ProjectEntity();
         entity.setProjectType(request.getProjectType());
+        entity.setProjectBusinessType(request.getProjectBusinessType());
         entity.setName(request.getName());
         entity.setStage(request.getStage());
         entity.setStatus(StringUtils.hasText(request.getStatus()) ? request.getStatus() : "NOT_STARTED");
@@ -54,6 +53,7 @@ public class ProjectService {
     public PageResult<ProjectResponse> list(ProjectQueryRequest request) {
         LambdaQueryWrapper<ProjectEntity> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(StringUtils.hasText(request.getProjectType()), ProjectEntity::getProjectType, request.getProjectType());
+        wrapper.eq(StringUtils.hasText(request.getProjectBusinessType()), ProjectEntity::getProjectBusinessType, request.getProjectBusinessType());
         wrapper.eq(StringUtils.hasText(request.getStatus()), ProjectEntity::getStatus, request.getStatus());
         wrapper.eq(StringUtils.hasText(request.getContractStatus()), ProjectEntity::getContractStatus, request.getContractStatus());
         wrapper.eq(request.getManagerId() != null, ProjectEntity::getManagerId, request.getManagerId());
@@ -73,6 +73,7 @@ public class ProjectService {
         ProjectEntity entity = requireProject(id);
         businessAccessService.requireProjectManage(entity);
         if (request.getProjectType() != null) entity.setProjectType(request.getProjectType());
+        if (request.getProjectBusinessType() != null) entity.setProjectBusinessType(request.getProjectBusinessType());
         if (request.getName() != null) entity.setName(request.getName());
         if (request.getStage() != null) entity.setStage(request.getStage());
         if (request.getStatus() != null) entity.setStatus(request.getStatus());
@@ -119,23 +120,41 @@ public class ProjectService {
     }
 
     private ProjectResponse toResponse(ProjectEntity entity) {
-        return ProjectResponse.builder()
-                .id(entity.getId())
-                .projectType(entity.getProjectType())
-                .name(entity.getName())
-                .stage(entity.getStage())
-                .status(entity.getStatus())
-                .contractStatus(entity.getContractStatus())
-                .businessDepartment(entity.getBusinessDepartment())
-                .contractorUnit(entity.getContractorUnit())
-                .businessSupervisor(entity.getBusinessSupervisor())
-                .receivableAmount(entity.getReceivableAmount())
-                .managerId(entity.getManagerId())
-                .description(entity.getDescription())
-                .plannedStartDate(entity.getPlannedStartDate())
-                .plannedEndDate(entity.getPlannedEndDate())
-                .actualStartDate(entity.getActualStartDate())
-                .actualEndDate(entity.getActualEndDate())
-                .build();
+        ProjectResponse response = new ProjectResponse();
+        response.setId(entity.getId());
+        response.setProjectType(entity.getProjectType());
+        response.setProjectBusinessType(entity.getProjectBusinessType());
+        response.setName(entity.getName());
+        response.setStage(entity.getStage());
+        response.setStatus(entity.getStatus());
+        response.setContractStatus(entity.getContractStatus());
+        response.setBusinessDepartment(entity.getBusinessDepartment());
+        response.setContractorUnit(entity.getContractorUnit());
+        response.setBusinessSupervisor(entity.getBusinessSupervisor());
+        response.setReceivableAmount(entity.getReceivableAmount());
+        response.setManagerId(entity.getManagerId());
+        response.setType(projectBusinessTypeLabel(entity.getProjectBusinessType()));
+        response.setDepartment(entity.getBusinessDepartment());
+        response.setContractor(entity.getContractorUnit());
+        response.setSupervisor(entity.getBusinessSupervisor());
+        response.setAmount(entity.getReceivableAmount());
+        response.setDescription(entity.getDescription());
+        response.setPlannedStartDate(entity.getPlannedStartDate());
+        response.setPlannedEndDate(entity.getPlannedEndDate());
+        response.setActualStartDate(entity.getActualStartDate());
+        response.setActualEndDate(entity.getActualEndDate());
+        return response;
+    }
+
+    private String projectBusinessTypeLabel(String projectBusinessType) {
+        if (!StringUtils.hasText(projectBusinessType)) {
+            return null;
+        }
+        return switch (projectBusinessType) {
+            case "DIGITALIZATION" -> "数字化项目";
+            case "INFORMATIZATION" -> "信息化项目";
+            case "RESEARCH" -> "科研项目";
+            default -> projectBusinessType;
+        };
     }
 }

@@ -13,4 +13,10 @@ public class RoleCreateRequest {
     @NotBlank
     @Schema(description = "名称。")
     private String name;
+    @Schema(description = "描述。")
+    private String description;
+    @Schema(description = "是否启用，默认 true。")
+    private Boolean enabled;
+    @Schema(description = "排序，数值越小越靠前，默认 0。")
+    private Integer sortOrder;
 }
