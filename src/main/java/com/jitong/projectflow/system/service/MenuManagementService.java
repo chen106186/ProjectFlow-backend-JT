@@ -17,7 +17,7 @@ import java.util.Set;
 @Service
 @RequiredArgsConstructor
 public class MenuManagementService {
-    private static final Set<String> ALLOWED_TYPES = Set.of("MENU", "BUTTON");
+    private static final Set<String> ALLOWED_TYPES = Set.of("CATALOG", "MENU", "BUTTON");
 
     private final MenuMapper menuMapper;
     private final OperationLogService operationLogService;

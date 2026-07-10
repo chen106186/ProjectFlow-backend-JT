@@ -114,6 +114,7 @@ public class BugService {
 
     public BugResponse update(Long id, BugUpdateRequest request) {
         BugEntity entity = requireBug(id);
+        ensureMutable(entity);
         businessAccessService.requireBugEdit(entity);
         if (request.getProjectId() != null) entity.setProjectId(request.getProjectId());
         if (request.getTaskId() != null) entity.setTaskId(request.getTaskId());
@@ -131,6 +132,7 @@ public class BugService {
 
     public BugResponse assign(Long id, BugAssignRequest request) {
         BugEntity entity = requireBug(id);
+        ensureMutable(entity);
         businessAccessService.requireBugEdit(entity);
         entity.setAssigneeId(request.getAssigneeId());
         entity.setUpdatedBy(CurrentUserContext.userIdOrNull());
@@ -148,6 +150,7 @@ public class BugService {
 
     public BugResponse close(Long id) {
         BugEntity entity = requireBug(id);
+        ensureMutable(entity);
         businessAccessService.requireBugClose(entity);
         entity.setStatus(BugStatus.CLOSED.name());
         entity.setClosedAt(LocalDateTime.now());
@@ -159,6 +162,7 @@ public class BugService {
 
     public void delete(Long id) {
         BugEntity entity = requireBug(id);
+        ensureMutable(entity);
         businessAccessService.requireBugDelete(entity);
         bugMapper.deleteById(id);
         operationLogService.record("bug", "Bug", id, "DELETE", entity.getTitle());
@@ -166,6 +170,7 @@ public class BugService {
 
     public BugResponse fix(Long id, BugFixRequest request) {
         BugEntity entity = requireBug(id);
+        ensureMutable(entity);
         businessAccessService.requireBugEdit(entity);
         if (request.getFixAnalysis() != null) entity.setFixAnalysis(request.getFixAnalysis());
         if (request.getFixDetail() != null) entity.setFixDetail(request.getFixDetail());
@@ -182,6 +187,7 @@ public class BugService {
 
     public BugCommentResponse addComment(Long bugId, BugCommentCreateRequest request) {
         BugEntity bug = requireBug(bugId);
+        ensureMutable(bug);
         businessAccessService.requireBugEdit(bug);
         BugCommentEntity comment = new BugCommentEntity();
         comment.setBugId(bugId);
@@ -210,6 +216,12 @@ public class BugService {
             throw new BusinessException(ErrorCode.NOT_FOUND, "缺陷不存在");
         }
         return entity;
+    }
+
+    private void ensureMutable(BugEntity bug) {
+        if (BugStatus.CLOSED.name().equals(bug.getStatus())) {
+            throw new BusinessException(ErrorCode.CONFLICT, "已关闭的 Bug 仅支持查看，不允许继续操作");
+        }
     }
 
     private void applyReadScope(LambdaQueryWrapper<BugEntity> wrapper) {

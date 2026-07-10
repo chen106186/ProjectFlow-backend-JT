@@ -45,7 +45,10 @@ public class CurrentUserPermissionService {
                 .username(user.getUsername())
                 .realName(user.getRealName())
                 .roles(roles.stream().map(this::toRoleResponse).toList())
-                .menus(allMenus.stream().filter(menu -> "MENU".equals(menu.getType())).map(this::toMenuResponse).toList())
+                .menus(allMenus.stream()
+                        .filter(menu -> !"BUTTON".equals(menu.getType()))
+                        .map(this::toMenuResponse)
+                        .toList())
                 .permissions(extractPermissions(allMenus))
                 .build();
     }
