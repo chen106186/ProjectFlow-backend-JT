@@ -9,11 +9,14 @@ import com.jitong.projectflow.common.api.PageUtils;
 import com.jitong.projectflow.common.error.BusinessException;
 import com.jitong.projectflow.common.error.ErrorCode;
 import com.jitong.projectflow.project.dto.ProjectCreateRequest;
+import com.jitong.projectflow.project.dto.ProjectNodeCreateRequest;
 import com.jitong.projectflow.project.dto.ProjectQueryRequest;
 import com.jitong.projectflow.project.dto.ProjectResponse;
 import com.jitong.projectflow.project.dto.ProjectUpdateRequest;
 import com.jitong.projectflow.project.entity.ProjectEntity;
+import com.jitong.projectflow.project.entity.ProjectNodeEntity;
 import com.jitong.projectflow.project.mapper.ProjectMapper;
+import com.jitong.projectflow.project.mapper.ProjectNodeMapper;
 import com.jitong.projectflow.project.mapper.ProjectParticipantMapper;
 import com.jitong.projectflow.system.audit.OperationLogService;
 import lombok.RequiredArgsConstructor;
@@ -23,11 +26,13 @@ import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
 import java.util.List;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
 public class ProjectService {
     private final ProjectMapper projectMapper;
+    private final ProjectNodeMapper projectNodeMapper;
     private final ProjectParticipantMapper participantMapper;
     private final OperationLogService operationLogService;
     private final BusinessAccessService businessAccessService;
@@ -55,6 +60,7 @@ public class ProjectService {
         entity.setCreatedBy(CurrentUserContext.userIdOrNull());
         projectMapper.insert(entity);
         saveParticipants(entity.getId(), request.getParticipantIds());
+        saveNodes(entity.getId(), request.getNodes());
         operationLogService.record("project", "Project", entity.getId(), "CREATE", entity.getName());
         return toResponse(entity);
     }
@@ -103,6 +109,9 @@ public class ProjectService {
         projectMapper.updateById(entity);
         if (request.getParticipantIds() != null) {
             saveParticipants(id, request.getParticipantIds());
+        }
+        if (request.getNodeNames() != null) {
+            syncNodes(id, request.getNodeNames());
         }
         operationLogService.record("project", "Project", id, "UPDATE", entity.getName());
         return toResponse(entity);
@@ -166,6 +175,55 @@ public class ProjectService {
         participantMapper.deleteByProjectId(projectId);
         if (!CollectionUtils.isEmpty(participantIds)) {
             participantMapper.batchInsert(projectId, participantIds);
+        }
+    }
+
+    private void saveNodes(Long projectId, List<ProjectNodeCreateRequest> nodes) {
+        if (CollectionUtils.isEmpty(nodes)) {
+            return;
+        }
+        Long createdBy = CurrentUserContext.userIdOrNull();
+        for (int i = 0; i < nodes.size(); i++) {
+            ProjectNodeCreateRequest req = nodes.get(i);
+            if (!StringUtils.hasText(req.getNodeName())) {
+                continue;
+            }
+            ProjectNodeEntity node = new ProjectNodeEntity();
+            node.setProjectId(projectId);
+            node.setNodeName(req.getNodeName());
+            node.setNodeType("TASK");
+            node.setPlannedStartDate(req.getPlannedStartDate());
+            node.setPlannedEndDate(req.getPlannedEndDate());
+            node.setSortOrder(req.getSortOrder() != null ? req.getSortOrder() : i + 1);
+            node.setStatus("NOT_STARTED");
+            node.setProgressPercent(0);
+            node.setCreatedBy(createdBy);
+            projectNodeMapper.insert(node);
+        }
+    }
+
+    private void syncNodes(Long projectId, List<String> newNames) {
+        List<ProjectNodeEntity> existing = projectNodeMapper.selectList(
+                new LambdaQueryWrapper<ProjectNodeEntity>().eq(ProjectNodeEntity::getProjectId, projectId));
+        Set<String> existingNames = existing.stream()
+                .map(ProjectNodeEntity::getNodeName).collect(java.util.stream.Collectors.toSet());
+        // delete nodes removed from the list
+        existing.stream().filter(n -> !newNames.contains(n.getNodeName()))
+                .forEach(n -> projectNodeMapper.deleteById(n.getId()));
+        // insert newly added nodes
+        Long createdBy = CurrentUserContext.userIdOrNull();
+        for (int i = 0; i < newNames.size(); i++) {
+            if (!existingNames.contains(newNames.get(i))) {
+                ProjectNodeEntity node = new ProjectNodeEntity();
+                node.setProjectId(projectId);
+                node.setNodeName(newNames.get(i));
+                node.setNodeType("TASK");
+                node.setSortOrder(i + 1);
+                node.setStatus("NOT_STARTED");
+                node.setProgressPercent(0);
+                node.setCreatedBy(createdBy);
+                projectNodeMapper.insert(node);
+            }
         }
     }
 

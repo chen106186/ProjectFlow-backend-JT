@@ -52,10 +52,6 @@ public class GanttService {
         if (req.getActualStartDate() != null) entity.setActualStartDate(req.getActualStartDate());
         if (req.getActualEndDate() != null) entity.setActualEndDate(req.getActualEndDate());
         validateNode(entity);
-        if (req.getActualEndDate() != null) {
-            entity.setProgressPercent(100);
-            entity.setStatus("COMPLETED");
-        }
         entity.setUpdatedBy(CurrentUserContext.userId());
 
         projectNodeMapper.updateById(entity);

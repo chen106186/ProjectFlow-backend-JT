@@ -53,6 +53,9 @@ public class ProjectUpdateRequest {
     @Schema(description = "参与人员用户 ID 列表（null 表示不修改，空列表表示清空）。")
     private List<Long> participantIds;
 
+    @Schema(description = "项目节点名称列表（null 表示不修改，传空列表表示清空所有节点）。")
+    private List<String> nodeNames;
+
     @Schema(description = "详细描述。")
     private String description;
 
