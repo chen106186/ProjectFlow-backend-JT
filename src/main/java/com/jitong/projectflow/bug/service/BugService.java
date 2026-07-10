@@ -23,13 +23,22 @@ import com.jitong.projectflow.common.error.BusinessException;
 import com.jitong.projectflow.common.error.ErrorCode;
 import com.jitong.projectflow.notice.domain.NoticeType;
 import com.jitong.projectflow.notice.service.NoticeService;
+import com.jitong.projectflow.project.entity.ProjectEntity;
+import com.jitong.projectflow.project.mapper.ProjectMapper;
 import com.jitong.projectflow.system.audit.OperationLogService;
+import com.jitong.projectflow.system.entity.SystemUser;
+import com.jitong.projectflow.system.mapper.SystemUserMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Service
 @RequiredArgsConstructor
@@ -39,6 +48,8 @@ public class BugService {
     private final OperationLogService operationLogService;
     private final NoticeService noticeService;
     private final BusinessAccessService businessAccessService;
+    private final SystemUserMapper userMapper;
+    private final ProjectMapper projectMapper;
 
     public BugResponse create(BugCreateRequest request) {
         BugEntity entity = new BugEntity();
@@ -56,7 +67,7 @@ public class BugService {
         operationLogService.record("bug", "Bug", entity.getId(), "CREATE", entity.getTitle());
         noticeService.create(entity.getAssigneeId(), NoticeType.BUG_ASSIGNED, "缺陷指派通知",
                 entity.getTitle(), "Bug", entity.getId());
-        return toResponse(entity);
+        return getById(entity.getId());
     }
 
     public PageResult<BugResponse> list(BugQueryRequest request) {
@@ -69,7 +80,13 @@ public class BugService {
         applyReadScope(wrapper);
         wrapper.orderByDesc(BugEntity::getCreatedAt);
         Page<BugEntity> page = bugMapper.selectPage(PageUtils.toPage(request), wrapper);
-        return PageUtils.toResult(page, page.getRecords().stream().map(this::toResponse).toList());
+        List<BugEntity> records = page.getRecords();
+        Map<Long, String> userNames = batchUserNames(records.stream()
+                .flatMap(b -> Stream.of(b.getCreatorId(), b.getAssigneeId()))
+                .filter(Objects::nonNull).collect(Collectors.toSet()));
+        Map<Long, String> projectNames = batchProjectNames(records.stream()
+                .map(BugEntity::getProjectId).filter(Objects::nonNull).collect(Collectors.toSet()));
+        return PageUtils.toResult(page, records.stream().map(b -> toResponse(b, userNames, projectNames)).toList());
     }
 
     public List<BugResponse> listMine() {
@@ -77,11 +94,22 @@ public class BugService {
         LambdaQueryWrapper<BugEntity> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(BugEntity::getCreatorId, userId).or().eq(BugEntity::getAssigneeId, userId);
         wrapper.orderByDesc(BugEntity::getCreatedAt);
-        return bugMapper.selectList(wrapper).stream().map(this::toResponse).toList();
+        List<BugEntity> records = bugMapper.selectList(wrapper);
+        Map<Long, String> userNames = batchUserNames(records.stream()
+                .flatMap(b -> Stream.of(b.getCreatorId(), b.getAssigneeId()))
+                .filter(Objects::nonNull).collect(Collectors.toSet()));
+        Map<Long, String> projectNames = batchProjectNames(records.stream()
+                .map(BugEntity::getProjectId).filter(Objects::nonNull).collect(Collectors.toSet()));
+        return records.stream().map(b -> toResponse(b, userNames, projectNames)).toList();
     }
 
     public BugResponse getById(Long id) {
-        return toResponse(requireBug(id));
+        BugEntity entity = requireBug(id);
+        Map<Long, String> userNames = batchUserNames(Stream.of(entity.getCreatorId(), entity.getAssigneeId())
+                .filter(Objects::nonNull).collect(Collectors.toSet()));
+        Map<Long, String> projectNames = entity.getProjectId() != null
+                ? batchProjectNames(Set.of(entity.getProjectId())) : Map.of();
+        return toResponse(entity, userNames, projectNames);
     }
 
     public BugResponse update(Long id, BugUpdateRequest request) {
@@ -98,7 +126,7 @@ public class BugService {
         entity.setUpdatedBy(CurrentUserContext.userIdOrNull());
         bugMapper.updateById(entity);
         operationLogService.record("bug", "Bug", id, "UPDATE", entity.getTitle());
-        return toResponse(entity);
+        return getById(id);
     }
 
     public BugResponse assign(Long id, BugAssignRequest request) {
@@ -115,7 +143,7 @@ public class BugService {
             noticeService.create(entity.getCreatorId(), NoticeType.BUG_ASSIGNED, "缺陷转派抄送",
                     entity.getTitle() + " 已转派给用户 " + request.getAssigneeId(), "Bug", id);
         }
-        return toResponse(entity);
+        return getById(id);
     }
 
     public BugResponse close(Long id) {
@@ -126,7 +154,7 @@ public class BugService {
         entity.setUpdatedBy(CurrentUserContext.userIdOrNull());
         bugMapper.updateById(entity);
         operationLogService.record("bug", "Bug", id, "CLOSE", entity.getTitle());
-        return toResponse(entity);
+        return getById(id);
     }
 
     public void delete(Long id) {
@@ -149,7 +177,7 @@ public class BugService {
             noticeService.create(entity.getCreatorId(), NoticeType.BUG_ASSIGNED, "缺陷修复通知",
                     entity.getTitle() + " 已修复，请验证", "Bug", id);
         }
-        return toResponse(entity);
+        return getById(id);
     }
 
     public BugCommentResponse addComment(Long bugId, BugCommentCreateRequest request) {
@@ -200,7 +228,7 @@ public class BugService {
         return "select id from pf_project where deleted = 0 and (manager_id = " + userId + " or created_by = " + userId + ")";
     }
 
-    private BugResponse toResponse(BugEntity entity) {
+    private BugResponse toResponse(BugEntity entity, Map<Long, String> userNames, Map<Long, String> projectNames) {
         return BugResponse.builder()
                 .id(entity.getId())
                 .projectId(entity.getProjectId())
@@ -216,16 +244,37 @@ public class BugService {
                 .fixDetail(entity.getFixDetail())
                 .closedAt(entity.getClosedAt())
                 .createdAt(entity.getCreatedAt())
+                .creatorName(userNames.get(entity.getCreatorId()))
+                .assigneeName(userNames.get(entity.getAssigneeId()))
+                .projectName(projectNames.get(entity.getProjectId()))
                 .build();
     }
 
     private BugCommentResponse toCommentResponse(BugCommentEntity entity) {
+        String authorName = null;
+        if (entity.getUserId() != null) {
+            SystemUser user = userMapper.selectById(entity.getUserId());
+            if (user != null) authorName = user.getRealName();
+        }
         return BugCommentResponse.builder()
                 .id(entity.getId())
                 .bugId(entity.getBugId())
                 .userId(entity.getUserId())
                 .content(entity.getContent())
                 .createdAt(entity.getCreatedAt())
+                .authorName(authorName)
                 .build();
+    }
+
+    private Map<Long, String> batchUserNames(Set<Long> ids) {
+        if (ids.isEmpty()) return Map.of();
+        return userMapper.selectBatchIds(ids).stream()
+                .collect(Collectors.toMap(SystemUser::getId, SystemUser::getRealName));
+    }
+
+    private Map<Long, String> batchProjectNames(Set<Long> ids) {
+        if (ids.isEmpty()) return Map.of();
+        return projectMapper.selectBatchIds(ids).stream()
+                .collect(Collectors.toMap(ProjectEntity::getId, ProjectEntity::getName));
     }
 }

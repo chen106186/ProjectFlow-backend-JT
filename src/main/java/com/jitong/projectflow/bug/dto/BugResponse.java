@@ -38,4 +38,10 @@ public class BugResponse {
     private LocalDateTime closedAt;
     @Schema(description = "创建时间。")
     private java.time.LocalDateTime createdAt;
+    @Schema(description = "创建人姓名。")
+    private String creatorName;
+    @Schema(description = "负责人姓名。")
+    private String assigneeName;
+    @Schema(description = "项目名称。")
+    private String projectName;
 }

@@ -20,4 +20,6 @@ public class BugCommentResponse {
     private String content;
     @Schema(description = "创建时间，格式 yyyy-MM-dd HH:mm:ss。")
     private LocalDateTime createdAt;
+    @Schema(description = "评论人姓名。")
+    private String authorName;
 }
