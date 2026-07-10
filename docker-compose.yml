@@ -1,0 +1,70 @@
+services:
+
+  # ── MySQL ────────────────────────────────────────────────────
+  mysql:
+    image: mysql:8.0
+    container_name: projectflow-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: projectflow
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-projectflow123}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-projectflow123}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  # ── Redis ────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: projectflow-redis
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # ── Backend ──────────────────────────────────────────────────
+  backend:
+    image: projectflow-backend:latest
+    container_name: projectflow-backend
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/projectflow?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD:-projectflow123}
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      PROJECTFLOW_JWT_SECRET: ${JWT_SECRET:-change-me-at-least-32-bytes-long!!}
+      PROJECTFLOW_STORAGE_TYPE: local
+      PROJECTFLOW_STORAGE_LOCAL_ROOT: /app/data/uploads
+    volumes:
+      - uploads:/app/data/uploads
+    ports:
+      - "8080:8080"
+
+  # ── Frontend (Nginx) ─────────────────────────────────────────
+  frontend:
+    image: projectflow-frontend:latest
+    container_name: projectflow-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+
+volumes:
+  mysql_data:
+  redis_data:
+  uploads:
