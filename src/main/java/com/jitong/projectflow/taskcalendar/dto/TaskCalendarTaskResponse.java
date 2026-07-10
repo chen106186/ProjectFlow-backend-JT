@@ -34,4 +34,8 @@ public class TaskCalendarTaskResponse {
     private Integer overdueDays;
     @Schema(description = "距离计划结束日期的剩余天数。")
     private Integer remainingDays;
+    @Schema(description = "所属项目名称。")
+    private String projectName;
+    @Schema(description = "负责人姓名。")
+    private String assigneeName;
 }

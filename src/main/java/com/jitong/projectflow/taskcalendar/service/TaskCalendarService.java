@@ -1,6 +1,10 @@
 package com.jitong.projectflow.taskcalendar.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.jitong.projectflow.project.entity.ProjectEntity;
+import com.jitong.projectflow.project.mapper.ProjectMapper;
+import com.jitong.projectflow.system.entity.SystemUser;
+import com.jitong.projectflow.system.mapper.SystemUserMapper;
 import com.jitong.projectflow.task.domain.TaskPriority;
 import com.jitong.projectflow.task.domain.TaskStatus;
 import com.jitong.projectflow.task.domain.TaskStatusCalculator;
@@ -17,6 +21,10 @@ import java.time.YearMonth;
 import java.time.temporal.ChronoUnit;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 @Service
@@ -25,14 +33,18 @@ public class TaskCalendarService {
     private static final int MONTH_PREVIEW_LIMIT = 5;
 
     private final TaskMapper taskMapper;
+    private final ProjectMapper projectMapper;
+    private final SystemUserMapper systemUserMapper;
     private final TaskStatusCalculator statusCalculator = new TaskStatusCalculator();
 
     public TaskCalendarMonthResponse month(YearMonth month) {
         LocalDate start = month.atDay(1);
         LocalDate end = month.atEndOfMonth();
         List<TaskEntity> tasks = findTasksForRange(start, end);
+        Map<Long, String> projectNames = loadProjectNames(tasks);
+        Map<Long, String> userNames = loadUserNames(tasks);
         List<TaskCalendarDayResponse> days = IntStream.rangeClosed(1, month.lengthOfMonth())
-                .mapToObj(day -> buildDay(month.atDay(day), tasks, MONTH_PREVIEW_LIMIT))
+                .mapToObj(day -> buildDay(month.atDay(day), tasks, projectNames, userNames, MONTH_PREVIEW_LIMIT))
                 .toList();
         return TaskCalendarMonthResponse.builder()
                 .month(month)
@@ -41,7 +53,10 @@ public class TaskCalendarService {
     }
 
     public TaskCalendarDayResponse day(LocalDate date) {
-        return buildDay(date, findTasksForRange(date, date), Integer.MAX_VALUE);
+        List<TaskEntity> tasks = findTasksForRange(date, date);
+        Map<Long, String> projectNames = loadProjectNames(tasks);
+        Map<Long, String> userNames = loadUserNames(tasks);
+        return buildDay(date, tasks, projectNames, userNames, Integer.MAX_VALUE);
     }
 
     private List<TaskEntity> findTasksForRange(LocalDate start, LocalDate end) {
@@ -54,10 +69,34 @@ public class TaskCalendarService {
         return taskMapper.selectList(wrapper);
     }
 
-    private TaskCalendarDayResponse buildDay(LocalDate date, List<TaskEntity> sourceTasks, int limit) {
+    private Map<Long, String> loadProjectNames(List<TaskEntity> tasks) {
+        List<Long> projectIds = tasks.stream()
+                .map(TaskEntity::getProjectId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        if (projectIds.isEmpty()) return Map.of();
+        return projectMapper.selectByIds(projectIds).stream()
+                .collect(Collectors.toMap(ProjectEntity::getId, ProjectEntity::getName));
+    }
+
+    private Map<Long, String> loadUserNames(List<TaskEntity> tasks) {
+        List<Long> userIds = tasks.stream()
+                .map(TaskEntity::getAssigneeId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        if (userIds.isEmpty()) return Map.of();
+        return systemUserMapper.selectByIds(userIds).stream()
+                .collect(Collectors.toMap(SystemUser::getId, SystemUser::getRealName));
+    }
+
+    private TaskCalendarDayResponse buildDay(LocalDate date, List<TaskEntity> sourceTasks,
+                                              Map<Long, String> projectNames,
+                                              Map<Long, String> userNames, int limit) {
         List<TaskCalendarTaskResponse> sorted = sourceTasks.stream()
                 .filter(task -> activeOn(task, date))
-                .map(task -> toResponse(task, date))
+                .map(task -> toResponse(task, date, projectNames, userNames))
                 .sorted(calendarComparator())
                 .toList();
         List<TaskCalendarTaskResponse> preview = sorted.stream().limit(limit).toList();
@@ -82,7 +121,9 @@ public class TaskCalendarService {
         return true;
     }
 
-    private TaskCalendarTaskResponse toResponse(TaskEntity task, LocalDate date) {
+    private TaskCalendarTaskResponse toResponse(TaskEntity task, LocalDate date,
+                                                  Map<Long, String> projectNames,
+                                                  Map<Long, String> userNames) {
         String status = statusCalculator.calculate(
                 task.getPlannedEndDate(),
                 task.getActualStartDate(),
@@ -102,6 +143,8 @@ public class TaskCalendarService {
                 .actualEndDate(task.getActualEndDate())
                 .overdueDays(overdueDays(task, date))
                 .remainingDays(remainingDays(task, date))
+                .projectName(projectNames.get(task.getProjectId()))
+                .assigneeName(userNames.get(task.getAssigneeId()))
                 .build();
     }
 
