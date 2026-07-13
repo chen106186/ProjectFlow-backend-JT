@@ -26,8 +26,12 @@ public class OperationLogQueryService {
         wrapper.eq(request.getBusinessId() != null, OperationLog::getBusinessId, request.getBusinessId());
         wrapper.eq(StringUtils.hasText(request.getOperationType()), OperationLog::getOperationType, request.getOperationType());
         wrapper.eq(request.getOperatorId() != null, OperationLog::getOperatorId, request.getOperatorId());
-        wrapper.ge(request.getStartTime() != null, OperationLog::getCreatedAt, request.getStartTime());
-        wrapper.le(request.getEndTime() != null, OperationLog::getCreatedAt, request.getEndTime());
+        wrapper.like(StringUtils.hasText(request.getOperatorName()), OperationLog::getOperatorName, request.getOperatorName());
+        wrapper.like(StringUtils.hasText(request.getKeyword()), OperationLog::getContent, request.getKeyword());
+        wrapper.ge(request.getStartDate() != null, OperationLog::getCreatedAt,
+                request.getStartDate() != null ? request.getStartDate().atStartOfDay() : null);
+        wrapper.le(request.getEndDate() != null, OperationLog::getCreatedAt,
+                request.getEndDate() != null ? request.getEndDate().atTime(23, 59, 59) : null);
         wrapper.orderByDesc(OperationLog::getCreatedAt);
         Page<OperationLog> page = operationLogMapper.selectPage(PageUtils.toPage(request), wrapper);
         return PageUtils.toResult(page, page.getRecords().stream().map(this::toResponse).toList());

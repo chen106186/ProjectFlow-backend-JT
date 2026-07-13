@@ -15,6 +15,8 @@ public class BugEntity {
     @TableId(type = IdType.ASSIGN_ID)
     private Long id;
 
+    private Long bugNo;
+
     private Long projectId;
 
     private Long taskId;

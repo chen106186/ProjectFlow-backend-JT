@@ -63,6 +63,7 @@ public class BugService {
         entity.setDescription(request.getDescription());
         entity.setReproduceSteps(request.getReproduceSteps());
         entity.setCreatedBy(CurrentUserContext.userIdOrNull());
+        entity.setBugNo(bugMapper.selectMaxBugNo() + 1L);
         bugMapper.insert(entity);
         operationLogService.record("bug", "Bug", entity.getId(), "CREATE", entity.getTitle());
         noticeService.create(entity.getAssigneeId(), NoticeType.BUG_ASSIGNED, "缺陷指派通知",
@@ -243,6 +244,7 @@ public class BugService {
     private BugResponse toResponse(BugEntity entity, Map<Long, String> userNames, Map<Long, String> projectNames) {
         return BugResponse.builder()
                 .id(entity.getId())
+                .bugNo(entity.getBugNo())
                 .projectId(entity.getProjectId())
                 .taskId(entity.getTaskId())
                 .title(entity.getTitle())

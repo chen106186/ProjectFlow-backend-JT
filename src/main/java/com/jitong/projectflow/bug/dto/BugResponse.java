@@ -12,6 +12,8 @@ import java.time.LocalDateTime;
 public class BugResponse {
     @Schema(description = "主键 ID。")
     private Long id;
+    @Schema(description = "Bug 序号，从 1 开始递增。")
+    private Long bugNo;
     @Schema(description = "项目 ID。")
     private Long projectId;
     @Schema(description = "任务 ID。")

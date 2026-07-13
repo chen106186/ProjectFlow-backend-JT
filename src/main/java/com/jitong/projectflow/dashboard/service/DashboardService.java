@@ -115,6 +115,9 @@ public class DashboardService {
         } else if ("month".equals(period)) {
             startDate = today.minusDays(29);
             endDate = today;
+        } else if ("quarter".equals(period)) {
+            startDate = today.minusDays(89);
+            endDate = today;
         } else if ("year".equals(period)) {
             startDate = today.minusDays(364);
             endDate = today;

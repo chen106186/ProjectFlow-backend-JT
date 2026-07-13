@@ -115,6 +115,9 @@ public class TaskCalendarService {
         if (date.isBefore(start)) {
             return false;
         }
+        if (date.isAfter(task.getPlannedEndDate())) {
+            return false;
+        }
         if (task.getActualEndDate() != null) {
             return !date.isAfter(task.getActualEndDate());
         }
