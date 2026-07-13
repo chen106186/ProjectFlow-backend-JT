@@ -2,7 +2,9 @@ package com.jitong.projectflow.system.audit;
 
 import com.jitong.projectflow.auth.security.CurrentUserContext;
 import com.jitong.projectflow.system.entity.OperationLog;
+import com.jitong.projectflow.system.entity.SystemUser;
 import com.jitong.projectflow.system.mapper.OperationLogMapper;
+import com.jitong.projectflow.system.mapper.SystemUserMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -14,9 +16,11 @@ public class DefaultOperationLogService implements OperationLogService {
     private static final Logger logger = LoggerFactory.getLogger(DefaultOperationLogService.class);
 
     private final OperationLogMapper operationLogMapper;
+    private final SystemUserMapper systemUserMapper;
 
-    public DefaultOperationLogService(OperationLogMapper operationLogMapper) {
+    public DefaultOperationLogService(OperationLogMapper operationLogMapper, SystemUserMapper systemUserMapper) {
         this.operationLogMapper = operationLogMapper;
+        this.systemUserMapper = systemUserMapper;
     }
 
     @Override
@@ -32,6 +36,10 @@ public class DefaultOperationLogService implements OperationLogService {
             Long userId = CurrentUserContext.userIdOrNull();
             if (userId != null) {
                 log.setOperatorId(userId);
+                SystemUser user = systemUserMapper.selectById(userId);
+                if (user != null && user.getRealName() != null) {
+                    log.setOperatorName(user.getRealName());
+                }
             }
             operationLogMapper.insert(log);
         } catch (Exception e) {

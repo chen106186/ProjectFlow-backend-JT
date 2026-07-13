@@ -12,5 +12,8 @@ public record LoginRequest(
 
         @Schema(description = "登录密码。")
         @NotBlank
-        String password) {
+        String password,
+
+        @Schema(description = "是否记住登录状态。")
+        Boolean rememberMe) {
 }

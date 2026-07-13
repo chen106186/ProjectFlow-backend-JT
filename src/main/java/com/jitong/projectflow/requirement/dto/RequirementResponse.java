@@ -14,8 +14,17 @@ public class RequirementResponse {
     @Schema(description = "主键 ID。")
     private Long id;
 
+    @Schema(description = "需求序号，从 1 开始递增。")
+    private Long requirementNo;
+
     @Schema(description = "项目 ID。")
     private Long projectId;
+
+    @Schema(description = "审核人用户 ID。")
+    private Long reviewerId;
+
+    @Schema(description = "审核人姓名。")
+    private String reviewerName;
 
     @Schema(description = "标题。")
     private String title;
@@ -37,6 +46,9 @@ public class RequirementResponse {
 
     @Schema(description = "创建人 ID。")
     private Long createdBy;
+
+    @Schema(description = "创建人姓名。")
+    private String creatorName;
 
     @Schema(description = "创建时间，格式 yyyy-MM-dd HH:mm:ss。")
     private LocalDateTime createdAt;

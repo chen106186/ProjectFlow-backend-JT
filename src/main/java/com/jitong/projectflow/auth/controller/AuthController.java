@@ -64,7 +64,10 @@ public class AuthController {
                 || !passwordEncoder.matches(request.password(), user.getPasswordHash())) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED, "用户名或密码错误");
         }
-        String token = tokenService.createToken(user.getId(), user.getUsername());
+        long rememberTtlMinutes = 60L * 24 * 30;
+        String token = Boolean.TRUE.equals(request.rememberMe())
+                ? tokenService.createToken(user.getId(), user.getUsername(), rememberTtlMinutes)
+                : tokenService.createToken(user.getId(), user.getUsername());
         return ApiResponse.success(new LoginResponse(token, user.getId(), user.getRealName()), MDC.get("traceId"));
     }
 }

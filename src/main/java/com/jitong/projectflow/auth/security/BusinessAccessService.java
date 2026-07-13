@@ -72,7 +72,7 @@ public class BusinessAccessService {
 
     public void requireRequirementManage(RequirementEntity requirement) {
         Long userId = currentUserId();
-        if (isSystemAdmin() || same(userId, requirement.getCreatedBy()) || canManageProject(requirement.getProjectId(), userId)) {
+        if (isSystemAdmin() || same(userId, requirement.getCreatedBy()) || same(userId, requirement.getReviewerId()) || canManageProject(requirement.getProjectId(), userId)) {
             return;
         }
         throwForbidden();

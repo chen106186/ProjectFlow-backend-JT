@@ -47,8 +47,8 @@ projectflow:
     type: local
     local-root: ./data/uploads
     aliyun-oss:
-      endpoint: https://oss-cn-hangzhou.aliyuncs.com
+      endpoint: https://oss-cn-shanghai.aliyuncs.com
       access-key-id: ${ALIYUN_OSS_ACCESS_KEY_ID:local-dev-key}
       access-key-secret: ${ALIYUN_OSS_ACCESS_KEY_SECRET:local-dev-secret}
-      bucket-name: ${ALIYUN_OSS_BUCKET:projectflow-dev}
+      bucket-name: ${ALIYUN_OSS_BUCKET:company-project-oss}
       object-prefix: projectflow

@@ -27,3 +27,5 @@ target/
 .m2/
 .agents
 docs
+application-local.yml
+.env

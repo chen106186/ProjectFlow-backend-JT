@@ -50,7 +50,7 @@ public class ProjectReportService {
         entity.setDescription(request.getDescription());
         entity.setCreatedBy(CurrentUserContext.userIdOrNull());
         projectReportMapper.insert(entity);
-        operationLogService.record("project-report", "ProjectReport", entity.getId(), "CREATE", entity.getTitle());
+        operationLogService.record("project-report", "ProjectReport", entity.getId(), "CREATE", "新建汇报：" + entity.getTitle());
         return toResponse(entity, List.of());
     }
 
@@ -78,17 +78,19 @@ public class ProjectReportService {
         if (request.getDescription() != null) entity.setDescription(request.getDescription());
         entity.setUpdatedBy(CurrentUserContext.userIdOrNull());
         projectReportMapper.updateById(entity);
-        operationLogService.record("project-report", "ProjectReport", id, "UPDATE", entity.getTitle());
+        operationLogService.record("project-report", "ProjectReport", id, "UPDATE", "编辑汇报：" + entity.getTitle());
         return getById(id);
     }
 
     public ProjectReportResponse updateStatus(Long id, ProjectReportStatusUpdateRequest request) {
         ProjectReportEntity entity = requireReport(id);
         businessAccessService.requireProjectReportManage(entity);
+        String oldStatus = entity.getStatus();
         entity.setStatus(request.getStatus());
         entity.setUpdatedBy(CurrentUserContext.userIdOrNull());
         projectReportMapper.updateById(entity);
-        operationLogService.record("project-report", "ProjectReport", id, "UPDATE_STATUS", request.getStatus());
+        operationLogService.record("project-report", "ProjectReport", id, "UPDATE_STATUS",
+                "汇报状态由" + reportStatusLabel(oldStatus) + "变为" + reportStatusLabel(request.getStatus()) + "：" + entity.getTitle());
         return toResponse(entity, listItemEntities(id).stream().map(this::toItemResponse).toList());
     }
 
@@ -96,7 +98,7 @@ public class ProjectReportService {
         ProjectReportEntity entity = requireReport(id);
         businessAccessService.requireProjectReportManage(entity);
         projectReportMapper.deleteById(id);
-        operationLogService.record("project-report", "ProjectReport", id, "DELETE", entity.getTitle());
+        operationLogService.record("project-report", "ProjectReport", id, "DELETE", "删除汇报：" + entity.getTitle());
     }
 
     public ProjectReportItemResponse createItem(Long reportId, ProjectReportItemCreateRequest request) {
@@ -112,7 +114,7 @@ public class ProjectReportService {
         entity.setDescription(request.getDescription());
         entity.setCreatedBy(CurrentUserContext.userIdOrNull());
         projectReportItemMapper.insert(entity);
-        operationLogService.record("project-report", "ProjectReport", reportId, "CREATE_ITEM", entity.getContent());
+        operationLogService.record("project-report", "ProjectReport", reportId, "CREATE_ITEM", "新增准备项：" + entity.getContent());
         return toItemResponse(entity);
     }
 
@@ -128,7 +130,7 @@ public class ProjectReportService {
         if (request.getDescription() != null) entity.setDescription(request.getDescription());
         entity.setUpdatedBy(CurrentUserContext.userIdOrNull());
         projectReportItemMapper.updateById(entity);
-        operationLogService.record("project-report", "ProjectReport", reportId, "UPDATE_ITEM", entity.getContent());
+        operationLogService.record("project-report", "ProjectReport", reportId, "UPDATE_ITEM", "编辑准备项：" + entity.getContent());
         return toItemResponse(entity);
     }
 
@@ -137,7 +139,7 @@ public class ProjectReportService {
         businessAccessService.requireProjectReportManage(report);
         ProjectReportItemEntity entity = requireItem(reportId, itemId);
         projectReportItemMapper.deleteById(itemId);
-        operationLogService.record("project-report", "ProjectReport", reportId, "DELETE_ITEM", entity.getContent());
+        operationLogService.record("project-report", "ProjectReport", reportId, "DELETE_ITEM", "删除准备项：" + entity.getContent());
     }
 
     private LambdaQueryWrapper<ProjectReportEntity> buildQuery(ProjectReportQueryRequest request) {
@@ -210,5 +212,15 @@ public class ProjectReportService {
                 .updatedBy(entity.getUpdatedBy())
                 .updatedAt(entity.getUpdatedAt())
                 .build();
+    }
+
+    private String reportStatusLabel(String status) {
+        return switch (status == null ? "" : status) {
+            case "PREPARING" -> "准备中";
+            case "IN_PROGRESS" -> "进行中";
+            case "COMPLETED" -> "已完成";
+            case "CANCELLED" -> "已取消";
+            default -> status;
+        };
     }
 }

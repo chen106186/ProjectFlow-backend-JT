@@ -30,6 +30,8 @@ public class FileResponse {
     private String fileCategory;
     @Schema(description = "底层存储类型，当前支持 LOCAL，并预留 MINIO、OSS。")
     private String storageType;
+    @Schema(description = "OSS 文件公开访问 URL，LOCAL 存储时为 null。")
+    private String url;
     @Schema(description = "上传人ID。")
     private Long uploaderId;
     @Schema(description = "上传时间，格式 yyyy-MM-dd HH:mm:ss。")

@@ -15,7 +15,11 @@ public class RequirementEntity {
     @TableId(type = IdType.ASSIGN_ID)
     private Long id;
 
+    private Long requirementNo;
+
     private Long projectId;
+
+    private Long reviewerId;
 
     private String title;
 

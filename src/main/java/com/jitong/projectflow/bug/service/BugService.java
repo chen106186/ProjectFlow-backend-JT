@@ -65,7 +65,7 @@ public class BugService {
         entity.setCreatedBy(CurrentUserContext.userIdOrNull());
         entity.setBugNo(bugMapper.selectMaxBugNo() + 1L);
         bugMapper.insert(entity);
-        operationLogService.record("bug", "Bug", entity.getId(), "CREATE", entity.getTitle());
+        operationLogService.record("bug", "Bug", entity.getId(), "CREATE", "新建Bug：" + entity.getTitle());
         noticeService.create(entity.getAssigneeId(), NoticeType.BUG_ASSIGNED, "缺陷指派通知",
                 entity.getTitle(), "Bug", entity.getId());
         return getById(entity.getId());
@@ -127,7 +127,7 @@ public class BugService {
         if (request.getReproduceSteps() != null) entity.setReproduceSteps(request.getReproduceSteps());
         entity.setUpdatedBy(CurrentUserContext.userIdOrNull());
         bugMapper.updateById(entity);
-        operationLogService.record("bug", "Bug", id, "UPDATE", entity.getTitle());
+        operationLogService.record("bug", "Bug", id, "UPDATE", "编辑Bug：" + entity.getTitle());
         return getById(id);
     }
 
@@ -138,8 +138,8 @@ public class BugService {
         entity.setAssigneeId(request.getAssigneeId());
         entity.setUpdatedBy(CurrentUserContext.userIdOrNull());
         bugMapper.updateById(entity);
-        String content = StringUtils.hasText(request.getReason()) ? request.getReason() : entity.getTitle();
-        operationLogService.record("bug", "Bug", id, "ASSIGN", content);
+        String assignReason = StringUtils.hasText(request.getReason()) ? "，原因：" + request.getReason() : "";
+        operationLogService.record("bug", "Bug", id, "ASSIGN", "转派Bug：" + entity.getTitle() + assignReason);
         noticeService.create(request.getAssigneeId(), NoticeType.BUG_ASSIGNED, "缺陷转派通知",
                 entity.getTitle(), "Bug", id);
         if (entity.getCreatorId() != null && !entity.getCreatorId().equals(request.getAssigneeId())) {
@@ -153,11 +153,13 @@ public class BugService {
         BugEntity entity = requireBug(id);
         ensureMutable(entity);
         businessAccessService.requireBugClose(entity);
+        String oldStatus = entity.getStatus();
         entity.setStatus(BugStatus.CLOSED.name());
         entity.setClosedAt(LocalDateTime.now());
         entity.setUpdatedBy(CurrentUserContext.userIdOrNull());
         bugMapper.updateById(entity);
-        operationLogService.record("bug", "Bug", id, "CLOSE", entity.getTitle());
+        operationLogService.record("bug", "Bug", id, "CLOSE",
+                "Bug状态由" + bugStatusLabel(oldStatus) + "变为已关闭：" + entity.getTitle());
         return getById(id);
     }
 
@@ -166,19 +168,21 @@ public class BugService {
         ensureMutable(entity);
         businessAccessService.requireBugDelete(entity);
         bugMapper.deleteById(id);
-        operationLogService.record("bug", "Bug", id, "DELETE", entity.getTitle());
+        operationLogService.record("bug", "Bug", id, "DELETE", "删除Bug：" + entity.getTitle());
     }
 
     public BugResponse fix(Long id, BugFixRequest request) {
         BugEntity entity = requireBug(id);
         ensureMutable(entity);
         businessAccessService.requireBugEdit(entity);
+        String oldStatus = entity.getStatus();
         if (request.getFixAnalysis() != null) entity.setFixAnalysis(request.getFixAnalysis());
         if (request.getFixDetail() != null) entity.setFixDetail(request.getFixDetail());
         entity.setStatus(BugStatus.PENDING_VERIFY.name());
         entity.setUpdatedBy(CurrentUserContext.userIdOrNull());
         bugMapper.updateById(entity);
-        operationLogService.record("bug", "Bug", id, "FIX", entity.getTitle());
+        operationLogService.record("bug", "Bug", id, "FIX",
+                "Bug状态由" + bugStatusLabel(oldStatus) + "变为待验证（已提交修复）：" + entity.getTitle());
         if (entity.getCreatorId() != null && !entity.getCreatorId().equals(CurrentUserContext.userId())) {
             noticeService.create(entity.getCreatorId(), NoticeType.BUG_ASSIGNED, "缺陷修复通知",
                     entity.getTitle() + " 已修复，请验证", "Bug", id);
@@ -196,7 +200,7 @@ public class BugService {
         comment.setContent(request.getContent());
         comment.setCreatedAt(LocalDateTime.now());
         bugCommentMapper.insert(comment);
-        operationLogService.record("bug", "Bug", bugId, "COMMENT", request.getContent());
+        operationLogService.record("bug", "Bug", bugId, "COMMENT", "评论Bug：" + bug.getTitle());
         if (!CurrentUserContext.userId().equals(bug.getAssigneeId())) {
             noticeService.create(bug.getAssigneeId(), NoticeType.BUG_COMMENT, "缺陷评论通知",
                     request.getContent(), "Bug", bugId);
@@ -290,5 +294,15 @@ public class BugService {
         if (ids.isEmpty()) return Map.of();
         return projectMapper.selectBatchIds(ids).stream()
                 .collect(Collectors.toMap(ProjectEntity::getId, ProjectEntity::getName));
+    }
+
+    private String bugStatusLabel(String status) {
+        return switch (status == null ? "" : status) {
+            case "PENDING_FIX" -> "待修复";
+            case "FIXING" -> "修复中";
+            case "PENDING_VERIFY" -> "待验证";
+            case "CLOSED" -> "已关闭";
+            default -> status;
+        };
     }
 }

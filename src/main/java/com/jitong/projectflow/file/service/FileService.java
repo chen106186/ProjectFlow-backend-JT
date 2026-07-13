@@ -232,6 +232,7 @@ public class FileService {
                 .storageLocation(metadata.getStorageLocation())
                 .fileCategory(metadata.getFileCategory())
                 .storageType(metadata.getStorageType())
+                .url(fileStorageService.publicUrl(metadata.getStorageKey()))
                 .uploaderId(metadata.getUploaderId())
                 .uploadedAt(metadata.getUploadedAt())
                 .build();

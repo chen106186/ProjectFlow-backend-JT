@@ -95,7 +95,7 @@ public class TaskService {
     }
 
     private void afterTaskCreated(TaskEntity entity) {
-        operationLogService.record("task", "Task", entity.getId(), "CREATE", entity.getName());
+        operationLogService.record("task", "Task", entity.getId(), "CREATE", "新建任务：" + entity.getName());
         if (entity.getAssigneeId() != null) {
             noticeService.create(entity.getAssigneeId(), NoticeType.TASK_ASSIGNED,
                     "任务分配通知", entity.getName(), "Task", entity.getId());
@@ -152,7 +152,7 @@ public class TaskService {
         if (request.getRemark() != null) entity.setRemark(request.getRemark());
         entity.setUpdatedBy(CurrentUserContext.userIdOrNull());
         taskMapper.updateById(entity);
-        operationLogService.record("task", "Task", id, "UPDATE", entity.getName());
+        operationLogService.record("task", "Task", id, "UPDATE", "编辑任务：" + entity.getName());
         return toResponse(entity);
     }
 
@@ -165,7 +165,7 @@ public class TaskService {
         entity.setStatus(calculateStatus(entity).name());
         entity.setUpdatedBy(CurrentUserContext.userIdOrNull());
         taskMapper.updateById(entity);
-        operationLogService.record("task", "Task", id, "UPDATE_ACTUAL_TIME", entity.getName());
+        operationLogService.record("task", "Task", id, "UPDATE_ACTUAL_TIME", "更新工时：" + entity.getName());
         return toResponse(entity);
     }
 
@@ -173,7 +173,7 @@ public class TaskService {
         TaskEntity entity = requireTask(id);
         businessAccessService.requireTaskManage(entity);
         taskMapper.deleteById(id);
-        operationLogService.record("task", "Task", id, "DELETE", entity.getName());
+        operationLogService.record("task", "Task", id, "DELETE", "删除任务：" + entity.getName());
     }
 
     private LambdaQueryWrapper<TaskEntity> buildQuery(TaskQueryRequest request) {

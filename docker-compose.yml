@@ -15,10 +15,11 @@ services:
       SPRING_DATA_REDIS_PORT: ${REDIS_PORT:-6379}
       SPRING_DATA_REDIS_PASSWORD: ${REDIS_PASSWORD:-}
       PROJECTFLOW_JWT_SECRET: ${JWT_SECRET:-change-me-at-least-32-bytes-long!!}
-      PROJECTFLOW_STORAGE_TYPE: local
+      PROJECTFLOW_STORAGE_TYPE: ${PROJECTFLOW_STORAGE_TYPE:-aliyun-oss}
       PROJECTFLOW_STORAGE_LOCAL_ROOT: /app/data/uploads
-    volumes:
-      - uploads:/app/data/uploads
+      ALIYUN_OSS_ACCESS_KEY_ID: ${ALIYUN_OSS_ACCESS_KEY_ID:-}
+      ALIYUN_OSS_ACCESS_KEY_SECRET: ${ALIYUN_OSS_ACCESS_KEY_SECRET:-}
+      ALIYUN_OSS_BUCKET: ${ALIYUN_OSS_BUCKET:-company-project-oss}
     ports:
       - "8080:8080"
 

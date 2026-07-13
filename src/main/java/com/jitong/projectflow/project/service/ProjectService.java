@@ -61,7 +61,7 @@ public class ProjectService {
         projectMapper.insert(entity);
         saveParticipants(entity.getId(), request.getParticipantIds());
         saveNodes(entity.getId(), request.getNodes());
-        operationLogService.record("project", "Project", entity.getId(), "CREATE", entity.getName());
+        operationLogService.record("project", "Project", entity.getId(), "CREATE", "新建项目：" + entity.getName());
         return toResponse(entity);
     }
 
@@ -113,7 +113,7 @@ public class ProjectService {
         if (request.getNodeNames() != null) {
             syncNodes(id, request.getNodeNames());
         }
-        operationLogService.record("project", "Project", id, "UPDATE", entity.getName());
+        operationLogService.record("project", "Project", id, "UPDATE", "编辑项目：" + entity.getName());
         return toResponse(entity);
     }
 
@@ -121,7 +121,7 @@ public class ProjectService {
         ProjectEntity entity = requireProject(id);
         businessAccessService.requireProjectManage(entity);
         projectMapper.deleteById(id);
-        operationLogService.record("project", "Project", id, "DELETE", entity.getName());
+        operationLogService.record("project", "Project", id, "DELETE", "删除项目：" + entity.getName());
     }
 
     private ProjectEntity requireProject(Long id) {

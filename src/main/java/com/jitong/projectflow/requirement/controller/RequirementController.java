@@ -3,6 +3,7 @@ package com.jitong.projectflow.requirement.controller;
 import com.jitong.projectflow.common.api.ApiResponse;
 import com.jitong.projectflow.common.api.PageResult;
 import com.jitong.projectflow.requirement.dto.RequirementCreateRequest;
+import com.jitong.projectflow.requirement.dto.RequirementLogResponse;
 import com.jitong.projectflow.requirement.dto.RequirementQueryRequest;
 import com.jitong.projectflow.requirement.dto.RequirementResponse;
 import com.jitong.projectflow.requirement.dto.RequirementStatusUpdateRequest;
@@ -46,6 +47,7 @@ public class RequirementController {
 
     @Operation(summary = "分页查询需求列表",
             description = "按项目等条件分页查询需求数据，用于需求管理列表。")
+    @PreAuthorize("hasAuthority('requirement')")
     @GetMapping
     public ApiResponse<PageResult<RequirementResponse>> list(@Valid @ModelAttribute RequirementQueryRequest request) {
         return ApiResponse.success(requirementService.list(request), MDC.get("traceId"));
@@ -72,6 +74,13 @@ public class RequirementController {
     public ApiResponse<RequirementResponse> update(@PathVariable Long id,
                                                     @Valid @RequestBody RequirementUpdateRequest req) {
         return ApiResponse.success(requirementService.update(id, req), MDC.get("traceId"));
+    }
+
+    @Operation(summary = "查询需求操作日志",
+            description = "按需求 ID 查询该需求的全部操作历史记录。")
+    @GetMapping("/{id}/logs")
+    public ApiResponse<List<RequirementLogResponse>> listLogs(@PathVariable Long id) {
+        return ApiResponse.success(requirementService.listLogs(id), MDC.get("traceId"));
     }
 
     @Operation(summary = "更新需求状态",

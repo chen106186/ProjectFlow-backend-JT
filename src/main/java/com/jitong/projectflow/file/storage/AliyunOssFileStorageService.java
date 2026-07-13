@@ -46,6 +46,12 @@ public class AliyunOssFileStorageService implements FileStorageService {
         ossClient.deleteObject(properties.bucketName(), storageKey);
     }
 
+    @Override
+    public String publicUrl(String storageKey) {
+        String endpointHost = properties.endpoint().replaceFirst("https?://", "");
+        return "https://" + properties.bucketName() + "." + endpointHost + "/" + storageKey;
+    }
+
     @PreDestroy
     public void shutdown() {
         ossClient.shutdown();

@@ -22,12 +22,16 @@ public class JwtTokenService {
     }
 
     public String createToken(Long userId, String username) {
+        return createToken(userId, username, ttlMinutes);
+    }
+
+    public String createToken(Long userId, String username, long effectiveTtlMinutes) {
         Instant now = Instant.now();
         return Jwts.builder()
                 .subject(String.valueOf(userId))
                 .claim("username", username)
                 .issuedAt(Date.from(now))
-                .expiration(Date.from(now.plusSeconds(ttlMinutes * 60)))
+                .expiration(Date.from(now.plusSeconds(effectiveTtlMinutes * 60)))
                 .signWith(key)
                 .compact();
     }
