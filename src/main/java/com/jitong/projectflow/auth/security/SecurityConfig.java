@@ -60,7 +60,7 @@ public class SecurityConfig {
                                 securityErrorResponseWriter.write(response, 403, "无权限访问该资源")))
                 .addFilterBefore(new JwtAuthenticationFilter(jwtTokenService, currentUserPermissionService), UsernamePasswordAuthenticationFilter.class)
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/login", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                        .requestMatchers("/api/auth/login", "/swagger-ui/**", "/v3/api-docs/**", "/api/files/*/inline").permitAll()
                         .anyRequest().authenticated())
                 .build();
     }

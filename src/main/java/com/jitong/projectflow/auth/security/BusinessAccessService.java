@@ -112,6 +112,16 @@ public class BusinessAccessService {
                         || "system:role:update".equals(authority.getAuthority()));
     }
 
+    /** 是否拥有"查看全部业务数据"权限（领导角色） */
+    public boolean canViewAll() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null) {
+            return false;
+        }
+        return authentication.getAuthorities().stream()
+                .anyMatch(authority -> "data:view:all".equals(authority.getAuthority()));
+    }
+
     private boolean canManageProject(Long projectId, Long userId) {
         if (projectId == null) {
             return false;

@@ -225,19 +225,13 @@ public class RequirementService {
     }
 
     private void applyReadScope(LambdaQueryWrapper<RequirementEntity> wrapper) {
-        if (businessAccessService.isSystemAdmin()) {
+        if (businessAccessService.isSystemAdmin() || businessAccessService.canViewAll()) {
             return;
         }
         Long userId = CurrentUserContext.userId();
         wrapper.and(scope -> scope.eq(RequirementEntity::getCreatedBy, userId)
                 .or()
-                .eq(RequirementEntity::getReviewerId, userId)
-                .or()
-                .inSql(RequirementEntity::getProjectId, managedProjectSql(userId)));
-    }
-
-    private String managedProjectSql(Long userId) {
-        return "select id from pf_project where deleted = 0 and (manager_id = " + userId + " or created_by = " + userId + ")";
+                .eq(RequirementEntity::getReviewerId, userId));
     }
 
     private Map<Long, String> loadUserNames(List<Long> userIds) {

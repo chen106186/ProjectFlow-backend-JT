@@ -6,6 +6,8 @@ server:
 spring:
   application:
     name: projectflow-backend
+  profiles:
+    active: local
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: jdbc:mysql://localhost:3306/projectflow?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
@@ -44,7 +46,7 @@ projectflow:
     secret: "replace-with-at-least-32-byte-local-secret"
     ttl-minutes: 720
   storage:
-    type: local
+    type: aliyun-oss
     local-root: ./data/uploads
     aliyun-oss:
       endpoint: https://oss-cn-shanghai.aliyuncs.com

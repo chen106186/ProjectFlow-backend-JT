@@ -54,7 +54,7 @@ public class DailyReportService {
     }
 
     public PageResult<DailyReportResponse> list(DailyReportQueryRequest request) {
-        if (request.getReporterId() == null && !businessAccessService.isSystemAdmin()) {
+        if (request.getReporterId() == null && !businessAccessService.isSystemAdmin() && !businessAccessService.canViewAll()) {
             request.setReporterId(CurrentUserContext.userId());
         }
         Page<DailyReportEntity> page = dailyReportMapper.selectPage(PageUtils.toPage(request), buildQuery(request));

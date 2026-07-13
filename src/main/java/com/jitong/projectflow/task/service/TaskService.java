@@ -190,19 +190,13 @@ public class TaskService {
     }
 
     private void applyReadScope(LambdaQueryWrapper<TaskEntity> wrapper) {
-        if (businessAccessService.isSystemAdmin()) {
+        if (businessAccessService.isSystemAdmin() || businessAccessService.canViewAll()) {
             return;
         }
         Long userId = CurrentUserContext.userId();
         wrapper.and(scope -> scope.eq(TaskEntity::getAssigneeId, userId)
                 .or()
-                .eq(TaskEntity::getCreatedBy, userId)
-                .or()
-                .inSql(TaskEntity::getProjectId, managedProjectSql(userId)));
-    }
-
-    private String managedProjectSql(Long userId) {
-        return "select id from pf_project where deleted = 0 and (manager_id = " + userId + " or created_by = " + userId + ")";
+                .eq(TaskEntity::getCreatedBy, userId));
     }
 
     private TaskStatus calculateStatus(TaskEntity entity) {

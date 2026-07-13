@@ -32,6 +32,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/files")
@@ -114,6 +115,37 @@ public class FileController {
             @RequestParam(required = false) String businessType,
             @RequestParam(required = false) Long businessId) {
         return ApiResponse.success(fileService.listFolders(businessType, businessId), MDC.get("traceId"));
+    }
+
+    @Operation(summary = "富文本图片上传",
+            description = "上传富文本编辑器内嵌图片，返回 wangEditor 所需的 JSON 格式 {errno,data:{url}}。")
+    @PostMapping(value = "/upload-image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("isAuthenticated()")
+    public Map<String, Object> uploadImage(@RequestPart("file") MultipartFile file) {
+        try {
+            FileResponse resp = fileService.upload("RICH_TEXT", 0L, null, null, null, file);
+            String url = resp.getUrl() != null ? resp.getUrl() : "/api/files/" + resp.getId() + "/inline";
+            return Map.of("errno", 0, "data", Map.of("url", url, "alt", "", "href", ""));
+        } catch (Exception e) {
+            return Map.of("errno", 1, "message", e.getMessage() != null ? e.getMessage() : "上传失败");
+        }
+    }
+
+    @Operation(summary = "内联预览文件",
+            description = "以内联方式返回文件内容，供富文本嵌入图片使用，无需鉴权。")
+    @GetMapping("/{id}/inline")
+    public ResponseEntity<InputStreamResource> inline(@PathVariable Long id) {
+        FileDownloadResult result = fileService.download(id);
+        FileResponse metadata = result.metadata();
+        String encodedName = URLEncoder.encode(metadata.getOriginalName(), StandardCharsets.UTF_8).replace("+", "%20");
+        MediaType mediaType = StringUtils.hasText(metadata.getContentType())
+                ? MediaType.parseMediaType(metadata.getContentType())
+                : MediaType.APPLICATION_OCTET_STREAM;
+        return ResponseEntity.ok()
+                .contentType(mediaType)
+                .contentLength(metadata.getFileSize() == null ? 0 : metadata.getFileSize())
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename*=UTF-8''" + encodedName)
+                .body(new InputStreamResource(result.inputStream()));
     }
 
     @Operation(summary = "批量下载文件", description = "按文件ID列表批量打包下载，以 ZIP 格式返回。")

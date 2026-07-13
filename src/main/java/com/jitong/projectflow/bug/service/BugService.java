@@ -230,19 +230,13 @@ public class BugService {
     }
 
     private void applyReadScope(LambdaQueryWrapper<BugEntity> wrapper) {
-        if (businessAccessService.isSystemAdmin()) {
+        if (businessAccessService.isSystemAdmin() || businessAccessService.canViewAll()) {
             return;
         }
         Long userId = CurrentUserContext.userId();
         wrapper.and(scope -> scope.eq(BugEntity::getCreatorId, userId)
                 .or()
-                .eq(BugEntity::getAssigneeId, userId)
-                .or()
-                .inSql(BugEntity::getProjectId, managedProjectSql(userId)));
-    }
-
-    private String managedProjectSql(Long userId) {
-        return "select id from pf_project where deleted = 0 and (manager_id = " + userId + " or created_by = " + userId + ")";
+                .eq(BugEntity::getAssigneeId, userId));
     }
 
     private BugResponse toResponse(BugEntity entity, Map<Long, String> userNames, Map<Long, String> projectNames) {
