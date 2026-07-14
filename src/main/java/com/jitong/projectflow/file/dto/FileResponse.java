@@ -28,6 +28,8 @@ public class FileResponse {
     private String storageLocation;
     @Schema(description = "文件分类，例如 DESIGN、TEST、DELIVERY、MEETING。")
     private String fileCategory;
+    @Schema(description = "所属文件夹 ID，根目录文件为空。")
+    private Long folderId;
     @Schema(description = "底层存储类型，当前支持 LOCAL，并预留 MINIO、OSS。")
     private String storageType;
     @Schema(description = "OSS 文件公开访问 URL，LOCAL 存储时为 null。")

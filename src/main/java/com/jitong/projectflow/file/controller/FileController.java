@@ -1,6 +1,7 @@
 package com.jitong.projectflow.file.controller;
 
 import com.jitong.projectflow.common.api.ApiResponse;
+import com.jitong.projectflow.file.dto.FileBatchDownloadRequest;
 import com.jitong.projectflow.file.dto.FileBatchDeleteRequest;
 import com.jitong.projectflow.file.dto.FileFolderCreateRequest;
 import com.jitong.projectflow.file.dto.FileFolderResponse;
@@ -51,9 +52,10 @@ public class FileController {
             @RequestParam(required = false) String versionNo,
             @RequestParam(required = false) String storageLocation,
             @RequestParam(required = false) String fileCategory,
+            @RequestParam(required = false) Long folderId,
             @RequestPart("file") MultipartFile file) {
         return ApiResponse.success(
-                fileService.upload(businessType, businessId, versionNo, storageLocation, fileCategory, file),
+                fileService.upload(businessType, businessId, versionNo, storageLocation, fileCategory, folderId, file),
                 MDC.get("traceId")
         );
     }
@@ -168,13 +170,13 @@ public class FileController {
 
     @Operation(summary = "批量下载文件", description = "按文件ID列表批量打包下载，以 ZIP 格式返回。")
     @PostMapping("/batch-download")
-    public ResponseEntity<InputStreamResource> batchDownload(@RequestBody List<Long> ids) {
+    public ResponseEntity<InputStreamResource> batchDownload(@RequestBody FileBatchDownloadRequest request) {
         java.io.PipedInputStream pipedIn = new java.io.PipedInputStream();
         try {
             java.io.PipedOutputStream pipedOut = new java.io.PipedOutputStream(pipedIn);
             new Thread(() -> {
                 try {
-                    fileService.batchDownload(ids, pipedOut);
+                    fileService.batchDownload(request.getFileIds(), request.getFolderIds(), pipedOut);
                 } catch (Exception ignored) {
                 } finally {
                     try { pipedOut.close(); } catch (java.io.IOException ignored2) {}
@@ -186,7 +188,7 @@ public class FileController {
         }
         return ResponseEntity.ok()
                 .contentType(org.springframework.http.MediaType.parseMediaType("application/zip"))
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"files.zip\"")
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"download.zip\"")
                 .body(new InputStreamResource(pipedIn));
     }
 }

@@ -48,7 +48,13 @@ public class FileService {
 
     public FileResponse upload(String businessType, Long businessId, String versionNo,
                                String storageLocation, String fileCategory, MultipartFile file) {
+        return upload(businessType, businessId, versionNo, storageLocation, fileCategory, null, file);
+    }
+
+    public FileResponse upload(String businessType, Long businessId, String versionNo,
+                               String storageLocation, String fileCategory, Long folderId, MultipartFile file) {
         validateUpload(businessType, businessId, file);
+        validateFolder(businessType, businessId, folderId);
         String originalName = file.getOriginalFilename();
         String resolvedVersionNo = StringUtils.hasText(versionNo) ? versionNo : nextVersionNo(businessType, businessId, originalName);
         try {
@@ -67,6 +73,7 @@ public class FileService {
             metadata.setVersionNo(resolvedVersionNo);
             metadata.setStorageLocation(StringUtils.hasText(storageLocation) ? storageLocation : DEFAULT_STORAGE_LOCATION);
             metadata.setFileCategory(StringUtils.hasText(fileCategory) ? fileCategory : null);
+            metadata.setFolderId(folderId);
             metadata.setStorageType(storedFile.storageType());
             metadata.setStorageKey(storedFile.storageKey());
             metadata.setUploaderId(CurrentUserContext.userIdOrNull());
@@ -208,23 +215,96 @@ public class FileService {
     }
 
     public void batchDownload(List<Long> ids, java.io.OutputStream out) {
-        List<FileMetadata> files = fileMetadataMapper.selectBatchIds(ids);
-        if (files.isEmpty()) {
+        batchDownload(ids, null, out);
+    }
+
+    public void batchDownload(List<Long> fileIds, List<Long> folderIds, java.io.OutputStream out) {
+        List<Long> selectedFileIds = fileIds == null ? List.of() : fileIds;
+        List<Long> selectedFolderIds = folderIds == null ? List.of() : folderIds;
+        List<FileMetadata> rootFiles = selectedFileIds.isEmpty() ? List.of() : fileMetadataMapper.selectBatchIds(selectedFileIds);
+        List<FileFolderEntity> selectedFolders = selectedFolderIds.isEmpty() ? List.of() : fileFolderMapper.selectBatchIds(selectedFolderIds);
+        java.util.Set<Long> folderIdsForPath = new java.util.LinkedHashSet<>(selectedFolderIds);
+        rootFiles.stream().map(FileMetadata::getFolderId).filter(java.util.Objects::nonNull).forEach(folderIdsForPath::add);
+        java.util.Map<Long, FileFolderEntity> folderMap = folderIdsForPath.isEmpty()
+                ? java.util.Map.of()
+                : fileFolderMapper.selectBatchIds(folderIdsForPath).stream()
+                .collect(java.util.stream.Collectors.toMap(FileFolderEntity::getId, folder -> folder, (left, right) -> left, java.util.LinkedHashMap::new));
+        List<FileMetadata> folderFiles = selectedFolderIds.isEmpty()
+                ? List.of()
+                : fileMetadataMapper.selectList(new LambdaQueryWrapper<FileMetadata>().in(FileMetadata::getFolderId, selectedFolderIds));
+        if (rootFiles.isEmpty() && selectedFolders.isEmpty()) {
             throw new com.jitong.projectflow.common.error.BusinessException(
                     com.jitong.projectflow.common.error.ErrorCode.BAD_REQUEST, "未找到可下载的文件");
         }
         try (java.util.zip.ZipOutputStream zip = new java.util.zip.ZipOutputStream(out)) {
-            for (FileMetadata meta : files) {
-                FileDownloadResult result = download(meta.getId());
-                String entryName = meta.getOriginalName() != null ? meta.getOriginalName() : meta.getId().toString();
-                zip.putNextEntry(new java.util.zip.ZipEntry(entryName));
-                result.inputStream().transferTo(zip);
+            java.util.Set<String> usedEntryNames = new java.util.HashSet<>();
+            java.util.Map<Long, String> folderEntryNames = new java.util.HashMap<>();
+            for (FileFolderEntity folder : selectedFolders) {
+                String folderName = uniqueEntryName(usedEntryNames, sanitizeZipName(folder.getName()) + "/");
+                folderEntryNames.put(folder.getId(), folderName);
+                zip.putNextEntry(new java.util.zip.ZipEntry(folderName));
                 zip.closeEntry();
+                for (FileMetadata meta : folderFiles.stream().filter(file -> folder.getId().equals(file.getFolderId())).toList()) {
+                    writeZipFile(zip, usedEntryNames, meta, folderName);
+                }
+            }
+            for (FileMetadata meta : rootFiles) {
+                if (meta.getFolderId() != null && folderMap.containsKey(meta.getFolderId())) {
+                    if (selectedFolderIds.contains(meta.getFolderId())) {
+                        continue;
+                    }
+                    String folderName = folderEntryNames.get(meta.getFolderId());
+                    if (folderName == null) {
+                        FileFolderEntity folder = folderMap.get(meta.getFolderId());
+                        folderName = uniqueEntryName(usedEntryNames, sanitizeZipName(folder.getName()) + "/");
+                        folderEntryNames.put(folder.getId(), folderName);
+                        zip.putNextEntry(new java.util.zip.ZipEntry(folderName));
+                        zip.closeEntry();
+                    }
+                    writeZipFile(zip, usedEntryNames, meta, folderName);
+                    continue;
+                }
+                writeZipFile(zip, usedEntryNames, meta, "");
             }
         } catch (java.io.IOException e) {
             throw new com.jitong.projectflow.common.error.BusinessException(
                     com.jitong.projectflow.common.error.ErrorCode.BAD_REQUEST, "批量下载失败：" + e.getMessage());
         }
+    }
+
+    private void writeZipFile(java.util.zip.ZipOutputStream zip, java.util.Set<String> usedEntryNames,
+                              FileMetadata meta, String prefix) throws java.io.IOException {
+        FileDownloadResult result = download(meta.getId());
+        String fileName = meta.getOriginalName() != null ? meta.getOriginalName() : meta.getId().toString();
+        String entryName = uniqueEntryName(usedEntryNames, prefix + sanitizeZipName(fileName));
+        zip.putNextEntry(new java.util.zip.ZipEntry(entryName));
+        result.inputStream().transferTo(zip);
+        zip.closeEntry();
+    }
+
+    private String sanitizeZipName(String name) {
+        if (!StringUtils.hasText(name)) {
+            return "未命名";
+        }
+        return name.replace("\\", "_").replace("/", "_").replace(":", "_").replace("*", "_")
+                .replace("?", "_").replace("\"", "_").replace("<", "_").replace(">", "_").replace("|", "_");
+    }
+
+    private String uniqueEntryName(java.util.Set<String> usedEntryNames, String entryName) {
+        if (usedEntryNames.add(entryName)) {
+            return entryName;
+        }
+        boolean directory = entryName.endsWith("/");
+        String normalized = directory ? entryName.substring(0, entryName.length() - 1) : entryName;
+        int dot = normalized.lastIndexOf('.');
+        String base = dot > 0 ? normalized.substring(0, dot) : normalized;
+        String ext = dot > 0 ? normalized.substring(dot) : "";
+        int index = 2;
+        String candidate;
+        do {
+            candidate = base + "(" + index++ + ")" + ext + (directory ? "/" : "");
+        } while (!usedEntryNames.add(candidate));
+        return candidate;
     }
 
     private FileFolderResponse toFolderResponse(FileFolderEntity entity) {
@@ -248,10 +328,23 @@ public class FileService {
                 .versionNo(metadata.getVersionNo())
                 .storageLocation(metadata.getStorageLocation())
                 .fileCategory(metadata.getFileCategory())
+                .folderId(metadata.getFolderId())
                 .storageType(metadata.getStorageType())
                 .url(fileStorageService.publicUrl(metadata.getStorageKey()))
                 .uploaderId(metadata.getUploaderId())
                 .uploadedAt(metadata.getUploadedAt())
                 .build();
+    }
+
+    private void validateFolder(String businessType, Long businessId, Long folderId) {
+        if (folderId == null) {
+            return;
+        }
+        FileFolderEntity folder = fileFolderMapper.selectById(folderId);
+        if (folder == null
+                || !businessType.equals(folder.getBusinessType())
+                || !businessId.equals(folder.getBusinessId())) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "文件夹不存在或不属于当前业务");
+        }
     }
 }

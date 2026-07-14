@@ -87,6 +87,12 @@ public class DictService {
                 item("PLANNED", "已计划"),
                 item("COMPLETED", "已完成"),
                 item("CANCELLED", "已取消"));
+        add("fileCategory", "文件分类",
+                item("CONTRACT", "合同类"),
+                item("REQUIREMENT", "需求类"),
+                item("DESIGN", "设计类"),
+                item("DEVELOPMENT", "开发类"),
+                item("ACCEPTANCE", "验收类"));
         add("noticeType", "通知类型", items(NoticeType.values(), Map.of(
                 NoticeType.TASK_ASSIGNED.name(), "任务指派",
                 NoticeType.BUG_ASSIGNED.name(), "Bug 指派",
