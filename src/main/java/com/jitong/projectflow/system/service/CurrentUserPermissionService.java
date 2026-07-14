@@ -10,6 +10,8 @@ import com.jitong.projectflow.system.dto.RoleResponse;
 import com.jitong.projectflow.system.entity.MenuEntity;
 import com.jitong.projectflow.system.entity.RoleEntity;
 import com.jitong.projectflow.system.entity.SystemUser;
+import com.jitong.projectflow.system.entity.DepartmentEntity;
+import com.jitong.projectflow.system.mapper.DepartmentMapper;
 import com.jitong.projectflow.system.mapper.MenuMapper;
 import com.jitong.projectflow.system.mapper.RoleMapper;
 import com.jitong.projectflow.system.mapper.RoleMenuMapper;
@@ -32,6 +34,7 @@ public class CurrentUserPermissionService {
     private final RoleMapper roleMapper;
     private final RoleMenuMapper roleMenuMapper;
     private final MenuMapper menuMapper;
+    private final DepartmentMapper departmentMapper;
 
     public CurrentUserProfileResponse getCurrentUser() {
         Long userId = CurrentUserContext.userId();
@@ -39,11 +42,23 @@ public class CurrentUserPermissionService {
         List<RoleEntity> roles = loadUserRoles(userId);
         List<MenuEntity> allMenus = loadMenusForRoles(roles, userId);
 
+        String departmentName = null;
+        if (user.getDepartmentId() != null) {
+            DepartmentEntity dept = departmentMapper.selectById(user.getDepartmentId());
+            if (dept != null) departmentName = dept.getName();
+        }
+
         return CurrentUserProfileResponse.builder()
                 .id(user.getId())
                 .departmentId(user.getDepartmentId())
+                .departmentName(departmentName)
                 .username(user.getUsername())
                 .realName(user.getRealName())
+                .jobNo(user.getJobNo())
+                .positionName(user.getPositionName())
+                .phone(user.getPhone())
+                .email(user.getEmail())
+                .hireDate(user.getHireDate())
                 .roles(roles.stream().map(this::toRoleResponse).toList())
                 .menus(allMenus.stream()
                         .filter(menu -> !"BUTTON".equals(menu.getType()))

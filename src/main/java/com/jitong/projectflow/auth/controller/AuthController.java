@@ -1,8 +1,10 @@
 package com.jitong.projectflow.auth.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.jitong.projectflow.auth.dto.ChangePasswordRequest;
 import com.jitong.projectflow.auth.dto.LoginRequest;
 import com.jitong.projectflow.auth.dto.LoginResponse;
+import com.jitong.projectflow.auth.security.CurrentUserContext;
 import com.jitong.projectflow.auth.security.JwtTokenService;
 import com.jitong.projectflow.common.api.ApiResponse;
 import com.jitong.projectflow.common.error.BusinessException;
@@ -17,6 +19,7 @@ import jakarta.validation.Valid;
 import org.slf4j.MDC;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -39,6 +42,25 @@ public class AuthController {
         this.passwordEncoder = passwordEncoder;
         this.tokenService = tokenService;
         this.currentUserPermissionService = currentUserPermissionService;
+    }
+
+    @Operation(summary = "修改密码", description = "当前登录用户修改自己的登录密码，需验证原密码。")
+    @PatchMapping("/change-password")
+    public ApiResponse<Void> changePassword(@Valid @RequestBody ChangePasswordRequest request) {
+        Long userId = CurrentUserContext.userId();
+        SystemUser user = userMapper.selectById(userId);
+        if (user == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "用户不存在");
+        }
+        if (!passwordEncoder.matches(request.getOldPassword(), user.getPasswordHash())) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "原密码错误");
+        }
+        if (request.getNewPassword().equals(request.getOldPassword())) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "新密码不能与原密码一致");
+        }
+        user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
+        userMapper.updateById(user);
+        return ApiResponse.success(null, MDC.get("traceId"));
     }
 
     @Operation(summary = "Get current profile")

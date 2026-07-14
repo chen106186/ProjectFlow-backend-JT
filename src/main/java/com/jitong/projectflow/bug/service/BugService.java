@@ -66,8 +66,14 @@ public class BugService {
         entity.setBugNo(bugMapper.selectMaxBugNo() + 1L);
         bugMapper.insert(entity);
         operationLogService.record("bug", "Bug", entity.getId(), "CREATE", "新建Bug：" + entity.getTitle());
-        noticeService.create(entity.getAssigneeId(), NoticeType.BUG_ASSIGNED, "缺陷指派通知",
-                entity.getTitle(), "Bug", entity.getId());
+        if (entity.getAssigneeId() != null) {
+            String projectName = resolveProjectName(entity.getProjectId());
+            String creatorName = resolveUserName(entity.getCreatorId());
+            noticeService.create(entity.getAssigneeId(), NoticeType.BUG_ASSIGNED,
+                    "您有一条缺陷待处理：「" + entity.getTitle() + "」",
+                    "所属项目：" + projectName + "　｜　提交人：" + creatorName,
+                    "Bug", entity.getId());
+        }
         return getById(entity.getId());
     }
 
@@ -140,11 +146,19 @@ public class BugService {
         bugMapper.updateById(entity);
         String assignReason = StringUtils.hasText(request.getReason()) ? "，原因：" + request.getReason() : "";
         operationLogService.record("bug", "Bug", id, "ASSIGN", "转派Bug：" + entity.getTitle() + assignReason);
-        noticeService.create(request.getAssigneeId(), NoticeType.BUG_ASSIGNED, "缺陷转派通知",
-                entity.getTitle(), "Bug", id);
+        String currentUserName = resolveUserName(CurrentUserContext.userIdOrNull());
+        String projectName = resolveProjectName(entity.getProjectId());
+        String creatorName = resolveUserName(entity.getCreatorId());
+        String newAssigneeName = resolveUserName(request.getAssigneeId());
+        noticeService.create(request.getAssigneeId(), NoticeType.BUG_ASSIGNED,
+                currentUserName + " 将缺陷「" + entity.getTitle() + "」改派给您",
+                "所属项目：" + projectName + "　｜　提交人：" + creatorName,
+                "Bug", id);
         if (entity.getCreatorId() != null && !entity.getCreatorId().equals(request.getAssigneeId())) {
-            noticeService.create(entity.getCreatorId(), NoticeType.BUG_ASSIGNED, "缺陷转派抄送",
-                    entity.getTitle() + " 已转派给用户 " + request.getAssigneeId(), "Bug", id);
+            noticeService.create(entity.getCreatorId(), NoticeType.BUG_ASSIGNED,
+                    "缺陷「" + entity.getTitle() + "」已转派给 " + newAssigneeName,
+                    "所属项目：" + projectName + "　｜　转派人：" + currentUserName,
+                    "Bug", id);
         }
         return getById(id);
     }
@@ -184,8 +198,12 @@ public class BugService {
         operationLogService.record("bug", "Bug", id, "FIX",
                 "Bug状态由" + bugStatusLabel(oldStatus) + "变为待验证（已提交修复）：" + entity.getTitle());
         if (entity.getCreatorId() != null && !entity.getCreatorId().equals(CurrentUserContext.userId())) {
-            noticeService.create(entity.getCreatorId(), NoticeType.BUG_ASSIGNED, "缺陷修复通知",
-                    entity.getTitle() + " 已修复，请验证", "Bug", id);
+            String fixer = resolveUserName(CurrentUserContext.userIdOrNull());
+            String projectName = resolveProjectName(entity.getProjectId());
+            noticeService.create(entity.getCreatorId(), NoticeType.BUG_ASSIGNED,
+                    "缺陷「" + entity.getTitle() + "」已修复，待您验证",
+                    "所属项目：" + projectName + "　｜　修复人：" + fixer,
+                    "Bug", id);
         }
         return getById(id);
     }
@@ -201,9 +219,13 @@ public class BugService {
         comment.setCreatedAt(LocalDateTime.now());
         bugCommentMapper.insert(comment);
         operationLogService.record("bug", "Bug", bugId, "COMMENT", "评论Bug：" + bug.getTitle());
-        if (!CurrentUserContext.userId().equals(bug.getAssigneeId())) {
-            noticeService.create(bug.getAssigneeId(), NoticeType.BUG_COMMENT, "缺陷评论通知",
-                    request.getContent(), "Bug", bugId);
+        if (bug.getAssigneeId() != null && !CurrentUserContext.userId().equals(bug.getAssigneeId())) {
+            String commenter = resolveUserName(CurrentUserContext.userIdOrNull());
+            String creatorName = resolveUserName(bug.getCreatorId());
+            noticeService.create(bug.getAssigneeId(), NoticeType.BUG_COMMENT,
+                    commenter + " 在缺陷「" + bug.getTitle() + "」下发了评论",
+                    "所属缺陷：「" + bug.getTitle() + "」　｜　提交人：" + creatorName,
+                    "Bug", bugId);
         }
         return toCommentResponse(comment);
     }
@@ -288,6 +310,18 @@ public class BugService {
         if (ids.isEmpty()) return Map.of();
         return projectMapper.selectBatchIds(ids).stream()
                 .collect(Collectors.toMap(ProjectEntity::getId, ProjectEntity::getName));
+    }
+
+    private String resolveUserName(Long userId) {
+        if (userId == null) return "系统";
+        SystemUser user = userMapper.selectById(userId);
+        return user != null ? user.getRealName() : "未知用户";
+    }
+
+    private String resolveProjectName(Long projectId) {
+        if (projectId == null) return "未知项目";
+        ProjectEntity project = projectMapper.selectById(projectId);
+        return project != null ? project.getName() : "未知项目";
     }
 
     private String bugStatusLabel(String status) {

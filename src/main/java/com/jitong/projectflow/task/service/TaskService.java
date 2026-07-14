@@ -11,7 +11,14 @@ import com.jitong.projectflow.common.error.BusinessException;
 import com.jitong.projectflow.common.error.ErrorCode;
 import com.jitong.projectflow.notice.domain.NoticeType;
 import com.jitong.projectflow.notice.service.NoticeService;
+import com.jitong.projectflow.project.entity.ProjectEntity;
+import com.jitong.projectflow.project.mapper.ProjectMapper;
 import com.jitong.projectflow.system.audit.OperationLogService;
+import com.jitong.projectflow.system.dto.OperationLogResponse;
+import com.jitong.projectflow.system.entity.OperationLog;
+import com.jitong.projectflow.system.entity.SystemUser;
+import com.jitong.projectflow.system.mapper.OperationLogMapper;
+import com.jitong.projectflow.system.mapper.SystemUserMapper;
 import com.jitong.projectflow.task.domain.TaskStatus;
 import com.jitong.projectflow.task.domain.TaskStatusCalculator;
 import com.jitong.projectflow.task.dto.TaskActualTimeUpdateRequest;
@@ -41,6 +48,9 @@ public class TaskService {
     private final OperationLogService operationLogService;
     private final BusinessAccessService businessAccessService;
     private final NoticeService noticeService;
+    private final SystemUserMapper systemUserMapper;
+    private final ProjectMapper projectMapper;
+    private final OperationLogMapper operationLogMapper;
     private final TaskStatusCalculator statusCalculator = new TaskStatusCalculator();
 
     public TaskResponse create(TaskCreateRequest request) {
@@ -97,9 +107,36 @@ public class TaskService {
     private void afterTaskCreated(TaskEntity entity) {
         operationLogService.record("task", "Task", entity.getId(), "CREATE", "新建任务：" + entity.getName());
         if (entity.getAssigneeId() != null) {
-            noticeService.create(entity.getAssigneeId(), NoticeType.TASK_ASSIGNED,
-                    "任务分配通知", entity.getName(), "Task", entity.getId());
+            String operatorName = resolveUserName(entity.getCreatedBy());
+            String projectName = resolveProjectName(entity.getProjectId());
+            String priorityLabel = priorityLabel(entity.getPriority());
+            String title = operatorName + " 将任务「" + entity.getName() + "」分配给您";
+            String content = "所属项目：" + projectName + "　｜　优先级：" + priorityLabel;
+            noticeService.create(entity.getAssigneeId(), NoticeType.TASK_ASSIGNED, title, content, "Task", entity.getId());
         }
+    }
+
+    private String resolveUserName(Long userId) {
+        if (userId == null) return "系统";
+        SystemUser user = systemUserMapper.selectById(userId);
+        return user != null ? user.getRealName() : "未知用户";
+    }
+
+    private String resolveProjectName(Long projectId) {
+        if (projectId == null) return "未知项目";
+        ProjectEntity project = projectMapper.selectById(projectId);
+        return project != null ? project.getName() : "未知项目";
+    }
+
+    private static String priorityLabel(String priority) {
+        if (priority == null) return "普通";
+        return switch (priority) {
+            case "LOW" -> "低";
+            case "MEDIUM" -> "中";
+            case "HIGH" -> "高";
+            case "URGENT" -> "紧急";
+            default -> priority;
+        };
     }
 
     private TaskCreateRequest toCreateRequest(TaskImportRow row) {
@@ -131,7 +168,27 @@ public class TaskService {
     }
 
     public TaskResponse getById(Long id) {
-        return toResponse(requireTask(id));
+        TaskEntity entity = requireTask(id);
+        TaskResponse response = toResponse(entity);
+
+        if (entity.getAssigneeId() != null) {
+            SystemUser assignee = systemUserMapper.selectById(entity.getAssigneeId());
+            if (assignee != null) response.setAssigneeName(assignee.getRealName());
+        }
+        if (entity.getProjectId() != null) {
+            ProjectEntity project = projectMapper.selectById(entity.getProjectId());
+            if (project != null) response.setProjectName(project.getName());
+        }
+        response.setCreatedAt(entity.getCreatedAt());
+
+        List<OperationLog> logs = operationLogMapper.selectList(
+                new LambdaQueryWrapper<OperationLog>()
+                        .eq(OperationLog::getBusinessType, "Task")
+                        .eq(OperationLog::getBusinessId, id)
+                        .orderByDesc(OperationLog::getCreatedAt));
+        response.setLogs(logs.stream().map(this::toLogResponse).toList());
+
+        return response;
     }
 
     public TaskResponse update(Long id, TaskUpdateRequest request) {
@@ -234,6 +291,20 @@ public class TaskService {
                 .tags(entity.getTags())
                 .remark(entity.getRemark())
                 .sortOrder(entity.getSortOrder())
+                .build();
+    }
+
+    private OperationLogResponse toLogResponse(OperationLog log) {
+        return OperationLogResponse.builder()
+                .id(log.getId())
+                .module(log.getModule())
+                .businessType(log.getBusinessType())
+                .businessId(log.getBusinessId())
+                .operationType(log.getOperationType())
+                .operatorId(log.getOperatorId())
+                .operatorName(log.getOperatorName())
+                .content(log.getContent())
+                .createdAt(log.getCreatedAt())
                 .build();
     }
 
