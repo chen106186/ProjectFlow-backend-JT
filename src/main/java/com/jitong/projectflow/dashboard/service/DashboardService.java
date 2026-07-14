@@ -40,7 +40,6 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class DashboardService {
-    private static final int TODO_LIMIT = 20;
 
     private final ProjectMapper projectMapper;
     private final TaskMapper taskMapper;
@@ -96,7 +95,6 @@ public class DashboardService {
 
         return todos.stream()
                 .sorted()
-                .limit(TODO_LIMIT)
                 .map(TodoWithSortKey::item)
                 .toList();
     }
