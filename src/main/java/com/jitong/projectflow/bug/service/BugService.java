@@ -26,7 +26,10 @@ import com.jitong.projectflow.notice.service.NoticeService;
 import com.jitong.projectflow.project.entity.ProjectEntity;
 import com.jitong.projectflow.project.mapper.ProjectMapper;
 import com.jitong.projectflow.system.audit.OperationLogService;
+import com.jitong.projectflow.system.dto.OperationLogResponse;
+import com.jitong.projectflow.system.entity.OperationLog;
 import com.jitong.projectflow.system.entity.SystemUser;
+import com.jitong.projectflow.system.mapper.OperationLogMapper;
 import com.jitong.projectflow.system.mapper.SystemUserMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -50,6 +53,7 @@ public class BugService {
     private final BusinessAccessService businessAccessService;
     private final SystemUserMapper userMapper;
     private final ProjectMapper projectMapper;
+    private final OperationLogMapper operationLogMapper;
 
     public BugResponse create(BugCreateRequest request) {
         BugEntity entity = new BugEntity();
@@ -116,7 +120,24 @@ public class BugService {
                 .filter(Objects::nonNull).collect(Collectors.toSet()));
         Map<Long, String> projectNames = entity.getProjectId() != null
                 ? batchProjectNames(Set.of(entity.getProjectId())) : Map.of();
-        return toResponse(entity, userNames, projectNames);
+        BugResponse response = toResponse(entity, userNames, projectNames);
+        List<OperationLog> logs = operationLogMapper.selectList(
+                new LambdaQueryWrapper<OperationLog>()
+                        .eq(OperationLog::getBusinessType, "Bug")
+                        .eq(OperationLog::getBusinessId, id)
+                        .orderByAsc(OperationLog::getCreatedAt));
+        response.setLogs(logs.stream().map(log -> OperationLogResponse.builder()
+                .id(log.getId())
+                .module(log.getModule())
+                .businessType(log.getBusinessType())
+                .businessId(log.getBusinessId())
+                .operationType(log.getOperationType())
+                .operatorId(log.getOperatorId())
+                .operatorName(log.getOperatorName())
+                .content(log.getContent())
+                .createdAt(log.getCreatedAt())
+                .build()).toList());
+        return response;
     }
 
     public BugResponse update(Long id, BugUpdateRequest request) {

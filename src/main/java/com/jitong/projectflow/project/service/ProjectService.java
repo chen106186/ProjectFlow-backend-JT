@@ -19,6 +19,8 @@ import com.jitong.projectflow.project.mapper.ProjectMapper;
 import com.jitong.projectflow.project.mapper.ProjectNodeMapper;
 import com.jitong.projectflow.project.mapper.ProjectParticipantMapper;
 import com.jitong.projectflow.system.audit.OperationLogService;
+import com.jitong.projectflow.system.entity.SystemUser;
+import com.jitong.projectflow.system.mapper.SystemUserMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,9 +38,18 @@ public class ProjectService {
     private final ProjectParticipantMapper participantMapper;
     private final OperationLogService operationLogService;
     private final BusinessAccessService businessAccessService;
+    private final SystemUserMapper systemUserMapper;
 
     @Transactional
     public ProjectResponse create(ProjectCreateRequest request) {
+        if ("EXECUTION".equals(request.getProjectType()) && request.getManagementProjectId() != null) {
+            long existing = projectMapper.selectCount(new LambdaQueryWrapper<ProjectEntity>()
+                    .eq(ProjectEntity::getProjectType, "EXECUTION")
+                    .eq(ProjectEntity::getManagementProjectId, request.getManagementProjectId()));
+            if (existing > 0) {
+                throw new BusinessException(ErrorCode.CONFLICT, "该管理类项目已存在执行类项目，不可重复创建");
+            }
+        }
         ProjectEntity entity = new ProjectEntity();
         entity.setProjectType(request.getProjectType());
         entity.setProjectBusinessType(request.getProjectBusinessType());

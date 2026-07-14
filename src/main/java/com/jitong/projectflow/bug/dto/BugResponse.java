@@ -1,11 +1,13 @@
 package com.jitong.projectflow.bug.dto;
 
+import com.jitong.projectflow.system.dto.OperationLogResponse;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import lombok.Builder;
 import lombok.Data;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @Builder
@@ -46,4 +48,6 @@ public class BugResponse {
     private String assigneeName;
     @Schema(description = "项目名称。")
     private String projectName;
+    @Schema(description = "操作日志列表（仅详情接口填充）。")
+    private List<OperationLogResponse> logs;
 }
