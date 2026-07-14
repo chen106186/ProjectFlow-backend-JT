@@ -56,7 +56,10 @@ public class ProjectCreateRequest {
     @Schema(description = "参与人员用户 ID 列表。")
     private List<Long> participantIds;
 
-    @Schema(description = "创建时内嵌的项目节点列表，可为空。")
+    @Schema(description = "项目节点编码列表（从模板中选取），与 nodes 二选一。")
+    private List<String> nodeCodes;
+
+    @Schema(description = "创建时内嵌的项目节点列表（自定义节点，无模板时使用），可为空。")
     private List<ProjectNodeCreateRequest> nodes;
 
     @Schema(description = "详细描述。")

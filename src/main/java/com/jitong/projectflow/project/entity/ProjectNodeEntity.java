@@ -22,6 +22,8 @@ public class ProjectNodeEntity {
 
     private String nodeName;
 
+    private String nodeCode;
+
     private String nodeType;
 
     private LocalDate plannedStartDate;

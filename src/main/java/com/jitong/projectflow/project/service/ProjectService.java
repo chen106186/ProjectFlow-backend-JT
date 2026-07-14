@@ -8,6 +8,7 @@ import com.jitong.projectflow.common.api.PageResult;
 import com.jitong.projectflow.common.api.PageUtils;
 import com.jitong.projectflow.common.error.BusinessException;
 import com.jitong.projectflow.common.error.ErrorCode;
+import com.jitong.projectflow.project.domain.ProjectNodeTemplate;
 import com.jitong.projectflow.project.dto.ProjectCreateRequest;
 import com.jitong.projectflow.project.dto.ProjectNodeCreateRequest;
 import com.jitong.projectflow.project.dto.ProjectQueryRequest;
@@ -28,7 +29,10 @@ import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -71,7 +75,7 @@ public class ProjectService {
         entity.setCreatedBy(CurrentUserContext.userIdOrNull());
         projectMapper.insert(entity);
         saveParticipants(entity.getId(), request.getParticipantIds());
-        saveNodes(entity.getId(), request.getNodes());
+        saveNodes(entity.getId(), entity.getProjectBusinessType(), request.getNodeCodes(), request.getNodes());
         operationLogService.record("project", "Project", entity.getId(), "CREATE", "新建项目：" + entity.getName());
         return toResponse(entity);
     }
@@ -121,8 +125,8 @@ public class ProjectService {
         if (request.getParticipantIds() != null) {
             saveParticipants(id, request.getParticipantIds());
         }
-        if (request.getNodeNames() != null) {
-            syncNodes(id, request.getNodeNames());
+        if (request.getNodeCodes() != null) {
+            syncNodesByCodes(id, request.getNodeCodes(), entity.getProjectBusinessType());
         }
         operationLogService.record("project", "Project", id, "UPDATE", "编辑项目：" + entity.getName());
         return toResponse(entity);
@@ -189,16 +193,50 @@ public class ProjectService {
         }
     }
 
-    private void saveNodes(Long projectId, List<ProjectNodeCreateRequest> nodes) {
-        if (CollectionUtils.isEmpty(nodes)) {
+    private void saveNodes(Long projectId, String businessType, List<String> nodeCodes, List<ProjectNodeCreateRequest> manualNodes) {
+        Long createdBy = CurrentUserContext.userIdOrNull();
+        Optional<ProjectNodeTemplate> template = ProjectNodeTemplate.forBusinessType(businessType);
+
+        if (!CollectionUtils.isEmpty(nodeCodes) && template.isPresent()) {
+            Map<String, ProjectNodeTemplate.NodeDef> defMap = template.get().getNodes().stream()
+                    .collect(Collectors.toMap(ProjectNodeTemplate.NodeDef::code, d -> d));
+            for (String code : nodeCodes) {
+                ProjectNodeTemplate.NodeDef def = defMap.get(code);
+                if (def == null) continue;
+                ProjectNodeEntity node = new ProjectNodeEntity();
+                node.setProjectId(projectId);
+                node.setNodeCode(def.code());
+                node.setNodeName(def.label());
+                node.setNodeType("TASK");
+                node.setSortOrder(def.sortOrder());
+                node.setStatus("NOT_STARTED");
+                node.setProgressPercent(0);
+                node.setCreatedBy(createdBy);
+                projectNodeMapper.insert(node);
+            }
             return;
         }
-        Long createdBy = CurrentUserContext.userIdOrNull();
-        for (int i = 0; i < nodes.size(); i++) {
-            ProjectNodeCreateRequest req = nodes.get(i);
-            if (!StringUtils.hasText(req.getNodeName())) {
-                continue;
+
+        if (template.isPresent() && CollectionUtils.isEmpty(manualNodes)) {
+            for (ProjectNodeTemplate.NodeDef def : template.get().getNodes()) {
+                ProjectNodeEntity node = new ProjectNodeEntity();
+                node.setProjectId(projectId);
+                node.setNodeCode(def.code());
+                node.setNodeName(def.label());
+                node.setNodeType("TASK");
+                node.setSortOrder(def.sortOrder());
+                node.setStatus("NOT_STARTED");
+                node.setProgressPercent(0);
+                node.setCreatedBy(createdBy);
+                projectNodeMapper.insert(node);
             }
+            return;
+        }
+
+        if (CollectionUtils.isEmpty(manualNodes)) return;
+        for (int i = 0; i < manualNodes.size(); i++) {
+            ProjectNodeCreateRequest req = manualNodes.get(i);
+            if (!StringUtils.hasText(req.getNodeName())) continue;
             ProjectNodeEntity node = new ProjectNodeEntity();
             node.setProjectId(projectId);
             node.setNodeName(req.getNodeName());
@@ -213,28 +251,37 @@ public class ProjectService {
         }
     }
 
-    private void syncNodes(Long projectId, List<String> newNames) {
+    private void syncNodesByCodes(Long projectId, List<String> newCodes, String businessType) {
         List<ProjectNodeEntity> existing = projectNodeMapper.selectList(
                 new LambdaQueryWrapper<ProjectNodeEntity>().eq(ProjectNodeEntity::getProjectId, projectId));
-        Set<String> existingNames = existing.stream()
-                .map(ProjectNodeEntity::getNodeName).collect(java.util.stream.Collectors.toSet());
-        // delete nodes removed from the list
-        existing.stream().filter(n -> !newNames.contains(n.getNodeName()))
+        Set<String> existingCodes = existing.stream()
+                .filter(n -> n.getNodeCode() != null)
+                .map(ProjectNodeEntity::getNodeCode)
+                .collect(Collectors.toSet());
+        // delete nodes not in newCodes (code-based or legacy name-based)
+        existing.stream()
+                .filter(n -> n.getNodeCode() == null || !newCodes.contains(n.getNodeCode()))
                 .forEach(n -> projectNodeMapper.deleteById(n.getId()));
-        // insert newly added nodes
+        // insert newly selected nodes from template
+        Optional<ProjectNodeTemplate> template = ProjectNodeTemplate.forBusinessType(businessType);
+        if (template.isEmpty()) return;
+        Map<String, ProjectNodeTemplate.NodeDef> defMap = template.get().getNodes().stream()
+                .collect(Collectors.toMap(ProjectNodeTemplate.NodeDef::code, d -> d));
         Long createdBy = CurrentUserContext.userIdOrNull();
-        for (int i = 0; i < newNames.size(); i++) {
-            if (!existingNames.contains(newNames.get(i))) {
-                ProjectNodeEntity node = new ProjectNodeEntity();
-                node.setProjectId(projectId);
-                node.setNodeName(newNames.get(i));
-                node.setNodeType("TASK");
-                node.setSortOrder(i + 1);
-                node.setStatus("NOT_STARTED");
-                node.setProgressPercent(0);
-                node.setCreatedBy(createdBy);
-                projectNodeMapper.insert(node);
-            }
+        for (String code : newCodes) {
+            if (existingCodes.contains(code)) continue;
+            ProjectNodeTemplate.NodeDef def = defMap.get(code);
+            if (def == null) continue;
+            ProjectNodeEntity node = new ProjectNodeEntity();
+            node.setProjectId(projectId);
+            node.setNodeCode(def.code());
+            node.setNodeName(def.label());
+            node.setNodeType("TASK");
+            node.setSortOrder(def.sortOrder());
+            node.setStatus("NOT_STARTED");
+            node.setProgressPercent(0);
+            node.setCreatedBy(createdBy);
+            projectNodeMapper.insert(node);
         }
     }
 
@@ -246,6 +293,7 @@ public class ProjectService {
             case "DIGITALIZATION" -> "数字化项目";
             case "INFORMATIZATION" -> "信息化项目";
             case "RESEARCH" -> "科研项目";
+            case "EXTERNAL" -> "外部项目";
             default -> projectBusinessType;
         };
     }

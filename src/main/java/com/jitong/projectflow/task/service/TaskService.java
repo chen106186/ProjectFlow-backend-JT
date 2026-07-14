@@ -194,6 +194,7 @@ public class TaskService {
     public TaskResponse update(Long id, TaskUpdateRequest request) {
         TaskEntity entity = requireTask(id);
         businessAccessService.requireTaskManage(entity);
+        Long oldAssigneeId = entity.getAssigneeId();
         if (request.getProjectId() != null) entity.setProjectId(request.getProjectId());
         if (request.getName() != null) entity.setName(request.getName());
         if (request.getRoleName() != null) entity.setRoleName(request.getRoleName());
@@ -210,6 +211,13 @@ public class TaskService {
         entity.setUpdatedBy(CurrentUserContext.userIdOrNull());
         taskMapper.updateById(entity);
         operationLogService.record("task", "Task", id, "UPDATE", "编辑任务：" + entity.getName());
+        if (request.getAssigneeId() != null && !request.getAssigneeId().equals(oldAssigneeId)) {
+            String operatorName = resolveUserName(CurrentUserContext.userIdOrNull());
+            String projectName = resolveProjectName(entity.getProjectId());
+            String title = operatorName + " 将任务「" + entity.getName() + "」分配给您";
+            String content = "所属项目：" + projectName + "　｜　优先级：" + priorityLabel(entity.getPriority());
+            noticeService.create(entity.getAssigneeId(), NoticeType.TASK_ASSIGNED, title, content, "Task", entity.getId());
+        }
         return toResponse(entity);
     }
 

@@ -29,7 +29,8 @@ public class DictService {
         add("projectBusinessType", "项目业务类型",
                 item("DIGITALIZATION", "数字化项目"),
                 item("INFORMATIZATION", "信息化项目"),
-                item("RESEARCH", "科研项目"));
+                item("RESEARCH", "科研项目"),
+                item("EXTERNAL", "外部项目"));
         add("projectStage", "项目阶段",
                 item("BUSINESS_OPPORTUNITY", "商机跟进"),
                 item("FEASIBILITY_APPROVAL", "可研批复"),

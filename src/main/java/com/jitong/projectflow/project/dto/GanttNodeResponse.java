@@ -20,7 +20,13 @@ public class GanttNodeResponse {
     @Schema(description = "父级节点 ID，根节点可为空或 0。")
     private Long parentId;
 
-    @Schema(description = "甘特图节点名称。")
+    @Schema(description = "节点编码（如 FEASIBILITY_APPROVAL）。")
+    private String nodeCode;
+
+    @Schema(description = "节点显示名称（优先取 code 对应的中文标签）。")
+    private String label;
+
+    @Schema(description = "甘特图节点名称（旧字段，兼容保留）。")
     private String nodeName;
 
     @Schema(description = "nodeType 字段。")
