@@ -11,8 +11,6 @@ import com.jitong.projectflow.system.dto.RoleUpdateRequest;
 import com.jitong.projectflow.system.entity.RoleEntity;
 import com.jitong.projectflow.system.entity.SystemUser;
 import com.jitong.projectflow.system.entity.UserRoleEntity;
-import com.jitong.projectflow.system.entity.MenuEntity;
-import com.jitong.projectflow.system.mapper.MenuMapper;
 import com.jitong.projectflow.system.mapper.RoleMapper;
 import com.jitong.projectflow.system.mapper.RoleMenuMapper;
 import com.jitong.projectflow.system.mapper.SystemUserMapper;
@@ -21,11 +19,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
-import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -34,7 +28,6 @@ public class RoleManagementService {
     private final RoleMenuMapper roleMenuMapper;
     private final UserRoleMapper userRoleMapper;
     private final SystemUserMapper systemUserMapper;
-    private final MenuMapper menuMapper;
     private final OperationLogService operationLogService;
 
     public RoleResponse create(RoleCreateRequest request) {
@@ -91,29 +84,12 @@ public class RoleManagementService {
     public List<Long> assignMenus(Long roleId, RoleMenuAssignRequest request) {
         requireRole(roleId);
         List<Long> menuIds = request.getMenuIds() == null ? List.of() : request.getMenuIds();
-        Set<Long> fullIds = expandWithAncestors(new LinkedHashSet<>(menuIds));
         roleMenuMapper.deleteByRoleId(roleId);
-        for (Long menuId : fullIds) {
+        for (Long menuId : menuIds) {
             roleMenuMapper.insertRelation(roleId, menuId);
         }
         operationLogService.record("system", "Role", roleId, "ASSIGN_MENUS", "Assign menus to role " + roleId);
-        return new ArrayList<>(fullIds);
-    }
-
-    private Set<Long> expandWithAncestors(Set<Long> selectedIds) {
-        if (selectedIds.isEmpty()) return selectedIds;
-        Map<Long, Long> parentMap = menuMapper.selectList(null).stream()
-                .filter(m -> m.getParentId() != null)
-                .collect(Collectors.toMap(MenuEntity::getId, MenuEntity::getParentId));
-        Set<Long> result = new LinkedHashSet<>(selectedIds);
-        for (Long id : selectedIds) {
-            Long parentId = parentMap.get(id);
-            while (parentId != null) {
-                result.add(parentId);
-                parentId = parentMap.get(parentId);
-            }
-        }
-        return result;
+        return new ArrayList<>(menuIds);
     }
 
     private void ensureCodeUnique(String code, Long currentId) {

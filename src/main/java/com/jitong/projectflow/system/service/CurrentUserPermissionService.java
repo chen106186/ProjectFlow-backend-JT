@@ -27,8 +27,6 @@ import java.util.Set;
 @Service
 @RequiredArgsConstructor
 public class CurrentUserPermissionService {
-    private static final String ADMIN_ROLE_CODE = "ADMIN";
-
     private final SystemUserMapper systemUserMapper;
     private final UserRoleMapper userRoleMapper;
     private final RoleMapper roleMapper;
@@ -104,22 +102,16 @@ public class CurrentUserPermissionService {
             return List.of();
         }
 
-        LambdaQueryWrapper<MenuEntity> wrapper = new LambdaQueryWrapper<MenuEntity>()
-                .orderByAsc(MenuEntity::getSortOrder)
-                .orderByAsc(MenuEntity::getId);
-
-        if (roles.stream().anyMatch(role -> ADMIN_ROLE_CODE.equalsIgnoreCase(role.getCode()))) {
-            return menuMapper.selectList(wrapper);
-        }
-
         List<Long> roleIds = roles.stream().map(RoleEntity::getId).toList();
         List<Long> menuIds = roleMenuMapper.selectMenuIdsByRoleIds(roleIds).stream().distinct().toList();
         if (menuIds.isEmpty()) {
             return List.of();
         }
 
-        wrapper.in(MenuEntity::getId, menuIds);
-        return menuMapper.selectList(wrapper);
+        return menuMapper.selectList(new LambdaQueryWrapper<MenuEntity>()
+                .in(MenuEntity::getId, menuIds)
+                .orderByAsc(MenuEntity::getSortOrder)
+                .orderByAsc(MenuEntity::getId));
     }
 
     private List<String> extractPermissions(List<MenuEntity> menus) {

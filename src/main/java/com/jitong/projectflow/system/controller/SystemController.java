@@ -151,7 +151,7 @@ public class SystemController {
     @Operation(summary = "查询部门树",
             description = "查询系统部门树形结构，用于用户归属和组织架构展示。")
     @GetMapping("/departments")
-    @PreAuthorize("hasAuthority('system:department:view')")
+    @PreAuthorize("hasAuthority('system:user')")
     public ApiResponse<List<DepartmentResponse>> listDepartments() {
         return ApiResponse.success(systemQueryService.listDepartments(), MDC.get("traceId"));
     }
@@ -159,7 +159,7 @@ public class SystemController {
     @Operation(summary = "新增部门",
             description = "新增部门节点并设置上级部门、排序和负责人信息。")
     @PostMapping("/departments")
-    @PreAuthorize("hasAuthority('system:department:create')")
+    @PreAuthorize("hasAuthority('system:user:create')")
     public ApiResponse<DepartmentResponse> createDepartment(@Valid @RequestBody DepartmentCreateRequest request) {
         return ApiResponse.success(departmentManagementService.create(request), MDC.get("traceId"));
     }
@@ -167,7 +167,7 @@ public class SystemController {
     @Operation(summary = "编辑部门",
             description = "修改部门名称、上级部门、排序和负责人信息。")
     @PutMapping("/departments/{id}")
-    @PreAuthorize("hasAuthority('system:department:update')")
+    @PreAuthorize("hasAuthority('system:user:update')")
     public ApiResponse<DepartmentResponse> updateDepartment(
             @PathVariable Long id,
             @Valid @RequestBody DepartmentUpdateRequest request) {
@@ -177,7 +177,7 @@ public class SystemController {
     @Operation(summary = "删除部门",
             description = "删除指定部门，存在子部门或关联用户时不允许删除。")
     @DeleteMapping("/departments/{id}")
-    @PreAuthorize("hasAuthority('system:department:update')")
+    @PreAuthorize("hasAuthority('system:user:update')")
     public ApiResponse<Void> deleteDepartment(@PathVariable Long id) {
         departmentManagementService.delete(id);
         return ApiResponse.success(null, MDC.get("traceId"));
@@ -243,7 +243,7 @@ public class SystemController {
     @Operation(summary = "查询菜单列表",
             description = "查询系统菜单、目录和按钮权限列表。")
     @GetMapping("/menus")
-    @PreAuthorize("hasAuthority('system:menu:view')")
+    @PreAuthorize("hasAuthority('system:role')")
     public ApiResponse<List<MenuResponse>> listMenus() {
         return ApiResponse.success(systemQueryService.listMenus(), MDC.get("traceId"));
     }
@@ -251,7 +251,7 @@ public class SystemController {
     @Operation(summary = "新增菜单",
             description = "新增目录、菜单或按钮权限节点。")
     @PostMapping("/menus")
-    @PreAuthorize("hasAuthority('system:menu:create')")
+    @PreAuthorize("hasAuthority('system:role:assign-menu')")
     public ApiResponse<MenuResponse> createMenu(@Valid @RequestBody MenuCreateRequest request) {
         return ApiResponse.success(menuManagementService.create(request), MDC.get("traceId"));
     }
@@ -259,7 +259,7 @@ public class SystemController {
     @Operation(summary = "编辑菜单",
             description = "修改目录、菜单或按钮权限的名称、路径、权限码和排序。")
     @PutMapping("/menus/{id}")
-    @PreAuthorize("hasAuthority('system:menu:update')")
+    @PreAuthorize("hasAuthority('system:role:assign-menu')")
     public ApiResponse<MenuResponse> updateMenu(@PathVariable Long id, @Valid @RequestBody MenuUpdateRequest request) {
         return ApiResponse.success(menuManagementService.update(id, request), MDC.get("traceId"));
     }
@@ -267,7 +267,7 @@ public class SystemController {
     @Operation(summary = "删除菜单",
             description = "删除指定菜单或按钮权限节点，存在子节点时不允许删除。")
     @DeleteMapping("/menus/{id}")
-    @PreAuthorize("hasAuthority('system:menu:update')")
+    @PreAuthorize("hasAuthority('system:role:assign-menu')")
     public ApiResponse<Void> deleteMenu(@PathVariable Long id) {
         menuManagementService.delete(id);
         return ApiResponse.success(null, MDC.get("traceId"));
