@@ -13,7 +13,6 @@ public class ProjectReportItemCreateRequest {
     @NotBlank
     @Schema(description = "内容。")
     private String content;
-    @NotNull
     @Schema(description = "负责人用户 ID。")
     private Long ownerId;
     @NotBlank
@@ -26,4 +25,6 @@ public class ProjectReportItemCreateRequest {
     private LocalDate plannedDate;
     @Schema(description = "详细描述。")
     private String description;
+    @Schema(description = "关联任务 ID。")
+    private Long relatedTaskId;
 }

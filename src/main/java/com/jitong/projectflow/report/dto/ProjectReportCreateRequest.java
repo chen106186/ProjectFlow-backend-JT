@@ -35,4 +35,6 @@ public class ProjectReportCreateRequest {
     @NotBlank
     @Schema(description = "详细描述。")
     private String description;
+    @Schema(description = "关联任务 ID。")
+    private Long relatedTaskId;
 }

@@ -1,0 +1,2 @@
+ALTER TABLE pf_bug MODIFY COLUMN description TEXT NOT NULL;
+ALTER TABLE pf_bug MODIFY COLUMN reproduce_steps TEXT NOT NULL;

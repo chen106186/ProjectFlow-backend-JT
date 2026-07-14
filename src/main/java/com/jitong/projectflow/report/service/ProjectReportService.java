@@ -48,6 +48,7 @@ public class ProjectReportService {
         entity.setTargetAudience(request.getTargetAudience());
         entity.setLocationMethod(request.getLocationMethod());
         entity.setDescription(request.getDescription());
+        entity.setRelatedTaskId(request.getRelatedTaskId());
         entity.setCreatedBy(CurrentUserContext.userIdOrNull());
         projectReportMapper.insert(entity);
         operationLogService.record("project-report", "ProjectReport", entity.getId(), "CREATE", "新建汇报：" + entity.getTitle());
@@ -76,6 +77,8 @@ public class ProjectReportService {
         if (request.getTargetAudience() != null) entity.setTargetAudience(request.getTargetAudience());
         if (request.getLocationMethod() != null) entity.setLocationMethod(request.getLocationMethod());
         if (request.getDescription() != null) entity.setDescription(request.getDescription());
+        if (request.getRemark() != null) entity.setRemark(request.getRemark());
+        if (request.getRelatedTaskId() != null) entity.setRelatedTaskId(request.getRelatedTaskId());
         entity.setUpdatedBy(CurrentUserContext.userIdOrNull());
         projectReportMapper.updateById(entity);
         operationLogService.record("project-report", "ProjectReport", id, "UPDATE", "编辑汇报：" + entity.getTitle());
@@ -112,6 +115,7 @@ public class ProjectReportService {
         entity.setStatus(request.getStatus());
         entity.setPlannedDate(request.getPlannedDate());
         entity.setDescription(request.getDescription());
+        entity.setRelatedTaskId(request.getRelatedTaskId());
         entity.setCreatedBy(CurrentUserContext.userIdOrNull());
         projectReportItemMapper.insert(entity);
         operationLogService.record("project-report", "ProjectReport", reportId, "CREATE_ITEM", "新增准备项：" + entity.getContent());
@@ -128,6 +132,7 @@ public class ProjectReportService {
         if (request.getStatus() != null) entity.setStatus(request.getStatus());
         if (request.getPlannedDate() != null) entity.setPlannedDate(request.getPlannedDate());
         if (request.getDescription() != null) entity.setDescription(request.getDescription());
+        if (request.getRelatedTaskId() != null) entity.setRelatedTaskId(request.getRelatedTaskId());
         entity.setUpdatedBy(CurrentUserContext.userIdOrNull());
         projectReportItemMapper.updateById(entity);
         operationLogService.record("project-report", "ProjectReport", reportId, "UPDATE_ITEM", "编辑准备项：" + entity.getContent());
@@ -189,6 +194,8 @@ public class ProjectReportService {
                 .targetAudience(entity.getTargetAudience())
                 .locationMethod(entity.getLocationMethod())
                 .description(entity.getDescription())
+                .remark(entity.getRemark())
+                .relatedTaskId(entity.getRelatedTaskId())
                 .createdBy(entity.getCreatedBy())
                 .createdAt(entity.getCreatedAt())
                 .updatedBy(entity.getUpdatedBy())
@@ -207,6 +214,7 @@ public class ProjectReportService {
                 .status(entity.getStatus())
                 .plannedDate(entity.getPlannedDate())
                 .description(entity.getDescription())
+                .relatedTaskId(entity.getRelatedTaskId())
                 .createdBy(entity.getCreatedBy())
                 .createdAt(entity.getCreatedAt())
                 .updatedBy(entity.getUpdatedBy())

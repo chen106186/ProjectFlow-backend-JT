@@ -1,5 +1,7 @@
 package com.jitong.projectflow.report.dto;
 
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import lombok.Builder;
@@ -27,6 +29,9 @@ public class ProjectReportItemResponse {
     private LocalDate plannedDate;
     @Schema(description = "详细描述。")
     private String description;
+    @JsonSerialize(using = ToStringSerializer.class)
+    @Schema(description = "关联任务 ID。")
+    private Long relatedTaskId;
     @Schema(description = "创建人 ID。")
     private Long createdBy;
     @Schema(description = "创建时间，格式 yyyy-MM-dd HH:mm:ss。")

@@ -124,7 +124,7 @@ public class FileController {
     public Map<String, Object> uploadImage(@RequestPart("file") MultipartFile file) {
         try {
             FileResponse resp = fileService.upload("RICH_TEXT", 0L, null, null, null, file);
-            String url = resp.getUrl() != null ? resp.getUrl() : "/api/files/" + resp.getId() + "/inline";
+            String url = "/api/files/" + resp.getId() + "/inline";
             return Map.of("errno", 0, "data", Map.of("url", url, "alt", "", "href", ""));
         } catch (Exception e) {
             return Map.of("errno", 1, "message", e.getMessage() != null ? e.getMessage() : "上传失败");
@@ -136,6 +136,24 @@ public class FileController {
     @GetMapping("/{id}/inline")
     public ResponseEntity<InputStreamResource> inline(@PathVariable Long id) {
         FileDownloadResult result = fileService.download(id);
+        FileResponse metadata = result.metadata();
+        String encodedName = URLEncoder.encode(metadata.getOriginalName(), StandardCharsets.UTF_8).replace("+", "%20");
+        MediaType mediaType = StringUtils.hasText(metadata.getContentType())
+                ? MediaType.parseMediaType(metadata.getContentType())
+                : MediaType.APPLICATION_OCTET_STREAM;
+        return ResponseEntity.ok()
+                .contentType(mediaType)
+                .contentLength(metadata.getFileSize() == null ? 0 : metadata.getFileSize())
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename*=UTF-8''" + encodedName)
+                .body(new InputStreamResource(result.inputStream()));
+    }
+
+    @Operation(summary = "通过存储Key预览富文本图片",
+            description = "兼容历史富文本中保存的私有 OSS 直链，仅允许已登录用户预览数据库中登记的富文本图片。")
+    @GetMapping("/rich-text-image")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<InputStreamResource> inlineRichTextImage(@RequestParam String key) {
+        FileDownloadResult result = fileService.downloadRichTextImageByStorageKey(key);
         FileResponse metadata = result.metadata();
         String encodedName = URLEncoder.encode(metadata.getOriginalName(), StandardCharsets.UTF_8).replace("+", "%20");
         MediaType mediaType = StringUtils.hasText(metadata.getContentType())

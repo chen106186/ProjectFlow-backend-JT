@@ -23,6 +23,8 @@ public class ProjectReportEntity {
     private String targetAudience;
     private String locationMethod;
     private String description;
+    private String remark;
+    private Long relatedTaskId;
     private Long createdBy;
     private LocalDateTime createdAt;
     private Long updatedBy;

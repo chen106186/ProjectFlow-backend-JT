@@ -26,4 +26,8 @@ public class ProjectReportUpdateRequest {
     private String locationMethod;
     @Schema(description = "详细描述。")
     private String description;
+    @Schema(description = "汇报备注。")
+    private String remark;
+    @Schema(description = "关联任务 ID。")
+    private Long relatedTaskId;
 }

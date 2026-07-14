@@ -1,5 +1,7 @@
 package com.jitong.projectflow.dashboard.dto;
 
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.time.LocalDate;
@@ -10,6 +12,7 @@ public record TodoItemResponse(
         String itemType,
 
         @Schema(description = "关联业务数据 ID。")
+        @JsonSerialize(using = ToStringSerializer.class)
         Long businessId,
 
         @Schema(description = "待办标题。")

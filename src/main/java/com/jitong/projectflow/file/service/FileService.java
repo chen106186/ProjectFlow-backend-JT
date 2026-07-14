@@ -105,6 +105,23 @@ public class FileService {
         return new FileDownloadResult(toResponse(metadata), fileStorageService.download(metadata.getStorageKey()));
     }
 
+    public FileDownloadResult downloadRichTextImageByStorageKey(String storageKey) {
+        if (!StringUtils.hasText(storageKey) || !storageKey.startsWith("projectflow/")) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "图片地址不合法");
+        }
+        FileMetadata metadata = fileMetadataMapper.selectOne(new LambdaQueryWrapper<FileMetadata>()
+                .eq(FileMetadata::getBusinessType, "RICH_TEXT")
+                .eq(FileMetadata::getStorageKey, storageKey)
+                .last("LIMIT 1"));
+        if (metadata == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "图片不存在");
+        }
+        if (!StringUtils.hasText(metadata.getContentType()) || !metadata.getContentType().startsWith("image/")) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "仅支持预览图片");
+        }
+        return new FileDownloadResult(toResponse(metadata), fileStorageService.download(metadata.getStorageKey()));
+    }
+
     public void delete(Long id) {
         FileMetadata metadata = requireFile(id);
         businessAccessService.requireFileDelete(metadata);

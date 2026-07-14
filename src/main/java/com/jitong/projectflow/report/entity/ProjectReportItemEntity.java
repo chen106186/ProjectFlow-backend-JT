@@ -21,6 +21,7 @@ public class ProjectReportItemEntity {
     private String status;
     private LocalDate plannedDate;
     private String description;
+    private Long relatedTaskId;
     private Long createdBy;
     private LocalDateTime createdAt;
     private Long updatedBy;
