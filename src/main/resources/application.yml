@@ -39,6 +39,18 @@ mybatis-plus:
       logic-not-delete-value: 0
 
 projectflow:
+  schedule:
+    # 每天凌晨 0:30 同步任务状态到数据库
+    task-status-sync-cron: "0 30 0 * * ?"
+  notice:
+    # 每天 08:00 发送每日工作提醒
+    daily-work-cron: "0 0 8 * * ?"
+    # 每天 09:00 推送任务截止预警
+    task-deadline-cron: "0 0 9 * * ?"
+    # 每天 09:15 推送项目节点截止预警
+    project-stage-deadline-cron: "0 15 9 * * ?"
+    # 每周一 09:00 发送周报摘要
+    weekly-summary-cron: "0 0 9 ? * MON"
   security:
     enabled: true
     dev-user-id: 1
