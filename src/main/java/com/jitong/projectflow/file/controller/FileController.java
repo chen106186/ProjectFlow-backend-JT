@@ -17,7 +17,6 @@ import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -121,7 +120,6 @@ public class FileController {
     @Operation(summary = "富文本图片上传",
             description = "上传富文本编辑器内嵌图片，返回 wangEditor 所需的 JSON 格式 {errno,data:{url}}。")
     @PostMapping(value = "/upload-image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("isAuthenticated()")
     public Map<String, Object> uploadImage(@RequestPart("file") MultipartFile file) {
         try {
             FileResponse resp = fileService.upload("RICH_TEXT", 0L, null, null, null, file);
@@ -152,7 +150,6 @@ public class FileController {
     @Operation(summary = "通过存储Key预览富文本图片",
             description = "兼容历史富文本中保存的私有 OSS 直链，仅允许已登录用户预览数据库中登记的富文本图片。")
     @GetMapping("/rich-text-image")
-    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<InputStreamResource> inlineRichTextImage(@RequestParam String key) {
         FileDownloadResult result = fileService.downloadRichTextImageByStorageKey(key);
         FileResponse metadata = result.metadata();
