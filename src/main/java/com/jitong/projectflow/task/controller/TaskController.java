@@ -19,7 +19,6 @@ import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
@@ -47,7 +46,6 @@ public class TaskController {
 
     @Operation(summary = "新建任务",
             description = "创建项目任务，系统根据计划时间和实际时间自动计算任务状态。")
-    @PreAuthorize("hasAuthority('task:create')")
     @PostMapping
     public ApiResponse<TaskResponse> create(@Valid @RequestBody TaskCreateRequest request) {
         return ApiResponse.success(taskService.create(request), MDC.get("traceId"));
@@ -55,7 +53,6 @@ public class TaskController {
 
     @Operation(summary = "批量创建任务",
             description = "一次提交多条任务，支持父任务 ID 和排序号，用于执行类项目创建任务表格。")
-    @PreAuthorize("hasAuthority('task:create')")
     @PostMapping("/batch")
     public ApiResponse<List<TaskResponse>> batchCreate(@Valid @RequestBody TaskBatchCreateRequest request) {
         return ApiResponse.success(taskService.batchCreate(request), MDC.get("traceId"));
@@ -77,7 +74,6 @@ public class TaskController {
 
     @Operation(summary = "导入任务 Excel",
             description = "读取任务导入模板中的任务数据并批量创建任务。")
-    @PreAuthorize("hasAuthority('task:create')")
     @PostMapping(value = "/import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ApiResponse<List<TaskResponse>> importTasks(@RequestPart("file") MultipartFile file) {
         return ApiResponse.success(taskService.importTasks(file), MDC.get("traceId"));
@@ -114,7 +110,7 @@ public class TaskController {
 
     @Operation(summary = "编辑任务",
             description = "更新任务基础信息，适用于项目负责人或具备权限的人员维护任务。")
-    @PreAuthorize("hasAuthority('task:update')")
+
     @PutMapping("/{id}")
     public ApiResponse<TaskResponse> update(@PathVariable Long id, @Valid @RequestBody TaskUpdateRequest request) {
         return ApiResponse.success(taskService.update(id, request), MDC.get("traceId"));
@@ -122,7 +118,7 @@ public class TaskController {
 
     @Operation(summary = "删除任务",
             description = "逻辑删除指定任务，系统会校验接口权限和业务数据归属。")
-    @PreAuthorize("hasAuthority('task:update')")
+
     @DeleteMapping("/{id}")
     public ApiResponse<Void> delete(@PathVariable Long id) {
         taskService.delete(id);

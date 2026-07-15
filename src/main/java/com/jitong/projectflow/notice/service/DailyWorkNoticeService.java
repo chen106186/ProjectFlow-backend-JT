@@ -24,7 +24,7 @@ public class DailyWorkNoticeService {
     private final NoticeService noticeService;
     private final SystemUserMapper systemUserMapper;
 
-    /** 每天 08:00 向所有有活跃任务的用户发送当日工作提醒 */
+    /** 每天 08:00 向全体在职用户发送当日工作提醒 */
     @Scheduled(cron = "${projectflow.notice.daily-work-cron:0 0 8 * * ?}")
     public void sendDailyWorkNotice() {
         int sent = sendDailyWorkNotice(LocalDate.now());
@@ -32,51 +32,52 @@ public class DailyWorkNoticeService {
     }
 
     public int sendDailyWorkNotice(LocalDate today) {
-        List<Long> assigneeIds = taskMapper.selectList(
-                        new LambdaQueryWrapper<TaskEntity>()
-                                .isNotNull(TaskEntity::getAssigneeId)
-                                .select(TaskEntity::getAssigneeId))
-                .stream().map(TaskEntity::getAssigneeId).distinct().toList();
+        // 向所有启用状态的用户发送，不论是否有任务
+        List<SystemUser> allUsers = systemUserMapper.selectList(
+                new LambdaQueryWrapper<SystemUser>()
+                        .eq(SystemUser::getEnabled, true)
+                        .eq(SystemUser::getDeleted, false));
 
         int sent = 0;
-        for (Long userId : assigneeIds) {
+        for (SystemUser user : allUsers) {
             long overdueCount = taskMapper.selectCount(new LambdaQueryWrapper<TaskEntity>()
-                    .eq(TaskEntity::getAssigneeId, userId)
+                    .eq(TaskEntity::getAssigneeId, user.getId())
                     .eq(TaskEntity::getStatus, TaskStatus.OVERDUE.name()));
 
             long dueSoonCount = taskMapper.selectCount(new LambdaQueryWrapper<TaskEntity>()
-                    .eq(TaskEntity::getAssigneeId, userId)
+                    .eq(TaskEntity::getAssigneeId, user.getId())
                     .eq(TaskEntity::getStatus, TaskStatus.DUE_SOON.name()));
 
             long inProgressCount = taskMapper.selectCount(new LambdaQueryWrapper<TaskEntity>()
-                    .eq(TaskEntity::getAssigneeId, userId)
+                    .eq(TaskEntity::getAssigneeId, user.getId())
                     .eq(TaskEntity::getStatus, TaskStatus.IN_PROGRESS.name()));
 
-            if (overdueCount == 0 && dueSoonCount == 0 && inProgressCount == 0) continue;
+            String userName = user.getRealName() != null ? user.getRealName() : user.getUsername();
+            String title;
+            String content;
 
-            String userName = resolveUserName(userId);
             long total = overdueCount + dueSoonCount + inProgressCount;
-            String title = "早安，" + userName + "！今日共有 " + total + " 项工作待处理";
-
-            StringBuilder content = new StringBuilder();
-            if (overdueCount > 0) content.append("逾期任务 ").append(overdueCount).append(" 个");
-            if (dueSoonCount > 0) {
-                if (content.length() > 0) content.append("　｜　");
-                content.append("即将到期 ").append(dueSoonCount).append(" 个");
+            if (total > 0) {
+                title = "早安，" + userName + "！今日共有 " + total + " 项工作待处理";
+                StringBuilder sb = new StringBuilder();
+                if (overdueCount > 0) sb.append("逾期任务 ").append(overdueCount).append(" 个");
+                if (dueSoonCount > 0) {
+                    if (sb.length() > 0) sb.append("　｜　");
+                    sb.append("即将到期 ").append(dueSoonCount).append(" 个");
+                }
+                if (inProgressCount > 0) {
+                    if (sb.length() > 0) sb.append("　｜　");
+                    sb.append("进行中 ").append(inProgressCount).append(" 个");
+                }
+                content = sb.toString();
+            } else {
+                title = "早安，" + userName + "！祝您今日工作顺利";
+                content = "今日暂无待处理任务，请关注新任务分配";
             }
-            if (inProgressCount > 0) {
-                if (content.length() > 0) content.append("　｜　");
-                content.append("进行中 ").append(inProgressCount).append(" 个");
-            }
 
-            noticeService.create(userId, NoticeType.SYSTEM, title, content.toString(), null, null);
+            noticeService.create(user.getId(), NoticeType.SYSTEM, title, content, null, null);
             sent++;
         }
         return sent;
-    }
-
-    private String resolveUserName(Long userId) {
-        SystemUser user = systemUserMapper.selectById(userId);
-        return user != null && user.getRealName() != null ? user.getRealName() : "同事";
     }
 }

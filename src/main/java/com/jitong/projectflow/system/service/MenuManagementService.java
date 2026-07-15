@@ -33,7 +33,8 @@ public class MenuManagementService {
         entity.setPath(request.getPath());
         entity.setSortOrder(request.getSortOrder() == null ? 0 : request.getSortOrder());
         menuMapper.insert(entity);
-        operationLogService.record("system", "Menu", entity.getId(), "CREATE", "Create menu " + entity.getCode());
+        operationLogService.record("system", "Menu", entity.getId(), "CREATE",
+                "新建菜单：" + entity.getName() + "（" + entity.getCode() + "）");
         return toResponse(entity);
     }
 
@@ -52,7 +53,8 @@ public class MenuManagementService {
         if (request.getPath() != null) entity.setPath(request.getPath());
         if (request.getSortOrder() != null) entity.setSortOrder(request.getSortOrder());
         menuMapper.updateById(entity);
-        operationLogService.record("system", "Menu", id, "UPDATE", "Update menu " + entity.getCode());
+        operationLogService.record("system", "Menu", id, "UPDATE",
+                "编辑菜单：" + entity.getName() + "（" + entity.getCode() + "）");
         return toResponse(entity);
     }
 
@@ -63,7 +65,8 @@ public class MenuManagementService {
             throw new BusinessException(ErrorCode.CONFLICT, "菜单存在子菜单，无法删除");
         }
         menuMapper.deleteById(id);
-        operationLogService.record("system", "Menu", id, "DELETE", "Delete menu " + entity.getCode());
+        operationLogService.record("system", "Menu", id, "DELETE",
+                "删除菜单：" + entity.getName() + "（" + entity.getCode() + "）");
     }
 
     private void validateType(String type) {

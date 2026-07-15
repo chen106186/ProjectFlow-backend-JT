@@ -58,7 +58,8 @@ public class SystemUserManagementService {
         for (Long roleId : roleIds) {
             userRoleMapper.insertRelation(user.getId(), roleId);
         }
-        operationLogService.record("system", "User", user.getId(), "CREATE", "Create user " + user.getUsername());
+        operationLogService.record("system", "User", user.getId(), "CREATE",
+                "新建用户：" + user.getRealName() + "（" + user.getUsername() + "）");
         return toDetailResponse(user, new ArrayList<>(roleIds));
     }
 
@@ -80,7 +81,8 @@ public class SystemUserManagementService {
         user.setUpdatedBy(CurrentUserContext.userIdOrNull());
         user.setUpdatedAt(LocalDateTime.now());
         systemUserMapper.updateById(user);
-        operationLogService.record("system", "User", id, "UPDATE", "Update user " + user.getUsername());
+        operationLogService.record("system", "User", id, "UPDATE",
+                "编辑用户：" + user.getRealName() + "（" + user.getUsername() + "）");
         return toDetailResponse(user, roleIds(id));
     }
 
@@ -91,7 +93,7 @@ public class SystemUserManagementService {
         user.setUpdatedAt(LocalDateTime.now());
         systemUserMapper.updateById(user);
         operationLogService.record("system", "User", id, "ENABLE_CHANGED",
-                (Boolean.TRUE.equals(request.getEnabled()) ? "Enable" : "Disable") + " user " + user.getUsername());
+                (Boolean.TRUE.equals(request.getEnabled()) ? "启用" : "停用") + "用户：" + user.getRealName() + "（" + user.getUsername() + "）");
         return toDetailResponse(user, roleIds(id));
     }
 
@@ -101,17 +103,19 @@ public class SystemUserManagementService {
         user.setUpdatedBy(CurrentUserContext.userIdOrNull());
         user.setUpdatedAt(LocalDateTime.now());
         systemUserMapper.updateById(user);
-        operationLogService.record("system", "User", id, "RESET_PASSWORD", "Reset password for user " + user.getUsername());
+        operationLogService.record("system", "User", id, "RESET_PASSWORD",
+                "重置密码：" + user.getRealName() + "（" + user.getUsername() + "）");
     }
 
     public List<Long> assignRoles(Long id, UserRoleAssignRequest request) {
-        requireUser(id);
+        SystemUser target = requireUser(id);
         List<Long> roleIds = request.getRoleIds() == null ? List.of() : request.getRoleIds();
         userRoleMapper.deleteByUserId(id);
         for (Long roleId : roleIds) {
             userRoleMapper.insertRelation(id, roleId);
         }
-        operationLogService.record("system", "User", id, "ASSIGN_ROLES", "Assign roles to user " + id);
+        operationLogService.record("system", "User", id, "ASSIGN_ROLES",
+                "为用户「" + target.getRealName() + "」分配角色，共 " + roleIds.size() + " 个");
         return new ArrayList<>(roleIds);
     }
 

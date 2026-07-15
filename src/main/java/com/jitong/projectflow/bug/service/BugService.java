@@ -239,7 +239,11 @@ public class BugService {
         comment.setContent(request.getContent());
         comment.setCreatedAt(LocalDateTime.now());
         bugCommentMapper.insert(comment);
-        operationLogService.record("bug", "Bug", bugId, "COMMENT", "评论Bug：" + bug.getTitle());
+        String commentSnippet = request.getContent() != null && request.getContent().length() > 50
+                ? request.getContent().substring(0, 50) + "..."
+                : request.getContent();
+        operationLogService.record("bug", "Bug", bugId, "COMMENT",
+                "评论缺陷「" + bug.getTitle() + "」：" + commentSnippet);
         if (bug.getAssigneeId() != null && !CurrentUserContext.userId().equals(bug.getAssigneeId())) {
             String commenter = resolveUserName(CurrentUserContext.userIdOrNull());
             String creatorName = resolveUserName(bug.getCreatorId());

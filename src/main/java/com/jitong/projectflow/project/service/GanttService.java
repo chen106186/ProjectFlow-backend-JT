@@ -81,8 +81,17 @@ public class GanttService {
 
         projectNodeMapper.updateById(entity);
 
-        String logContent = req.getNodeName() != null ? req.getNodeName() : nodeId.toString();
-        operationLogService.record("project", "ProjectNode", nodeId, "UPDATE", logContent);
+        StringBuilder logContent = new StringBuilder("编辑项目节点：").append(entity.getNodeName());
+        if (req.getStatus() != null && !req.getStatus().equals(oldStatus)) {
+            logContent.append("　｜　阶段状态 → ").append(nodeStatusLabel(req.getStatus()));
+        }
+        if (req.getProgressPercent() != null) {
+            logContent.append("　｜　完成比例 → ").append(req.getProgressPercent()).append("%");
+        }
+        if (req.getPlannedEndDate() != null) {
+            logContent.append("　｜　计划完成 → ").append(req.getPlannedEndDate());
+        }
+        operationLogService.record("project", "ProjectNode", nodeId, "UPDATE", logContent.toString());
 
         if (req.getStatus() != null && !req.getStatus().equals(oldStatus)) {
             sendStageChangeNotice(entity);

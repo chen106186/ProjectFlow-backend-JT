@@ -49,7 +49,8 @@ public class DailyReportService {
                 dailyReportTaskMapper.insert(entity.getId(), taskId);
             }
         }
-        operationLogService.record("daily-report", "DailyReport", entity.getId(), "CREATE", entity.getContent());
+        operationLogService.record("daily-report", "DailyReport", entity.getId(), "CREATE",
+                "提交日报：" + entity.getReportDate());
         return toResponse(entity);
     }
 
@@ -85,7 +86,8 @@ public class DailyReportService {
                 dailyReportTaskMapper.insert(id, taskId);
             }
         }
-        operationLogService.record("daily-report", "DailyReport", id, "UPDATE", entity.getContent());
+        operationLogService.record("daily-report", "DailyReport", id, "UPDATE",
+                "编辑日报：" + entity.getReportDate());
         return toResponse(entity);
     }
 
@@ -93,7 +95,8 @@ public class DailyReportService {
         DailyReportEntity entity = requireReport(id);
         businessAccessService.requireDailyReportManage(entity);
         dailyReportMapper.deleteById(id);
-        operationLogService.record("daily-report", "DailyReport", id, "DELETE", entity.getContent());
+        operationLogService.record("daily-report", "DailyReport", id, "DELETE",
+                "删除日报：" + entity.getReportDate());
     }
 
     public int syncFilesToProject(Long reportId) {

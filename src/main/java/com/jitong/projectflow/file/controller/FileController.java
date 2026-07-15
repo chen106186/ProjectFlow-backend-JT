@@ -45,7 +45,6 @@ public class FileController {
     @Operation(summary = "上传附件或文档中心文件",
             description = "上传指定业务类型和业务ID下的文件，支持版本号、存储位置和文件分类，便于文档中心按类别检索。")
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasAuthority('file:upload')")
     public ApiResponse<FileResponse> upload(
             @RequestParam String businessType,
             @RequestParam Long businessId,

@@ -39,7 +39,8 @@ public class RoleManagementService {
         entity.setEnabled(request.getEnabled() != null ? request.getEnabled() : Boolean.TRUE);
         entity.setSortOrder(request.getSortOrder() != null ? request.getSortOrder() : 0);
         roleMapper.insert(entity);
-        operationLogService.record("system", "Role", entity.getId(), "CREATE", "Create role " + entity.getCode());
+        operationLogService.record("system", "Role", entity.getId(), "CREATE",
+                "新建角色：" + entity.getName() + "（" + entity.getCode() + "）");
         return toResponse(entity);
     }
 
@@ -59,7 +60,8 @@ public class RoleManagementService {
         if (request.getEnabled() != null) entity.setEnabled(request.getEnabled());
         if (request.getSortOrder() != null) entity.setSortOrder(request.getSortOrder());
         roleMapper.updateById(entity);
-        operationLogService.record("system", "Role", id, "UPDATE", "Update role " + entity.getCode());
+        operationLogService.record("system", "Role", id, "UPDATE",
+                "编辑角色：" + entity.getName() + "（" + entity.getCode() + "）");
         return toResponse(entity);
     }
 
@@ -73,7 +75,8 @@ public class RoleManagementService {
             }
         }
         roleMapper.deleteById(id);
-        operationLogService.record("system", "Role", id, "DELETE", "Delete role " + entity.getCode());
+        operationLogService.record("system", "Role", id, "DELETE",
+                "删除角色：" + entity.getName() + "（" + entity.getCode() + "）");
     }
 
     public List<Long> getMenuIds(Long roleId) {
@@ -82,13 +85,14 @@ public class RoleManagementService {
     }
 
     public List<Long> assignMenus(Long roleId, RoleMenuAssignRequest request) {
-        requireRole(roleId);
+        RoleEntity role = requireRole(roleId);
         List<Long> menuIds = request.getMenuIds() == null ? List.of() : request.getMenuIds();
         roleMenuMapper.deleteByRoleId(roleId);
         for (Long menuId : menuIds) {
             roleMenuMapper.insertRelation(roleId, menuId);
         }
-        operationLogService.record("system", "Role", roleId, "ASSIGN_MENUS", "Assign menus to role " + roleId);
+        operationLogService.record("system", "Role", roleId, "ASSIGN_MENUS",
+                "为角色「" + role.getName() + "」分配菜单权限，共 " + menuIds.size() + " 项");
         return new ArrayList<>(menuIds);
     }
 

@@ -79,7 +79,8 @@ public class RequirementService {
 
         requirementMapper.insert(entity);
 
-        operationLogService.record("requirement", "Requirement", entity.getId(), "CREATE", "提交需求，需求状态待评审");
+        operationLogService.record("requirement", "Requirement", entity.getId(), "CREATE",
+                "提交需求：「" + entity.getTitle() + "」，状态待评审");
 
         return toResponse(entity, loadUserNames(java.util.Arrays.asList(entity.getCreatedBy(), entity.getReviewerId())));
     }
@@ -164,7 +165,7 @@ public class RequirementService {
         requirementMapper.updateById(entity);
 
         operationLogService.record("requirement", "Requirement", id, "STATUS_CHANGE",
-                "需求状态由" + statusLabel(from.name()) + "变为" + statusLabel(to.name()));
+                "「" + entity.getTitle() + "」需求状态：" + statusLabel(from.name()) + " → " + statusLabel(to.name()));
 
         Long currentUserId = CurrentUserContext.userIdOrNull();
         if (entity.getCreatedBy() != null && !entity.getCreatedBy().equals(currentUserId)) {

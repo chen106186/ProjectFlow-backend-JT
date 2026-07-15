@@ -27,7 +27,7 @@ public class DepartmentManagementService {
         entity.setName(request.getName());
         entity.setSortOrder(request.getSortOrder() == null ? 0 : request.getSortOrder());
         departmentMapper.insert(entity);
-        operationLogService.record("system", "Department", entity.getId(), "CREATE", "Create department " + entity.getName());
+        operationLogService.record("system", "Department", entity.getId(), "CREATE", "新建部门：" + entity.getName());
         return toResponse(entity);
     }
 
@@ -37,7 +37,7 @@ public class DepartmentManagementService {
         if (request.getName() != null) entity.setName(request.getName());
         if (request.getSortOrder() != null) entity.setSortOrder(request.getSortOrder());
         departmentMapper.updateById(entity);
-        operationLogService.record("system", "Department", id, "UPDATE", "Update department " + entity.getName());
+        operationLogService.record("system", "Department", id, "UPDATE", "编辑部门：" + entity.getName());
         return toResponse(entity);
     }
 
@@ -56,7 +56,7 @@ public class DepartmentManagementService {
             throw new BusinessException(ErrorCode.CONFLICT, "部门下存在子部门，无法删除");
         }
         departmentMapper.deleteById(id);
-        operationLogService.record("system", "Department", id, "DELETE", "Delete department " + entity.getName());
+        operationLogService.record("system", "Department", id, "DELETE", "删除部门：" + entity.getName());
     }
 
     private DepartmentEntity requireDepartment(Long id) {

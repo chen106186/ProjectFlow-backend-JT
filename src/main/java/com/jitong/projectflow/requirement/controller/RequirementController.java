@@ -13,7 +13,6 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.slf4j.MDC;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -39,7 +38,6 @@ public class RequirementController {
 
     @Operation(summary = "提交需求",
             description = "创建项目需求，默认进入待评审状态，并记录提交人和操作日志。")
-    @PreAuthorize("hasAuthority('requirement:create')")
     @PostMapping
     public ApiResponse<RequirementResponse> create(@Valid @RequestBody RequirementCreateRequest req) {
         return ApiResponse.success(requirementService.create(req), MDC.get("traceId"));
@@ -47,7 +45,6 @@ public class RequirementController {
 
     @Operation(summary = "分页查询需求列表",
             description = "按项目等条件分页查询需求数据，用于需求管理列表。")
-    @PreAuthorize("hasAuthority('requirement')")
     @GetMapping
     public ApiResponse<PageResult<RequirementResponse>> list(@Valid @ModelAttribute RequirementQueryRequest request) {
         return ApiResponse.success(requirementService.list(request), MDC.get("traceId"));
@@ -69,7 +66,7 @@ public class RequirementController {
 
     @Operation(summary = "编辑需求",
             description = "更新需求基础信息，适用于需求创建人或具备权限的人员维护需求。")
-    @PreAuthorize("hasAuthority('requirement:update')")
+
     @PutMapping("/{id}")
     public ApiResponse<RequirementResponse> update(@PathVariable Long id,
                                                     @Valid @RequestBody RequirementUpdateRequest req) {
@@ -85,7 +82,7 @@ public class RequirementController {
 
     @Operation(summary = "更新需求状态",
             description = "按需求状态机更新需求状态，例如待评审、已采纳或已拒绝。")
-    @PreAuthorize("hasAuthority('requirement:update')")
+
     @PatchMapping("/{id}/status")
     public ApiResponse<RequirementResponse> updateStatus(@PathVariable Long id,
                                                           @Valid @RequestBody RequirementStatusUpdateRequest req) {

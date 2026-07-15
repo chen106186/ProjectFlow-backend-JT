@@ -16,7 +16,6 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.MDC;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
@@ -39,7 +38,6 @@ public class BugController {
 
     @Operation(summary = "新增 Bug",
             description = "提交缺陷信息，指定处理人，并向处理人生成待处理通知。")
-    @PreAuthorize("hasAuthority('bug:create')")
     @PostMapping
     public ApiResponse<BugResponse> create(@Valid @RequestBody BugCreateRequest request) {
         return ApiResponse.success(bugService.create(request), MDC.get("traceId"));
