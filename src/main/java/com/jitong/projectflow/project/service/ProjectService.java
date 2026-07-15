@@ -81,7 +81,13 @@ public class ProjectService {
         entity.setCreatedBy(CurrentUserContext.userIdOrNull());
         projectMapper.insert(entity);
         saveParticipants(entity.getId(), request.getParticipantIds());
-        saveNodes(entity.getId(), entity.getProjectBusinessType(), request.getNodeCodes(), request.getNodes());
+        List<String> nodeCodes = request.getNodeCodes();
+        if ("EXECUTION".equals(entity.getProjectType())
+                && CollectionUtils.isEmpty(nodeCodes)
+                && CollectionUtils.isEmpty(request.getNodes())) {
+            nodeCodes = executionDefaultNodeCodes(entity.getProjectBusinessType());
+        }
+        saveNodes(entity.getId(), entity.getProjectBusinessType(), nodeCodes, request.getNodes());
         operationLogService.record("project", "Project", entity.getId(), "CREATE", "新建项目：" + entity.getName());
         return toResponse(entity);
     }
@@ -141,6 +147,16 @@ public class ProjectService {
     public void delete(Long id) {
         ProjectEntity entity = requireProject(id);
         businessAccessService.requireProjectManage(entity);
+
+        if ("MANAGEMENT".equals(entity.getProjectType())) {
+            long execCount = projectMapper.selectCount(
+                    new LambdaQueryWrapper<ProjectEntity>()
+                            .eq(ProjectEntity::getProjectType, "EXECUTION")
+                            .eq(ProjectEntity::getManagementProjectId, id));
+            if (execCount > 0) {
+                throw new BusinessException(ErrorCode.CONFLICT, "该管理类项目已关联执行类项目，无法删除");
+            }
+        }
 
         long taskCount = taskMapper.selectCount(
                 new LambdaQueryWrapper<TaskEntity>().eq(TaskEntity::getProjectId, id));
@@ -210,6 +226,14 @@ public class ProjectService {
         if (!CollectionUtils.isEmpty(participantIds)) {
             participantMapper.batchInsert(projectId, participantIds);
         }
+    }
+
+    private List<String> executionDefaultNodeCodes(String businessType) {
+        return switch (businessType == null ? "" : businessType) {
+            case "DIGITALIZATION" -> List.of("DEVELOPMENT", "TESTING", "THIRD_PARTY_TESTING", "DEPLOYMENT", "TRIAL_RUN");
+            case "EXTERNAL"       -> List.of("DEVELOPMENT", "TESTING", "DEPLOYMENT_IMPLEMENTATION");
+            default               -> List.of();
+        };
     }
 
     private void saveNodes(Long projectId, String businessType, List<String> nodeCodes, List<ProjectNodeCreateRequest> manualNodes) {
