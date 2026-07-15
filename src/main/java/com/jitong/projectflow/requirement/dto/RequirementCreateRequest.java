@@ -23,10 +23,6 @@ public class RequirementCreateRequest {
     @Schema(description = "项目 ID。")
     private Long projectId;
 
-    @NotNull
-    @Schema(description = "审核人用户 ID。")
-    private Long reviewerId;
-
     @Schema(description = "详细描述。")
     private String description;
 
@@ -37,7 +33,7 @@ public class RequirementCreateRequest {
     public String requirementType() { return requirementType; }
     public String priority() { return priority; }
     public Long projectId() { return projectId; }
-    public Long reviewerId() { return reviewerId; }
+    public Long reviewerId() { return null; }
     public String description() { return description; }
     public String tags() { return tags; }
 
@@ -45,7 +41,6 @@ public class RequirementCreateRequest {
     public void setRequirementType(String requirementType) { this.requirementType = requirementType; }
     public void setPriority(String priority) { this.priority = priority; }
     public void setProjectId(Long projectId) { this.projectId = projectId; }
-    public void setReviewerId(Long reviewerId) { this.reviewerId = reviewerId; }
     public void setDescription(String description) { this.description = description; }
     public void setTags(String tags) { this.tags = tags; }
 }

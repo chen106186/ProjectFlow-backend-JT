@@ -19,9 +19,13 @@ import com.jitong.projectflow.project.entity.ProjectNodeEntity;
 import com.jitong.projectflow.project.mapper.ProjectMapper;
 import com.jitong.projectflow.project.mapper.ProjectNodeMapper;
 import com.jitong.projectflow.project.mapper.ProjectParticipantMapper;
+import com.jitong.projectflow.requirement.entity.RequirementEntity;
+import com.jitong.projectflow.requirement.mapper.RequirementMapper;
 import com.jitong.projectflow.system.audit.OperationLogService;
 import com.jitong.projectflow.system.entity.SystemUser;
 import com.jitong.projectflow.system.mapper.SystemUserMapper;
+import com.jitong.projectflow.task.entity.TaskEntity;
+import com.jitong.projectflow.task.mapper.TaskMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,6 +47,8 @@ public class ProjectService {
     private final OperationLogService operationLogService;
     private final BusinessAccessService businessAccessService;
     private final SystemUserMapper systemUserMapper;
+    private final TaskMapper taskMapper;
+    private final RequirementMapper requirementMapper;
 
     @Transactional
     public ProjectResponse create(ProjectCreateRequest request) {
@@ -135,6 +141,19 @@ public class ProjectService {
     public void delete(Long id) {
         ProjectEntity entity = requireProject(id);
         businessAccessService.requireProjectManage(entity);
+
+        long taskCount = taskMapper.selectCount(
+                new LambdaQueryWrapper<TaskEntity>().eq(TaskEntity::getProjectId, id));
+        if (taskCount > 0) {
+            throw new BusinessException(ErrorCode.CONFLICT, "项目下存在 " + taskCount + " 个任务，无法删除");
+        }
+
+        long reqCount = requirementMapper.selectCount(
+                new LambdaQueryWrapper<RequirementEntity>().eq(RequirementEntity::getProjectId, id));
+        if (reqCount > 0) {
+            throw new BusinessException(ErrorCode.CONFLICT, "项目下存在 " + reqCount + " 个需求，无法删除");
+        }
+
         projectMapper.deleteById(id);
         operationLogService.record("project", "Project", id, "DELETE", "删除项目：" + entity.getName());
     }
