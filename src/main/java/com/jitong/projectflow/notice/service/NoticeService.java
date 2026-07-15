@@ -86,6 +86,10 @@ public class NoticeService {
                .eq(StringUtils.hasText(request.getNoticeType()), NoticeEntity::getNoticeType, request.getNoticeType())
                .eq(StringUtils.hasText(request.getBusinessType()), NoticeEntity::getBusinessType, request.getBusinessType())
                .eq(request.getBusinessId() != null, NoticeEntity::getBusinessId, request.getBusinessId())
+               .and(StringUtils.hasText(request.getKeyword()), w -> w
+                       .like(NoticeEntity::getTitle, request.getKeyword())
+                       .or()
+                       .like(NoticeEntity::getContent, request.getKeyword()))
                .orderByDesc(NoticeEntity::getCreatedAt);
         Page<NoticeEntity> page = noticeMapper.selectPage(PageUtils.toPage(request), wrapper);
         return PageUtils.toResult(page, page.getRecords().stream().map(this::toResponse).collect(Collectors.toList()));

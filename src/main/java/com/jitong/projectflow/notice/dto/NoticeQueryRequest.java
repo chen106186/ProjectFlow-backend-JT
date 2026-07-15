@@ -15,4 +15,6 @@ public class NoticeQueryRequest extends PageQuery {
     private String businessType;
     @Schema(description = "业务数据 ID。")
     private Long businessId;
+    @Schema(description = "关键字，模糊匹配通知标题或内容。")
+    private String keyword;
 }
