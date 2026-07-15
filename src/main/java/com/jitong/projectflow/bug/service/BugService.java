@@ -85,7 +85,21 @@ public class BugService {
         LambdaQueryWrapper<BugEntity> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(StringUtils.hasText(request.getStatus()), BugEntity::getStatus, request.getStatus());
         wrapper.eq(StringUtils.hasText(request.getPriority()), BugEntity::getPriority, request.getPriority());
-        wrapper.eq(request.getProjectId() != null, BugEntity::getProjectId, request.getProjectId());
+        if (request.getProjectId() != null) {
+            ProjectEntity proj = projectMapper.selectById(request.getProjectId());
+            if (proj != null && "MANAGEMENT".equals(proj.getProjectType())) {
+                List<Long> projectIds = Stream.concat(
+                        Stream.of(request.getProjectId()),
+                        projectMapper.selectList(new LambdaQueryWrapper<ProjectEntity>()
+                                .eq(ProjectEntity::getManagementProjectId, request.getProjectId())
+                                .eq(ProjectEntity::getProjectType, "EXECUTION"))
+                                .stream().map(ProjectEntity::getId))
+                        .collect(Collectors.toList());
+                wrapper.in(BugEntity::getProjectId, projectIds);
+            } else {
+                wrapper.eq(BugEntity::getProjectId, request.getProjectId());
+            }
+        }
         wrapper.eq(request.getAssigneeId() != null, BugEntity::getAssigneeId, request.getAssigneeId());
         wrapper.like(StringUtils.hasText(request.getKeyword()), BugEntity::getTitle, request.getKeyword());
         applyReadScope(wrapper);
