@@ -1,6 +1,9 @@
 package com.jitong.projectflow.notice.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.jitong.projectflow.bug.domain.BugStatus;
+import com.jitong.projectflow.bug.entity.BugEntity;
+import com.jitong.projectflow.bug.mapper.BugMapper;
 import com.jitong.projectflow.notice.domain.NoticeType;
 import com.jitong.projectflow.system.entity.SystemUser;
 import com.jitong.projectflow.system.mapper.SystemUserMapper;
@@ -21,6 +24,7 @@ import java.util.List;
 public class DailyWorkNoticeService {
 
     private final TaskMapper taskMapper;
+    private final BugMapper bugMapper;
     private final NoticeService noticeService;
     private final SystemUserMapper systemUserMapper;
 
@@ -32,7 +36,6 @@ public class DailyWorkNoticeService {
     }
 
     public int sendDailyWorkNotice(LocalDate today) {
-        // 向所有启用状态的用户发送，不论是否有任务
         List<SystemUser> allUsers = systemUserMapper.selectList(
                 new LambdaQueryWrapper<SystemUser>()
                         .eq(SystemUser::getEnabled, true)
@@ -52,22 +55,30 @@ public class DailyWorkNoticeService {
                     .eq(TaskEntity::getAssigneeId, user.getId())
                     .eq(TaskEntity::getStatus, TaskStatus.IN_PROGRESS.name()));
 
+            long bugPendingCount = bugMapper.selectCount(new LambdaQueryWrapper<BugEntity>()
+                    .eq(BugEntity::getAssigneeId, user.getId())
+                    .ne(BugEntity::getStatus, BugStatus.CLOSED.name()));
+
             String userName = user.getRealName() != null ? user.getRealName() : user.getUsername();
             String title;
             String content;
 
-            long total = overdueCount + dueSoonCount + inProgressCount;
+            long total = overdueCount + dueSoonCount + inProgressCount + bugPendingCount;
             if (total > 0) {
                 title = "早安，" + userName + "！今日共有 " + total + " 项工作待处理";
                 StringBuilder sb = new StringBuilder();
                 if (overdueCount > 0) sb.append("逾期任务 ").append(overdueCount).append(" 个");
                 if (dueSoonCount > 0) {
                     if (sb.length() > 0) sb.append("　｜　");
-                    sb.append("即将到期 ").append(dueSoonCount).append(" 个");
+                    sb.append("即将到期任务 ").append(dueSoonCount).append(" 个");
                 }
                 if (inProgressCount > 0) {
                     if (sb.length() > 0) sb.append("　｜　");
-                    sb.append("进行中 ").append(inProgressCount).append(" 个");
+                    sb.append("进行中任务 ").append(inProgressCount).append(" 个");
+                }
+                if (bugPendingCount > 0) {
+                    if (sb.length() > 0) sb.append("　｜　");
+                    sb.append("待处理缺陷 ").append(bugPendingCount).append(" 个");
                 }
                 content = sb.toString();
             } else {

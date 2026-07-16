@@ -80,9 +80,13 @@ public class DashboardService {
                                 .or()
                                 .eq(BugEntity::getCreatorId, userId))
                         .ne(BugEntity::getStatus, BugStatus.CLOSED.name()));
+        List<RequirementEntity> requirements = requirementMapper.selectList(
+                new LambdaQueryWrapper<RequirementEntity>()
+                        .eq(RequirementEntity::getCreatedBy, userId)
+                        .eq(RequirementEntity::getStatus, RequirementStatus.PENDING_REVIEW.name()));
 
-        Map<Long, String> projectNames = loadProjectNames(tasks, bugs);
-        Map<Long, String> userNames = loadUserNames(tasks, bugs);
+        Map<Long, String> projectNames = loadProjectNames(tasks, bugs, requirements);
+        Map<Long, String> userNames = loadUserNames(tasks, bugs, requirements);
         LocalDate today = LocalDate.now();
 
         List<TodoWithSortKey> todos = new ArrayList<>();
@@ -91,6 +95,9 @@ public class DashboardService {
                 .forEach(todos::add);
         bugs.stream()
                 .map(bug -> bugTodo(bug, projectNames, userNames))
+                .forEach(todos::add);
+        requirements.stream()
+                .map(req -> requirementTodo(req, projectNames, userNames))
                 .forEach(todos::add);
 
         return todos.stream()
@@ -303,17 +310,39 @@ public class DashboardService {
                 new TodoSortKey(priorityRank(bug.getPriority()), 0, null, bug.getId()));
     }
 
-    private Map<Long, String> loadProjectNames(List<TaskEntity> tasks, List<BugEntity> bugs) {
+    private TodoWithSortKey requirementTodo(RequirementEntity req,
+                                            Map<Long, String> projectNames,
+                                            Map<Long, String> userNames) {
+        TodoItemResponse item = new TodoItemResponse(
+                "REQUIREMENT",
+                req.getId(),
+                req.getTitle(),
+                req.getPriority(),
+                req.getStatus(),
+                projectNames.get(req.getProjectId()),
+                userNames.get(req.getCreatedBy()),
+                null,
+                0);
+        return new TodoWithSortKey(
+                item,
+                new TodoSortKey(priorityRank(req.getPriority()), 0, null, req.getId()));
+    }
+
+    private Map<Long, String> loadProjectNames(List<TaskEntity> tasks, List<BugEntity> bugs,
+                                               List<RequirementEntity> requirements) {
         List<Long> projectIds = new ArrayList<>();
         tasks.stream().map(TaskEntity::getProjectId).filter(Objects::nonNull).forEach(projectIds::add);
         bugs.stream().map(BugEntity::getProjectId).filter(Objects::nonNull).forEach(projectIds::add);
+        requirements.stream().map(RequirementEntity::getProjectId).filter(Objects::nonNull).forEach(projectIds::add);
         return projectIds.isEmpty() ? Map.of() : toProjectNameMap(projectMapper.selectByIds(distinct(projectIds)));
     }
 
-    private Map<Long, String> loadUserNames(List<TaskEntity> tasks, List<BugEntity> bugs) {
+    private Map<Long, String> loadUserNames(List<TaskEntity> tasks, List<BugEntity> bugs,
+                                            List<RequirementEntity> requirements) {
         List<Long> userIds = new ArrayList<>();
         tasks.stream().map(TaskEntity::getAssigneeId).filter(Objects::nonNull).forEach(userIds::add);
         bugs.stream().map(BugEntity::getAssigneeId).filter(Objects::nonNull).forEach(userIds::add);
+        requirements.stream().map(RequirementEntity::getCreatedBy).filter(Objects::nonNull).forEach(userIds::add);
         return userIds.isEmpty() ? Map.of() : toUserNameMap(systemUserMapper.selectByIds(distinct(userIds)));
     }
 
