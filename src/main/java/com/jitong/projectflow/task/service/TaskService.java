@@ -243,7 +243,14 @@ public class TaskService {
 
     private LambdaQueryWrapper<TaskEntity> buildQuery(TaskQueryRequest request) {
         LambdaQueryWrapper<TaskEntity> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(request.getProjectId() != null, TaskEntity::getProjectId, request.getProjectId());
+        if (request.getProjectId() != null) {
+            List<Long> projectIds = resolveProjectIds(request.getProjectId());
+            if (projectIds.size() > 1) {
+                wrapper.in(TaskEntity::getProjectId, projectIds);
+            } else {
+                wrapper.eq(TaskEntity::getProjectId, projectIds.get(0));
+            }
+        }
         wrapper.eq(request.getAssigneeId() != null, TaskEntity::getAssigneeId, request.getAssigneeId());
         wrapper.eq(StringUtils.hasText(request.getPriority()), TaskEntity::getPriority, request.getPriority());
         wrapper.eq(StringUtils.hasText(request.getStatus()), TaskEntity::getStatus, request.getStatus());
@@ -317,13 +324,14 @@ public class TaskService {
     }
 
     public TaskRiskStatisticsResponse getRiskStatistics(Long projectId) {
-        long total           = taskMapper.selectCount(new LambdaQueryWrapper<TaskEntity>().eq(projectId != null, TaskEntity::getProjectId, projectId));
-        long overdueCount    = taskMapper.selectCount(new LambdaQueryWrapper<TaskEntity>().eq(projectId != null, TaskEntity::getProjectId, projectId).eq(TaskEntity::getStatus, TaskStatus.OVERDUE.name()));
-        long dueSoonCount    = taskMapper.selectCount(new LambdaQueryWrapper<TaskEntity>().eq(projectId != null, TaskEntity::getProjectId, projectId).eq(TaskEntity::getStatus, TaskStatus.DUE_SOON.name()));
-        long inProgressCount = taskMapper.selectCount(new LambdaQueryWrapper<TaskEntity>().eq(projectId != null, TaskEntity::getProjectId, projectId).eq(TaskEntity::getStatus, TaskStatus.IN_PROGRESS.name()));
-        long notStartedCount = taskMapper.selectCount(new LambdaQueryWrapper<TaskEntity>().eq(projectId != null, TaskEntity::getProjectId, projectId).eq(TaskEntity::getStatus, TaskStatus.NOT_STARTED.name()));
-        long pausedCount     = taskMapper.selectCount(new LambdaQueryWrapper<TaskEntity>().eq(projectId != null, TaskEntity::getProjectId, projectId).eq(TaskEntity::getStatus, TaskStatus.PAUSED.name()));
-        long completedCount  = taskMapper.selectCount(new LambdaQueryWrapper<TaskEntity>().eq(projectId != null, TaskEntity::getProjectId, projectId).eq(TaskEntity::getStatus, TaskStatus.COMPLETED.name()));
+        List<Long> projectIds = resolveStatsProjectIds(projectId);
+        long total           = taskMapper.selectCount(projectScopeQuery(projectIds));
+        long overdueCount    = taskMapper.selectCount(projectScopeQuery(projectIds).eq(TaskEntity::getStatus, TaskStatus.OVERDUE.name()));
+        long dueSoonCount    = taskMapper.selectCount(projectScopeQuery(projectIds).eq(TaskEntity::getStatus, TaskStatus.DUE_SOON.name()));
+        long inProgressCount = taskMapper.selectCount(projectScopeQuery(projectIds).eq(TaskEntity::getStatus, TaskStatus.IN_PROGRESS.name()));
+        long notStartedCount = taskMapper.selectCount(projectScopeQuery(projectIds).eq(TaskEntity::getStatus, TaskStatus.NOT_STARTED.name()));
+        long pausedCount     = taskMapper.selectCount(projectScopeQuery(projectIds).eq(TaskEntity::getStatus, TaskStatus.PAUSED.name()));
+        long completedCount  = taskMapper.selectCount(projectScopeQuery(projectIds).eq(TaskEntity::getStatus, TaskStatus.COMPLETED.name()));
 
         return TaskRiskStatisticsResponse.builder()
                 .total(total)
@@ -334,5 +342,35 @@ public class TaskService {
                 .pausedCount(pausedCount)
                 .completedCount(completedCount)
                 .build();
+    }
+
+    /** 任务列表范围：执行类 → 本项目 + 父管理类；其他 → 本项目 */
+    private List<Long> resolveProjectIds(Long projectId) {
+        if (projectId == null) return List.of();
+        ProjectEntity proj = projectMapper.selectById(projectId);
+        if (proj != null && "EXECUTION".equals(proj.getProjectType()) && proj.getManagementProjectId() != null) {
+            return List.of(projectId, proj.getManagementProjectId());
+        }
+        return List.of(projectId);
+    }
+
+    /** 风险统计范围：执行类 → 仅父管理类（与管理类统计口径一致）；其他 → 本项目 */
+    private List<Long> resolveStatsProjectIds(Long projectId) {
+        if (projectId == null) return List.of();
+        ProjectEntity proj = projectMapper.selectById(projectId);
+        if (proj != null && "EXECUTION".equals(proj.getProjectType()) && proj.getManagementProjectId() != null) {
+            return List.of(proj.getManagementProjectId());
+        }
+        return List.of(projectId);
+    }
+
+    private LambdaQueryWrapper<TaskEntity> projectScopeQuery(List<Long> projectIds) {
+        LambdaQueryWrapper<TaskEntity> q = new LambdaQueryWrapper<>();
+        if (projectIds.size() > 1) {
+            q.in(TaskEntity::getProjectId, projectIds);
+        } else if (!projectIds.isEmpty()) {
+            q.eq(TaskEntity::getProjectId, projectIds.get(0));
+        }
+        return q;
     }
 }

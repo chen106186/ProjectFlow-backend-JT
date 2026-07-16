@@ -87,15 +87,8 @@ public class BugService {
         wrapper.eq(StringUtils.hasText(request.getPriority()), BugEntity::getPriority, request.getPriority());
         if (request.getProjectId() != null) {
             ProjectEntity proj = projectMapper.selectById(request.getProjectId());
-            if (proj != null && "MANAGEMENT".equals(proj.getProjectType())) {
-                List<Long> projectIds = Stream.concat(
-                        Stream.of(request.getProjectId()),
-                        projectMapper.selectList(new LambdaQueryWrapper<ProjectEntity>()
-                                .eq(ProjectEntity::getManagementProjectId, request.getProjectId())
-                                .eq(ProjectEntity::getProjectType, "EXECUTION"))
-                                .stream().map(ProjectEntity::getId))
-                        .collect(Collectors.toList());
-                wrapper.in(BugEntity::getProjectId, projectIds);
+            if (proj != null && "EXECUTION".equals(proj.getProjectType()) && proj.getManagementProjectId() != null) {
+                wrapper.in(BugEntity::getProjectId, List.of(request.getProjectId(), proj.getManagementProjectId()));
             } else {
                 wrapper.eq(BugEntity::getProjectId, request.getProjectId());
             }
