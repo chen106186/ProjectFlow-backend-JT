@@ -66,6 +66,6 @@ projectflow:
     aliyun-oss:
       endpoint: https://oss-cn-shanghai.aliyuncs.com
       access-key-id: ${ALIYUN_OSS_ACCESS_KEY_ID:}
-      access-key-secret: ${ALIYUN_OSS_ACCESS_KEY_SECRET:}
+      access-key-secret:  ${ALIYUN_OSS_ACCESS_KEY_SECRET:}
       bucket-name: company-project-oss
       object-prefix: projectflow
