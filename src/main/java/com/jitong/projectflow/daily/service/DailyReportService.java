@@ -24,7 +24,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
-import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -69,11 +68,10 @@ public class DailyReportService {
 
     public List<DailyReportResponse> listMine() {
         if (businessAccessService.canViewAll()) {
-            // 总经办：返回今日所有人的日报
-            LocalDate today = LocalDate.now();
+            // 总经办/系统管理员：返回所有人的全部日报。
             List<DailyReportEntity> entities = dailyReportMapper.selectList(
                     new LambdaQueryWrapper<DailyReportEntity>()
-                            .eq(DailyReportEntity::getReportDate, today)
+                            .orderByDesc(DailyReportEntity::getReportDate)
                             .orderByDesc(DailyReportEntity::getCreatedAt));
             List<Long> reporterIds = entities.stream()
                     .map(DailyReportEntity::getReporterId)
