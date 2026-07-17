@@ -32,7 +32,7 @@ public class BusinessAccessService {
 
     public void requireTaskManage(TaskEntity task) {
         Long userId = currentUserId();
-        if (isSystemAdmin() || same(userId, task.getCreatedBy()) || canManageProject(task.getProjectId(), userId)) {
+        if (isSystemAdmin() || same(userId, task.getAssigneeId()) || same(userId, task.getCreatedBy()) || canManageProject(task.getProjectId(), userId)) {
             return;
         }
         throwForbidden();
@@ -116,17 +116,12 @@ public class BusinessAccessService {
                         || "system:role:update".equals(authority.getAuthority()));
     }
 
-    /** 是否拥有"查看全部业务数据"权限（总经办 或 拥有 data:view:all 权限码的角色） */
+    /** 是否拥有"查看全部业务数据"权限：仅总经办或系统管理员。 */
     public boolean canViewAll() {
-        if (isGmOffice()) {
+        if (isGmOffice() || isSystemAdmin()) {
             return true;
         }
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null) {
-            return false;
-        }
-        return authentication.getAuthorities().stream()
-                .anyMatch(authority -> "data:view:all".equals(authority.getAuthority()));
+        return false;
     }
 
     private boolean canManageProject(Long projectId, Long userId) {
