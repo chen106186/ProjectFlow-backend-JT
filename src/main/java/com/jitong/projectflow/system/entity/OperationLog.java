@@ -1,5 +1,7 @@
 package com.jitong.projectflow.system.entity;
 
+import com.baomidou.mybatisplus.annotation.FieldFill;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 
@@ -18,5 +20,6 @@ public class OperationLog {
     private String beforeValue;
     private String afterValue;
     private String content;
+    @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;
 }

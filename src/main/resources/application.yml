@@ -10,9 +10,9 @@ spring:
     active: local
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: ${DB_URL:jdbc:mysql://localhost:3306/projectflow?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true}
+    url: ${DB_URL:jdbc:mysql://192.168.110.15:3306/projectflow?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true}
     username: ${DB_USERNAME:root}
-    password: ${DB_PASSWORD:123456}
+    password: ${DB_PASSWORD:Admin2023!}
   data:
     redis:
       host: ${REDIS_HOST:localhost}
@@ -21,6 +21,8 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
+  jackson:
+    time-zone: Asia/Shanghai
   servlet:
     multipart:
       max-file-size: 50MB

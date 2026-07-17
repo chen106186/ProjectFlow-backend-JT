@@ -154,13 +154,13 @@ public class DashboardService {
 
         long myBugTotal = bugMapper.selectCount(
                 new LambdaQueryWrapper<BugEntity>()
-                        .eq(BugEntity::getCreatorId, userId)
+                        .and(w -> w.eq(BugEntity::getAssigneeId, userId).or().eq(BugEntity::getCreatorId, userId))
                         .ge(hasPeriod, BugEntity::getCreatedAt, hasPeriod ? startOfDay(fStart) : null)
                         .le(hasPeriod, BugEntity::getCreatedAt, hasPeriod ? endOfDay(fEnd) : null));
 
         long myBugOpen = bugMapper.selectCount(
                 new LambdaQueryWrapper<BugEntity>()
-                        .eq(BugEntity::getCreatorId, userId)
+                        .and(w -> w.eq(BugEntity::getAssigneeId, userId).or().eq(BugEntity::getCreatorId, userId))
                         .ne(BugEntity::getStatus, BugStatus.CLOSED.name())
                         .ge(hasPeriod, BugEntity::getCreatedAt, hasPeriod ? startOfDay(fStart) : null)
                         .le(hasPeriod, BugEntity::getCreatedAt, hasPeriod ? endOfDay(fEnd) : null));
@@ -184,7 +184,7 @@ public class DashboardService {
                         .eq(NoticeEntity::getReceiverId, userId)
                         .eq(NoticeEntity::getReadFlag, 0));
 
-        // 状态/优先级分布（全量）
+        // 状态/优先级分布（全量，不受时间过滤，反映当前整体工作状态）
         List<TaskEntity> myTasks = safeList(taskMapper.selectList(
                 new LambdaQueryWrapper<TaskEntity>()
                         .eq(TaskEntity::getAssigneeId, userId)));
@@ -215,16 +215,8 @@ public class DashboardService {
             completionTrend = List.of();
         }
 
-        // 项目分布（已完成任务按项目名分布）
-        LambdaQueryWrapper<TaskEntity> completedQ = new LambdaQueryWrapper<TaskEntity>()
-                .eq(TaskEntity::getAssigneeId, userId)
-                .eq(TaskEntity::getStatus, TaskStatus.COMPLETED.name());
-        if (hasPeriod) {
-            completedQ.ge(TaskEntity::getCreatedAt, startOfDay(startDate))
-                      .le(TaskEntity::getCreatedAt, endOfDay(endDate));
-        }
-        List<TaskEntity> completedTasks = safeList(taskMapper.selectList(completedQ));
-        Map<Long, Long> byProjectId = completedTasks.stream()
+        // 项目分布（全量任务按项目名分布，反映当前工作覆盖的项目）
+        Map<Long, Long> byProjectId = myTasks.stream()
                 .filter(t -> t.getProjectId() != null)
                 .collect(Collectors.groupingBy(TaskEntity::getProjectId, Collectors.counting()));
 

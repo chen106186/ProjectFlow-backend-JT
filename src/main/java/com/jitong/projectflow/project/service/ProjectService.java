@@ -183,13 +183,6 @@ public class ProjectService {
     }
 
     private void applyReadScope(LambdaQueryWrapper<ProjectEntity> wrapper) {
-        if (businessAccessService.isSystemAdmin()) {
-            return;
-        }
-        Long userId = CurrentUserContext.userId();
-        wrapper.and(scope -> scope.eq(ProjectEntity::getManagerId, userId)
-                .or()
-                .eq(ProjectEntity::getCreatedBy, userId));
     }
 
     private ProjectResponse toResponse(ProjectEntity entity) {
