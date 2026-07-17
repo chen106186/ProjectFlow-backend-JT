@@ -96,7 +96,6 @@ public class BugService {
         wrapper.eq(request.getAssigneeId() != null, BugEntity::getAssigneeId, request.getAssigneeId());
         wrapper.eq(request.getCreatorId() != null, BugEntity::getCreatorId, request.getCreatorId());
         wrapper.like(StringUtils.hasText(request.getKeyword()), BugEntity::getTitle, request.getKeyword());
-        applyReadScope(wrapper);
         wrapper.orderByDesc(BugEntity::getCreatedAt);
         Page<BugEntity> page = bugMapper.selectPage(PageUtils.toPage(request), wrapper);
         List<BugEntity> records = page.getRecords();
