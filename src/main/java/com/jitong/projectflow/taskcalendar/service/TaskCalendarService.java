@@ -128,6 +128,7 @@ public class TaskCalendarService {
                                                   Map<Long, String> projectNames,
                                                   Map<Long, String> userNames) {
         String status = statusCalculator.calculate(
+                task.getPlannedStartDate(),
                 task.getPlannedEndDate(),
                 task.getActualStartDate(),
                 task.getActualEndDate(),

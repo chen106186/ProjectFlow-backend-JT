@@ -39,6 +39,7 @@ public class TaskStatusSchedulerService {
         int updated = 0;
         for (TaskEntity task : tasks) {
             TaskStatus calculated = statusCalculator.calculate(
+                    task.getPlannedStartDate(),
                     task.getPlannedEndDate(),
                     task.getActualStartDate(),
                     task.getActualEndDate(),
