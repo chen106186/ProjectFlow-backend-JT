@@ -56,14 +56,27 @@ public class DictService {
                 item("SIGNING", "签约中"),
                 item("SIGNED", "已签约"),
                 item("ARCHIVED", "已归档"));
-        add("taskStatus", "任务状态", items(TaskStatus.values(), Map.of(
+        List<DictItemResponse> taskStatusItems = new ArrayList<>(items(TaskStatus.values(), Map.of(
                 TaskStatus.NOT_STARTED.name(), "未开始",
                 TaskStatus.IN_PROGRESS.name(), "进行中",
                 TaskStatus.DUE_SOON.name(), "即将到期",
                 TaskStatus.OVERDUE.name(), "已逾期",
                 TaskStatus.COMPLETED.name(), "已完成",
                 TaskStatus.PAUSED.name(), "已暂停")));
+        // 甘特图节点专用状态（不属于 TaskStatus 枚举，但共用 taskStatus 字典供前端展示）
+        taskStatusItems.add(item("OVERDUE_START", "启动逾期"));
+        taskStatusItems.add(item("OVERDUE_COMPLETED", "逾期完成"));
+        add("taskStatus", "任务状态", taskStatusItems);
         add("taskPriority", "任务优先级", items(TaskPriority.values(), priorityLabels()));
+        add("resolveSolution", "Bug解决方案",
+                item("RESOLVED",          "已解决"),
+                item("BY_DESIGN",         "设计如此"),
+                item("DUPLICATE",         "重复bug"),
+                item("EXTERNAL_CAUSE",    "外部原因"),
+                item("CODE_BUG",          "代码bug"),
+                item("CANNOT_REPRODUCE",  "无法重现"),
+                item("DEFERRED",          "延期处理"),
+                item("WONT_FIX",          "不予解决"));
         add("bugStatus", "Bug 状态", items(BugStatus.values(), Map.of(
                 BugStatus.PENDING_FIX.name(), "待修复",
                 BugStatus.FIXING.name(), "修复中",

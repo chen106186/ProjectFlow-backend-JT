@@ -79,9 +79,7 @@ public class ProjectService {
         entity.setPlannedEndDate(request.getPlannedEndDate());
         entity.setActualStartDate(request.getActualStartDate());
         entity.setActualEndDate(request.getActualEndDate());
-        if ("MANAGEMENT".equals(entity.getProjectType())) {
-            entity.setStatus(calculateManagementStatus(entity, request.getStatus()));
-        }
+        entity.setStatus(calculateProjectStatus(entity, request.getStatus()));
         entity.setCreatedBy(CurrentUserContext.userIdOrNull());
         projectMapper.insert(entity);
         saveParticipants(entity.getId(), request.getParticipantIds());
@@ -135,11 +133,7 @@ public class ProjectService {
         if (request.getPlannedEndDate() != null) entity.setPlannedEndDate(request.getPlannedEndDate());
         if (request.getActualStartDate() != null) entity.setActualStartDate(request.getActualStartDate());
         if (request.getActualEndDate() != null) entity.setActualEndDate(request.getActualEndDate());
-        if ("MANAGEMENT".equals(entity.getProjectType())) {
-            entity.setStatus(calculateManagementStatus(entity, request.getStatus()));
-        } else {
-            if (request.getStatus() != null) entity.setStatus(request.getStatus());
-        }
+        entity.setStatus(calculateProjectStatus(entity, request.getStatus()));
         entity.setUpdatedBy(CurrentUserContext.userIdOrNull());
         projectMapper.updateById(entity);
         if (request.getParticipantIds() != null) {
@@ -190,8 +184,8 @@ public class ProjectService {
         return entity;
     }
 
-    /** 根据流程图计算管理类项目状态。只有"已暂停"可由用户手动传入；其余状态均由日期自动判定。 */
-    String calculateManagementStatus(ProjectEntity entity, String requestedStatus) {
+    /** 计算项目状态。只有"已暂停"可由用户手动传入；其余状态均由日期自动判定（管理类和执行类均适用）。 */
+    String calculateProjectStatus(ProjectEntity entity, String requestedStatus) {
         if ("PAUSED".equals(requestedStatus)) {
             return "PAUSED";
         }

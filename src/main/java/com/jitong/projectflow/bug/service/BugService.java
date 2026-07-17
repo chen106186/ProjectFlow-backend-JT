@@ -10,6 +10,7 @@ import com.jitong.projectflow.bug.dto.BugCommentCreateRequest;
 import com.jitong.projectflow.bug.dto.BugCommentResponse;
 import com.jitong.projectflow.bug.dto.BugCreateRequest;
 import com.jitong.projectflow.bug.dto.BugFixRequest;
+import com.jitong.projectflow.bug.dto.BugResolveRequest;
 import com.jitong.projectflow.bug.dto.BugQueryRequest;
 import com.jitong.projectflow.bug.dto.BugResponse;
 import com.jitong.projectflow.bug.dto.BugUpdateRequest;
@@ -236,6 +237,33 @@ public class BugService {
         return getById(id);
     }
 
+    public BugResponse resolve(Long id, BugResolveRequest request) {
+        BugEntity entity = requireBug(id);
+        ensureMutable(entity);
+        businessAccessService.requireBugEdit(entity);
+        String oldStatus = entity.getStatus();
+        entity.setSolution(request.getSolution());
+        entity.setResolvedDate(request.getResolvedDate());
+        entity.setResolveRemark(request.getRemark());
+        if (request.getAssigneeId() != null) {
+            entity.setAssigneeId(request.getAssigneeId());
+        }
+        entity.setStatus(BugStatus.PENDING_VERIFY.name());
+        entity.setUpdatedBy(CurrentUserContext.userIdOrNull());
+        bugMapper.updateById(entity);
+        operationLogService.record("bug", "Bug", id, "UPDATE_STATUS",
+                "Bug状态由" + bugStatusLabel(oldStatus) + "变为待验证（已解决）：" + entity.getTitle());
+        if (entity.getCreatorId() != null && !entity.getCreatorId().equals(CurrentUserContext.userId())) {
+            String resolver = resolveUserName(CurrentUserContext.userIdOrNull());
+            String projectName = resolveProjectName(entity.getProjectId());
+            noticeService.create(entity.getCreatorId(), NoticeType.BUG_ASSIGNED,
+                    "缺陷「" + entity.getTitle() + "」已解决，待您验证",
+                    "所属项目：" + projectName + "　｜　解决人：" + resolver,
+                    "Bug", id);
+        }
+        return getById(id);
+    }
+
     public BugCommentResponse addComment(Long bugId, BugCommentCreateRequest request) {
         BugEntity bug = requireBug(bugId);
         ensureMutable(bug);
@@ -308,6 +336,9 @@ public class BugService {
                 .reproduceSteps(entity.getReproduceSteps())
                 .fixAnalysis(entity.getFixAnalysis())
                 .fixDetail(entity.getFixDetail())
+                .solution(entity.getSolution())
+                .resolvedDate(entity.getResolvedDate())
+                .resolveRemark(entity.getResolveRemark())
                 .closedAt(entity.getClosedAt())
                 .createdAt(entity.getCreatedAt())
                 .creatorName(userNames.get(entity.getCreatorId()))

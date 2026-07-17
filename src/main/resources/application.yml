@@ -10,9 +10,9 @@ spring:
     active: local
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: ${DB_URL:jdbc:mysql://192.168.110.15:3306/projectflow?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true}
-    username: ${DB_USERNAME:root}
-    password: ${DB_PASSWORD:Admin2023!}
+    url: jdbc:mysql://192.168.110.15:3306/projectflow?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    username: root
+    password: Admin2023!
   data:
     redis:
       host: ${REDIS_HOST:localhost}
@@ -58,14 +58,14 @@ projectflow:
     enabled: true
     dev-user-id: 1
   jwt:
-    secret: ${JWT_SECRET:replace-with-at-least-32-byte-local-secret}
-    ttl-minutes: ${JWT_TTL_MINUTES:720}
+    secret: replace-with-at-least-32-byte-local-secret
+    ttl-minutes: 720
   storage:
     type: aliyun-oss
     local-root: ./data/uploads
     aliyun-oss:
       endpoint: https://oss-cn-shanghai.aliyuncs.com
-      access-key-id: ${ALIYUN_OSS_ACCESS_KEY_ID:local-dev-key}
-      access-key-secret: ${ALIYUN_OSS_ACCESS_KEY_SECRET:local-dev-secret}
-      bucket-name: ${ALIYUN_OSS_BUCKET:company-project-oss}
+      access-key-id: ${ALIYUN_OSS_ACCESS_KEY_ID:}
+      access-key-secret: ${ALIYUN_OSS_ACCESS_KEY_SECRET:}
+      bucket-name: company-project-oss
       object-prefix: projectflow

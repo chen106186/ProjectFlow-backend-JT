@@ -8,6 +8,8 @@ import com.jitong.projectflow.notice.domain.NoticeType;
 import com.jitong.projectflow.notice.service.NoticeService;
 import com.jitong.projectflow.project.domain.GanttNodeSummaryCalculator;
 import com.jitong.projectflow.project.domain.GanttSummaryData;
+import com.jitong.projectflow.project.domain.ProjectNodeStatus;
+import com.jitong.projectflow.project.domain.ProjectNodeStatusCalculator;
 import com.jitong.projectflow.project.domain.ProjectNodeTemplate;
 import com.jitong.projectflow.project.dto.GanttNodeResponse;
 import com.jitong.projectflow.project.dto.GanttSummaryResponse;
@@ -35,6 +37,7 @@ public class GanttService {
 
     private final ProjectNodeMapper projectNodeMapper;
     private final GanttNodeSummaryCalculator calculator = new GanttNodeSummaryCalculator();
+    private final ProjectNodeStatusCalculator statusCalculator = new ProjectNodeStatusCalculator();
     private final OperationLogService operationLogService;
     private final NoticeService noticeService;
     private final ProjectMapper projectMapper;
@@ -70,30 +73,42 @@ public class GanttService {
 
         String oldStatus = entity.getStatus();
         if (req.getNodeName() != null) entity.setNodeName(req.getNodeName());
-        if (req.getStatus() != null) entity.setStatus(req.getStatus());
-        if (req.getProgressPercent() != null) entity.setProgressPercent(req.getProgressPercent());
         if (req.getPlannedStartDate() != null) entity.setPlannedStartDate(req.getPlannedStartDate());
         if (req.getPlannedEndDate() != null) entity.setPlannedEndDate(req.getPlannedEndDate());
         if (req.getActualStartDate() != null) entity.setActualStartDate(req.getActualStartDate());
         if (req.getActualEndDate() != null) entity.setActualEndDate(req.getActualEndDate());
+        // 状态由计划/实际时间自动计算，不接受手动传入
+        ProjectNodeStatus calculated = statusCalculator.calculate(
+                entity.getPlannedStartDate(), entity.getPlannedEndDate(),
+                entity.getActualStartDate(), entity.getActualEndDate(), LocalDate.now());
+        entity.setStatus(calculated.name());
+        // 已填写实际结束时间则进度自动设为 100%
+        if (entity.getActualEndDate() != null) {
+            entity.setProgressPercent(100);
+        } else if (req.getProgressPercent() != null) {
+            entity.setProgressPercent(req.getProgressPercent());
+        }
         validateNode(entity);
         entity.setUpdatedBy(CurrentUserContext.userId());
 
         projectNodeMapper.updateById(entity);
+        syncToManagementNode(entity, req);
+        syncToExecutionNode(entity, req);
 
+        String newStatus = entity.getStatus();
         StringBuilder logContent = new StringBuilder("编辑项目节点：").append(entity.getNodeName());
-        if (req.getStatus() != null && !req.getStatus().equals(oldStatus)) {
-            logContent.append("　｜　阶段状态 → ").append(nodeStatusLabel(req.getStatus()));
+        if (!newStatus.equals(oldStatus)) {
+            logContent.append("　｜　阶段状态 → ").append(nodeStatusLabel(newStatus));
         }
-        if (req.getProgressPercent() != null) {
-            logContent.append("　｜　完成比例 → ").append(req.getProgressPercent()).append("%");
+        if (entity.getProgressPercent() != null) {
+            logContent.append("　｜　完成比例 → ").append(entity.getProgressPercent()).append("%");
         }
         if (req.getPlannedEndDate() != null) {
             logContent.append("　｜　计划完成 → ").append(req.getPlannedEndDate());
         }
         operationLogService.record("project", "ProjectNode", nodeId, "UPDATE", logContent.toString());
 
-        if (req.getStatus() != null && !req.getStatus().equals(oldStatus)) {
+        if (!newStatus.equals(oldStatus)) {
             sendStageChangeNotice(entity);
         }
 
@@ -143,10 +158,13 @@ public class GanttService {
     private static String nodeStatusLabel(String status) {
         if (status == null) return "未知";
         return switch (status) {
-            case "NOT_STARTED" -> "未开始";
-            case "IN_PROGRESS" -> "进行中";
-            case "COMPLETED" -> "已完成";
-            case "OVERDUE" -> "已逾期";
+            case "NOT_STARTED"       -> "未开始";
+            case "OVERDUE_START"     -> "启动逾期";
+            case "IN_PROGRESS"       -> "进行中";
+            case "DUE_SOON"          -> "即将到期";
+            case "OVERDUE"           -> "已逾期";
+            case "COMPLETED"         -> "已完成";
+            case "OVERDUE_COMPLETED" -> "逾期完成";
             default -> status;
         };
     }
@@ -214,5 +232,93 @@ public class GanttService {
                 .progressPercent(entity.getProgressPercent())
                 .sortOrder(entity.getSortOrder())
                 .build();
+    }
+
+    /** 当执行类项目节点更新后，同步到对应管理类项目的节点（按 nodeCode 优先、nodeName 兜底匹配）。 */
+    private void syncToManagementNode(ProjectNodeEntity execNode, ProjectNodeUpdateRequest req) {
+        ProjectEntity project = projectMapper.selectById(execNode.getProjectId());
+        if (project == null || !"EXECUTION".equals(project.getProjectType())
+                || project.getManagementProjectId() == null) {
+            return;
+        }
+        ProjectNodeEntity mgmtNode = findMatchingManagementNode(
+                project.getManagementProjectId(), execNode.getNodeCode(), execNode.getNodeName());
+        if (mgmtNode == null) return;
+
+        if (req.getPlannedStartDate() != null) mgmtNode.setPlannedStartDate(req.getPlannedStartDate());
+        if (req.getPlannedEndDate() != null) mgmtNode.setPlannedEndDate(req.getPlannedEndDate());
+        if (req.getActualStartDate() != null) mgmtNode.setActualStartDate(req.getActualStartDate());
+        if (req.getActualEndDate() != null) mgmtNode.setActualEndDate(req.getActualEndDate());
+
+        ProjectNodeStatus calculated = statusCalculator.calculate(
+                mgmtNode.getPlannedStartDate(), mgmtNode.getPlannedEndDate(),
+                mgmtNode.getActualStartDate(), mgmtNode.getActualEndDate(), LocalDate.now());
+        mgmtNode.setStatus(calculated.name());
+
+        if (mgmtNode.getActualEndDate() != null) {
+            mgmtNode.setProgressPercent(100);
+        } else if (req.getProgressPercent() != null) {
+            mgmtNode.setProgressPercent(req.getProgressPercent());
+        }
+
+        mgmtNode.setUpdatedBy(CurrentUserContext.userId());
+        projectNodeMapper.updateById(mgmtNode);
+    }
+
+    /** 当管理类项目节点更新后，同步到对应执行类项目的节点。 */
+    private void syncToExecutionNode(ProjectNodeEntity mgmtNode, ProjectNodeUpdateRequest req) {
+        ProjectEntity project = projectMapper.selectById(mgmtNode.getProjectId());
+        if (project == null || !"MANAGEMENT".equals(project.getProjectType())) {
+            return;
+        }
+        ProjectEntity execProject = projectMapper.selectOne(
+                new LambdaQueryWrapper<ProjectEntity>()
+                        .eq(ProjectEntity::getManagementProjectId, project.getId())
+                        .eq(ProjectEntity::getProjectType, "EXECUTION"));
+        if (execProject == null) return;
+
+        ProjectNodeEntity execNode = findNodeInProject(
+                execProject.getId(), mgmtNode.getNodeCode(), mgmtNode.getNodeName());
+        if (execNode == null) return;
+
+        if (req.getPlannedStartDate() != null) execNode.setPlannedStartDate(req.getPlannedStartDate());
+        if (req.getPlannedEndDate() != null) execNode.setPlannedEndDate(req.getPlannedEndDate());
+        if (req.getActualStartDate() != null) execNode.setActualStartDate(req.getActualStartDate());
+        if (req.getActualEndDate() != null) execNode.setActualEndDate(req.getActualEndDate());
+
+        ProjectNodeStatus calculated = statusCalculator.calculate(
+                execNode.getPlannedStartDate(), execNode.getPlannedEndDate(),
+                execNode.getActualStartDate(), execNode.getActualEndDate(), LocalDate.now());
+        execNode.setStatus(calculated.name());
+
+        if (execNode.getActualEndDate() != null) {
+            execNode.setProgressPercent(100);
+        } else if (req.getProgressPercent() != null) {
+            execNode.setProgressPercent(req.getProgressPercent());
+        }
+
+        execNode.setUpdatedBy(CurrentUserContext.userId());
+        projectNodeMapper.updateById(execNode);
+    }
+
+    private ProjectNodeEntity findMatchingManagementNode(Long mgmtProjectId, String nodeCode, String nodeName) {
+        return findNodeInProject(mgmtProjectId, nodeCode, nodeName);
+    }
+
+    private ProjectNodeEntity findNodeInProject(Long projectId, String nodeCode, String nodeName) {
+        if (nodeCode != null) {
+            ProjectNodeEntity node = projectNodeMapper.selectOne(
+                    new LambdaQueryWrapper<ProjectNodeEntity>()
+                            .eq(ProjectNodeEntity::getProjectId, projectId)
+                            .eq(ProjectNodeEntity::getNodeCode, nodeCode));
+            if (node != null) return node;
+        }
+        if (nodeName != null) {
+            return projectNodeMapper.selectOne(
+                    new LambdaQueryWrapper<ProjectNodeEntity>()
+                            .eq(ProjectNodeEntity::getProjectId, projectId)
+                            .eq(ProjectNodeEntity::getNodeName, nodeName));
+        }
+        return null;
     }
 }

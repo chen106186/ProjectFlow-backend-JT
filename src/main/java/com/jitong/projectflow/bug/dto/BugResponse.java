@@ -6,6 +6,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Builder;
 import lombok.Data;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -38,6 +39,12 @@ public class BugResponse {
     private String fixAnalysis;
     @Schema(description = "修复细节（开发填写）。")
     private String fixDetail;
+    @Schema(description = "解决方案枚举值。")
+    private String solution;
+    @Schema(description = "解决日期。")
+    private LocalDate resolvedDate;
+    @Schema(description = "解决备注（富文本 HTML）。")
+    private String resolveRemark;
     @Schema(description = "关闭时间，格式 yyyy-MM-dd HH:mm:ss。")
     private LocalDateTime closedAt;
     @Schema(description = "创建时间。")

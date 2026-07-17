@@ -8,6 +8,7 @@ import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Data
@@ -40,6 +41,12 @@ public class BugEntity {
     private String fixAnalysis;
 
     private String fixDetail;
+
+    private String solution;
+
+    private LocalDate resolvedDate;
+
+    private String resolveRemark;
 
     private LocalDateTime closedAt;
 

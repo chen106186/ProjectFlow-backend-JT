@@ -7,6 +7,7 @@ import com.jitong.projectflow.bug.dto.BugCommentCreateRequest;
 import com.jitong.projectflow.bug.dto.BugCommentResponse;
 import com.jitong.projectflow.bug.dto.BugCreateRequest;
 import com.jitong.projectflow.bug.dto.BugFixRequest;
+import com.jitong.projectflow.bug.dto.BugResolveRequest;
 import com.jitong.projectflow.bug.dto.BugQueryRequest;
 import com.jitong.projectflow.bug.dto.BugResponse;
 import com.jitong.projectflow.bug.dto.BugUpdateRequest;
@@ -98,6 +99,13 @@ public class BugController {
     @PostMapping("/{id}/fix")
     public ApiResponse<BugResponse> fix(@PathVariable Long id, @RequestBody BugFixRequest request) {
         return ApiResponse.success(bugService.fix(id, request), MDC.get("traceId"));
+    }
+
+    @Operation(summary = "解决 Bug",
+            description = "填写解决方案、解决日期和备注，Bug 状态变更为待验证，并通知创建人验证。")
+    @PostMapping("/{id}/resolve")
+    public ApiResponse<BugResponse> resolve(@PathVariable Long id, @Valid @RequestBody BugResolveRequest request) {
+        return ApiResponse.success(bugService.resolve(id, request), MDC.get("traceId"));
     }
 
     @Operation(summary = "新增 Bug 评论",
