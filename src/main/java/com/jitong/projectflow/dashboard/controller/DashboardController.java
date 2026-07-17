@@ -41,11 +41,12 @@ public class DashboardController {
     }
 
     @Operation(summary = "查询我的统计",
-            description = "统计当前登录用户的任务、Bug、需求和未读通知数量。period 支持 today/week/month/year/all（默认 all）。")
+            description = "统计当前登录用户的任务、Bug、需求和未读通知数量。period 支持 today/week/month/year/all（默认 all）。总经办用户可通过 targetUserId 筛选特定人员数据，不传则统计全员。")
     @GetMapping("/my-statistics")
     public ApiResponse<MyStatisticsResponse> myStatistics(
-            @RequestParam(defaultValue = "all") String period) {
+            @RequestParam(defaultValue = "all") String period,
+            @RequestParam(required = false) Long targetUserId) {
         Long userId = CurrentUserContext.userId();
-        return ApiResponse.success(dashboardService.getMyStatistics(userId, period), MDC.get("traceId"));
+        return ApiResponse.success(dashboardService.getMyStatistics(userId, period, targetUserId), MDC.get("traceId"));
     }
 }

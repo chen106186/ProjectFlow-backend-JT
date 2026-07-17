@@ -63,6 +63,7 @@ public class CurrentUserPermissionService {
                         .map(this::toMenuResponse)
                         .toList())
                 .permissions(extractPermissions(allMenus))
+                .isGmOffice(CurrentUserContext.isGmOffice())
                 .build();
     }
 
@@ -74,6 +75,15 @@ public class CurrentUserPermissionService {
         List<RoleEntity> roles = loadUserRoles(userId);
         List<MenuEntity> menus = loadMenusForRoles(roles, userId);
         return extractPermissions(menus);
+    }
+
+    public String getDeptNameByUserId(Long userId) {
+        SystemUser user = systemUserMapper.selectById(userId);
+        if (user == null || user.getDepartmentId() == null) {
+            return null;
+        }
+        DepartmentEntity dept = departmentMapper.selectById(user.getDepartmentId());
+        return dept != null ? dept.getName() : null;
     }
 
     private SystemUser requireEnabledUser(Long userId) {

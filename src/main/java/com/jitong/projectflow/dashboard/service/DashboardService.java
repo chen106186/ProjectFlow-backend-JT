@@ -11,6 +11,7 @@ import com.jitong.projectflow.dashboard.dto.TodoItemResponse;
 import com.jitong.projectflow.dashboard.dto.TrendDataPoint;
 import com.jitong.projectflow.notice.entity.NoticeEntity;
 import com.jitong.projectflow.notice.mapper.NoticeMapper;
+import com.jitong.projectflow.auth.security.BusinessAccessService;
 import com.jitong.projectflow.project.entity.ProjectEntity;
 import com.jitong.projectflow.project.mapper.ProjectMapper;
 import com.jitong.projectflow.requirement.domain.RequirementStatus;
@@ -47,6 +48,7 @@ public class DashboardService {
     private final RequirementMapper requirementMapper;
     private final NoticeMapper noticeMapper;
     private final SystemUserMapper systemUserMapper;
+    private final BusinessAccessService businessAccessService;
 
     public DashboardSummaryResponse getSummary() {
         long managementProjectCount = projectMapper.selectCount(
@@ -70,20 +72,28 @@ public class DashboardService {
     }
 
     public List<TodoItemResponse> listTodos(Long userId) {
-        List<TaskEntity> tasks = taskMapper.selectList(
-                new LambdaQueryWrapper<TaskEntity>()
-                        .eq(TaskEntity::getAssigneeId, userId)
-                        .ne(TaskEntity::getStatus, TaskStatus.COMPLETED.name()));
-        List<BugEntity> bugs = bugMapper.selectList(
-                new LambdaQueryWrapper<BugEntity>()
-                        .and(wrapper -> wrapper.eq(BugEntity::getAssigneeId, userId)
-                                .or()
-                                .eq(BugEntity::getCreatorId, userId))
-                        .ne(BugEntity::getStatus, BugStatus.CLOSED.name()));
-        List<RequirementEntity> requirements = requirementMapper.selectList(
-                new LambdaQueryWrapper<RequirementEntity>()
-                        .eq(RequirementEntity::getCreatedBy, userId)
-                        .eq(RequirementEntity::getStatus, RequirementStatus.PENDING_REVIEW.name()));
+        boolean viewAll = businessAccessService.canViewAll();
+        LambdaQueryWrapper<TaskEntity> taskWrapper = new LambdaQueryWrapper<TaskEntity>()
+                .ne(TaskEntity::getStatus, TaskStatus.COMPLETED.name());
+        if (!viewAll) {
+            taskWrapper.eq(TaskEntity::getAssigneeId, userId);
+        }
+        List<TaskEntity> tasks = taskMapper.selectList(taskWrapper);
+
+        LambdaQueryWrapper<BugEntity> bugWrapper = new LambdaQueryWrapper<BugEntity>()
+                .ne(BugEntity::getStatus, BugStatus.CLOSED.name());
+        if (!viewAll) {
+            bugWrapper.and(wrapper -> wrapper.eq(BugEntity::getAssigneeId, userId)
+                    .or().eq(BugEntity::getCreatorId, userId));
+        }
+        List<BugEntity> bugs = bugMapper.selectList(bugWrapper);
+
+        LambdaQueryWrapper<RequirementEntity> reqWrapper = new LambdaQueryWrapper<RequirementEntity>()
+                .eq(RequirementEntity::getStatus, RequirementStatus.PENDING_REVIEW.name());
+        if (!viewAll) {
+            reqWrapper.eq(RequirementEntity::getCreatedBy, userId);
+        }
+        List<RequirementEntity> requirements = requirementMapper.selectList(reqWrapper);
 
         Map<Long, String> projectNames = loadProjectNames(tasks, bugs, requirements);
         Map<Long, String> userNames = loadUserNames(tasks, bugs, requirements);
@@ -106,7 +116,10 @@ public class DashboardService {
                 .toList();
     }
 
-    public MyStatisticsResponse getMyStatistics(Long userId, String period) {
+    public MyStatisticsResponse getMyStatistics(Long userId, String period, Long targetUserId) {
+        // 总经办：targetUserId=null 表示全员，targetUserId!=null 表示指定用户；普通用户强制用自己
+        final Long effectiveUserId = businessAccessService.canViewAll() ? targetUserId : userId;
+        final boolean hasUserFilter = effectiveUserId != null;
         // 计算时间范围
         LocalDate today = LocalDate.now();
         LocalDate startDate = null;
@@ -134,51 +147,55 @@ public class DashboardService {
         // 聚合统计（带时间过滤）
         long myTaskTotal = taskMapper.selectCount(
                 new LambdaQueryWrapper<TaskEntity>()
-                        .eq(TaskEntity::getAssigneeId, userId)
+                        .eq(hasUserFilter, TaskEntity::getAssigneeId, effectiveUserId)
                         .ge(hasPeriod, TaskEntity::getCreatedAt, hasPeriod ? startOfDay(fStart) : null)
                         .le(hasPeriod, TaskEntity::getCreatedAt, hasPeriod ? endOfDay(fEnd) : null));
 
         long myTaskCompleted = taskMapper.selectCount(
                 new LambdaQueryWrapper<TaskEntity>()
-                        .eq(TaskEntity::getAssigneeId, userId)
+                        .eq(hasUserFilter, TaskEntity::getAssigneeId, effectiveUserId)
                         .eq(TaskEntity::getStatus, TaskStatus.COMPLETED.name())
                         .ge(hasPeriod, TaskEntity::getCreatedAt, hasPeriod ? startOfDay(fStart) : null)
                         .le(hasPeriod, TaskEntity::getCreatedAt, hasPeriod ? endOfDay(fEnd) : null));
 
         long myTaskOverdue = taskMapper.selectCount(
                 new LambdaQueryWrapper<TaskEntity>()
-                        .eq(TaskEntity::getAssigneeId, userId)
+                        .eq(hasUserFilter, TaskEntity::getAssigneeId, effectiveUserId)
                         .eq(TaskEntity::getStatus, TaskStatus.OVERDUE.name())
                         .ge(hasPeriod, TaskEntity::getCreatedAt, hasPeriod ? startOfDay(fStart) : null)
                         .le(hasPeriod, TaskEntity::getCreatedAt, hasPeriod ? endOfDay(fEnd) : null));
 
-        long myBugTotal = bugMapper.selectCount(
-                new LambdaQueryWrapper<BugEntity>()
-                        .and(w -> w.eq(BugEntity::getAssigneeId, userId).or().eq(BugEntity::getCreatorId, userId))
-                        .ge(hasPeriod, BugEntity::getCreatedAt, hasPeriod ? startOfDay(fStart) : null)
-                        .le(hasPeriod, BugEntity::getCreatedAt, hasPeriod ? endOfDay(fEnd) : null));
+        LambdaQueryWrapper<BugEntity> bugTotalW = new LambdaQueryWrapper<BugEntity>()
+                .ge(hasPeriod, BugEntity::getCreatedAt, hasPeriod ? startOfDay(fStart) : null)
+                .le(hasPeriod, BugEntity::getCreatedAt, hasPeriod ? endOfDay(fEnd) : null);
+        if (hasUserFilter) {
+            bugTotalW.and(w -> w.eq(BugEntity::getAssigneeId, effectiveUserId).or().eq(BugEntity::getCreatorId, effectiveUserId));
+        }
+        long myBugTotal = bugMapper.selectCount(bugTotalW);
 
-        long myBugOpen = bugMapper.selectCount(
-                new LambdaQueryWrapper<BugEntity>()
-                        .and(w -> w.eq(BugEntity::getAssigneeId, userId).or().eq(BugEntity::getCreatorId, userId))
-                        .ne(BugEntity::getStatus, BugStatus.CLOSED.name())
-                        .ge(hasPeriod, BugEntity::getCreatedAt, hasPeriod ? startOfDay(fStart) : null)
-                        .le(hasPeriod, BugEntity::getCreatedAt, hasPeriod ? endOfDay(fEnd) : null));
+        LambdaQueryWrapper<BugEntity> bugOpenW = new LambdaQueryWrapper<BugEntity>()
+                .ne(BugEntity::getStatus, BugStatus.CLOSED.name())
+                .ge(hasPeriod, BugEntity::getCreatedAt, hasPeriod ? startOfDay(fStart) : null)
+                .le(hasPeriod, BugEntity::getCreatedAt, hasPeriod ? endOfDay(fEnd) : null);
+        if (hasUserFilter) {
+            bugOpenW.and(w -> w.eq(BugEntity::getAssigneeId, effectiveUserId).or().eq(BugEntity::getCreatorId, effectiveUserId));
+        }
+        long myBugOpen = bugMapper.selectCount(bugOpenW);
 
         long myRequirementTotal = requirementMapper.selectCount(
                 new LambdaQueryWrapper<RequirementEntity>()
-                        .eq(RequirementEntity::getCreatedBy, userId)
+                        .eq(hasUserFilter, RequirementEntity::getCreatedBy, effectiveUserId)
                         .ge(hasPeriod, RequirementEntity::getCreatedAt, hasPeriod ? startOfDay(fStart) : null)
                         .le(hasPeriod, RequirementEntity::getCreatedAt, hasPeriod ? endOfDay(fEnd) : null));
 
         long myRequirementAccepted = requirementMapper.selectCount(
                 new LambdaQueryWrapper<RequirementEntity>()
-                        .eq(RequirementEntity::getCreatedBy, userId)
+                        .eq(hasUserFilter, RequirementEntity::getCreatedBy, effectiveUserId)
                         .eq(RequirementEntity::getStatus, RequirementStatus.ACCEPTED.name())
                         .ge(hasPeriod, RequirementEntity::getCreatedAt, hasPeriod ? startOfDay(fStart) : null)
                         .le(hasPeriod, RequirementEntity::getCreatedAt, hasPeriod ? endOfDay(fEnd) : null));
 
-        // 未读通知不加时间过滤
+        // 未读通知：始终按当前登录用户过滤
         long unreadNoticeCount = noticeMapper.selectCount(
                 new LambdaQueryWrapper<NoticeEntity>()
                         .eq(NoticeEntity::getReceiverId, userId)
@@ -187,19 +204,21 @@ public class DashboardService {
         // 状态/优先级分布（全量，不受时间过滤，反映当前整体工作状态）
         List<TaskEntity> myTasks = safeList(taskMapper.selectList(
                 new LambdaQueryWrapper<TaskEntity>()
-                        .eq(TaskEntity::getAssigneeId, userId)));
-        List<BugEntity> myBugs = safeList(bugMapper.selectList(
-                new LambdaQueryWrapper<BugEntity>()
-                        .and(wrapper -> wrapper.eq(BugEntity::getAssigneeId, userId)
-                                .or()
-                                .eq(BugEntity::getCreatorId, userId))));
+                        .eq(hasUserFilter, TaskEntity::getAssigneeId, effectiveUserId)));
+
+        LambdaQueryWrapper<BugEntity> bugDistW = new LambdaQueryWrapper<>();
+        if (hasUserFilter) {
+            bugDistW.and(wrapper -> wrapper.eq(BugEntity::getAssigneeId, effectiveUserId)
+                    .or().eq(BugEntity::getCreatorId, effectiveUserId));
+        }
+        List<BugEntity> myBugs = safeList(bugMapper.selectList(bugDistW));
 
         // 任务完成趋势（按 actualEndDate 分组，仅在 period != "all" 时计算）
         List<TrendDataPoint> completionTrend;
         if (hasPeriod) {
             List<TaskEntity> completedInPeriod = safeList(taskMapper.selectList(
                     new LambdaQueryWrapper<TaskEntity>()
-                            .eq(TaskEntity::getAssigneeId, userId)
+                            .eq(hasUserFilter, TaskEntity::getAssigneeId, effectiveUserId)
                             .eq(TaskEntity::getStatus, TaskStatus.COMPLETED.name())
                             .ge(TaskEntity::getActualEndDate, startDate)
                             .le(TaskEntity::getActualEndDate, endDate)));

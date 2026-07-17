@@ -36,6 +36,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 String token = header.substring(7);
                 Long userId = jwtTokenService.parseUserId(token);
                 CurrentUserContext.set(userId);
+                CurrentUserContext.setDeptName(currentUserPermissionService.getDeptNameByUserId(userId));
                 List<SimpleGrantedAuthority> authorities = currentUserPermissionService.getPermissionsByUserId(userId).stream()
                         .map(SimpleGrantedAuthority::new)
                         .toList();

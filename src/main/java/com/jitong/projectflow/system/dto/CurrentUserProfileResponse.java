@@ -37,4 +37,6 @@ public class CurrentUserProfileResponse {
     private List<MenuResponse> menus;
     @Schema(description = "当前用户拥有的权限码列表。")
     private List<String> permissions;
+    @Schema(description = "是否总经办用户，总经办用户可查看全员数据。")
+    private Boolean isGmOffice;
 }

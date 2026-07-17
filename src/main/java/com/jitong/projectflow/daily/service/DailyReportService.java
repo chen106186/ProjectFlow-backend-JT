@@ -18,11 +18,15 @@ import com.jitong.projectflow.daily.mapper.DailyReportTaskMapper;
 import com.jitong.projectflow.file.entity.FileMetadata;
 import com.jitong.projectflow.file.mapper.FileMetadataMapper;
 import com.jitong.projectflow.system.audit.OperationLogService;
+import com.jitong.projectflow.system.entity.SystemUser;
+import com.jitong.projectflow.system.mapper.SystemUserMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
+import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -35,6 +39,7 @@ public class DailyReportService {
     private final BusinessAccessService businessAccessService;
     private final FileMetadataMapper fileMetadataMapper;
     private final DailyReportTaskMapper dailyReportTaskMapper;
+    private final SystemUserMapper systemUserMapper;
 
     public DailyReportResponse create(DailyReportCreateRequest request) {
         DailyReportEntity entity = new DailyReportEntity();
@@ -51,7 +56,7 @@ public class DailyReportService {
         }
         operationLogService.record("daily-report", "DailyReport", entity.getId(), "CREATE",
                 "提交日报：" + entity.getReportDate());
-        return toResponse(entity);
+        return toResponse(entity, null);
     }
 
     public PageResult<DailyReportResponse> list(DailyReportQueryRequest request) {
@@ -59,17 +64,34 @@ public class DailyReportService {
             request.setReporterId(CurrentUserContext.userId());
         }
         Page<DailyReportEntity> page = dailyReportMapper.selectPage(PageUtils.toPage(request), buildQuery(request));
-        return PageUtils.toResult(page, page.getRecords().stream().map(this::toResponse).toList());
+        return PageUtils.toResult(page, page.getRecords().stream().map(e -> toResponse(e, null)).toList());
     }
 
     public List<DailyReportResponse> listMine() {
+        if (businessAccessService.canViewAll()) {
+            // 总经办：返回今日所有人的日报
+            LocalDate today = LocalDate.now();
+            List<DailyReportEntity> entities = dailyReportMapper.selectList(
+                    new LambdaQueryWrapper<DailyReportEntity>()
+                            .eq(DailyReportEntity::getReportDate, today)
+                            .orderByDesc(DailyReportEntity::getCreatedAt));
+            List<Long> reporterIds = entities.stream()
+                    .map(DailyReportEntity::getReporterId)
+                    .filter(Objects::nonNull)
+                    .distinct()
+                    .toList();
+            Map<Long, String> nameMap = reporterIds.isEmpty() ? Map.of()
+                    : systemUserMapper.selectByIds(reporterIds).stream()
+                            .collect(Collectors.toMap(SystemUser::getId, u -> u.getRealName() != null ? u.getRealName() : u.getUsername()));
+            return entities.stream().map(e -> toResponse(e, nameMap.get(e.getReporterId()))).toList();
+        }
         DailyReportQueryRequest request = new DailyReportQueryRequest();
         request.setReporterId(CurrentUserContext.userId());
-        return dailyReportMapper.selectList(buildQuery(request)).stream().map(this::toResponse).toList();
+        return dailyReportMapper.selectList(buildQuery(request)).stream().map(e -> toResponse(e, null)).toList();
     }
 
     public DailyReportResponse getById(Long id) {
-        return toResponse(requireReport(id));
+        return toResponse(requireReport(id), null);
     }
 
     public DailyReportResponse update(Long id, DailyReportUpdateRequest request) {
@@ -88,7 +110,7 @@ public class DailyReportService {
         }
         operationLogService.record("daily-report", "DailyReport", id, "UPDATE",
                 "编辑日报：" + entity.getReportDate());
-        return toResponse(entity);
+        return toResponse(entity, null);
     }
 
     public void delete(Long id) {
@@ -164,12 +186,13 @@ public class DailyReportService {
         return entity;
     }
 
-    private DailyReportResponse toResponse(DailyReportEntity entity) {
+    private DailyReportResponse toResponse(DailyReportEntity entity, String reporterName) {
         List<Long> relatedTaskIds = dailyReportTaskMapper.findTaskIdsByReportId(entity.getId());
         return DailyReportResponse.builder()
                 .id(entity.getId())
                 .projectId(entity.getProjectId())
                 .reporterId(entity.getReporterId())
+                .reporterName(reporterName)
                 .reportDate(entity.getReportDate())
                 .content(entity.getContent())
                 .createdBy(entity.getCreatedBy())

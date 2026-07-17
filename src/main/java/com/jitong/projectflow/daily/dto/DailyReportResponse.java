@@ -17,6 +17,8 @@ public class DailyReportResponse {
     private Long projectId;
     @Schema(description = "日报填写人 ID。")
     private Long reporterId;
+    @Schema(description = "日报填写人姓名。")
+    private String reporterName;
     @Schema(description = "日报日期，格式 yyyy-MM-dd。")
     private LocalDate reportDate;
     @Schema(description = "内容。")

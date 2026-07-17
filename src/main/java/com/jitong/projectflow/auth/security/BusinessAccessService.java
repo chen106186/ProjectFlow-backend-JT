@@ -102,6 +102,10 @@ public class BusinessAccessService {
         throwForbidden();
     }
 
+    public boolean isGmOffice() {
+        return CurrentUserContext.isGmOffice();
+    }
+
     public boolean isSystemAdmin() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null) {
@@ -112,8 +116,11 @@ public class BusinessAccessService {
                         || "system:role:update".equals(authority.getAuthority()));
     }
 
-    /** 是否拥有"查看全部业务数据"权限（领导角色） */
+    /** 是否拥有"查看全部业务数据"权限（总经办 或 拥有 data:view:all 权限码的角色） */
     public boolean canViewAll() {
+        if (isGmOffice()) {
+            return true;
+        }
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null) {
             return false;

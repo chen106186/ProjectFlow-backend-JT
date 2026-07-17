@@ -38,18 +38,18 @@ public class AliyunOssFileStorageService implements FileStorageService {
 
     @Override
     public InputStream download(String storageKey) {
-        return ossClient.getObject(properties.bucketName(), storageKey).getObjectContent();
+        return ossClient.getObject(properties.bucketName(), normalizeKey(storageKey)).getObjectContent();
     }
 
     @Override
     public void delete(String storageKey) {
-        ossClient.deleteObject(properties.bucketName(), storageKey);
+        ossClient.deleteObject(properties.bucketName(), normalizeKey(storageKey));
     }
 
     @Override
     public String publicUrl(String storageKey) {
         String endpointHost = properties.endpoint().replaceFirst("https?://", "");
-        return "https://" + properties.bucketName() + "." + endpointHost + "/" + storageKey;
+        return "https://" + properties.bucketName() + "." + endpointHost + "/" + normalizeKey(storageKey);
     }
 
     @PreDestroy
@@ -58,8 +58,17 @@ public class AliyunOssFileStorageService implements FileStorageService {
     }
 
     private String buildObjectKey(String originalName) {
-        String prefix = properties.objectPrefix() == null ? "projectflow" : properties.objectPrefix();
+        String raw = properties.objectPrefix();
+        String prefix = (raw == null || raw.isBlank()) ? "projectflow" : raw;
         String safeName = originalName.replaceAll("[\\\\/]", "_");
         return prefix + "/" + LocalDate.now() + "/" + UUID.randomUUID() + "-" + safeName;
+    }
+
+    // OSS keys must not start with '/', but an empty objectPrefix misconfiguration can produce them.
+    // Strip leading slashes so legacy DB records with broken keys still resolve correctly.
+    private static String normalizeKey(String key) {
+        int i = 0;
+        while (i < key.length() && key.charAt(i) == '/') i++;
+        return i == 0 ? key : key.substring(i);
     }
 }
