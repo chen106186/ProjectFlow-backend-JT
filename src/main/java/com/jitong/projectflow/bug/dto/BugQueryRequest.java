@@ -17,4 +17,6 @@ public class BugQueryRequest extends PageQuery {
     private String keyword;
     @Schema(description = "指定处理人用户 ID。")
     private Long assigneeId;
+    @Schema(description = "创建人用户 ID。")
+    private Long creatorId;
 }

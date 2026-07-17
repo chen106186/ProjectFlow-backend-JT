@@ -94,6 +94,7 @@ public class BugService {
             }
         }
         wrapper.eq(request.getAssigneeId() != null, BugEntity::getAssigneeId, request.getAssigneeId());
+        wrapper.eq(request.getCreatorId() != null, BugEntity::getCreatorId, request.getCreatorId());
         wrapper.like(StringUtils.hasText(request.getKeyword()), BugEntity::getTitle, request.getKeyword());
         applyReadScope(wrapper);
         wrapper.orderByDesc(BugEntity::getCreatedAt);
