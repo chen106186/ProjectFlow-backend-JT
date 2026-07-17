@@ -274,6 +274,7 @@ public class TaskService {
 
     private TaskStatus calculateStatus(TaskEntity entity) {
         return statusCalculator.calculate(
+                entity.getPlannedStartDate(),
                 entity.getPlannedEndDate(),
                 entity.getActualStartDate(),
                 entity.getActualEndDate(),
@@ -304,12 +305,17 @@ public class TaskService {
             case "IN_PROGRESS" -> wrapper
                     .isNull(TaskEntity::getActualEndDate)
                     .ne(TaskEntity::getStatus, TaskStatus.PAUSED.name())
-                    .isNotNull(TaskEntity::getActualStartDate)
+                    .and(start -> start
+                            .isNotNull(TaskEntity::getActualStartDate)
+                            .or(q -> q.isNull(TaskEntity::getActualStartDate)
+                                    .isNotNull(TaskEntity::getPlannedStartDate)
+                                    .le(TaskEntity::getPlannedStartDate, today)))
                     .and(q -> q.isNull(TaskEntity::getPlannedEndDate).or().gt(TaskEntity::getPlannedEndDate, dueSoonEnd));
             case "NOT_STARTED" -> wrapper
                     .isNull(TaskEntity::getActualEndDate)
                     .ne(TaskEntity::getStatus, TaskStatus.PAUSED.name())
                     .isNull(TaskEntity::getActualStartDate)
+                    .and(q -> q.isNull(TaskEntity::getPlannedStartDate).or().gt(TaskEntity::getPlannedStartDate, today))
                     .and(q -> q.isNull(TaskEntity::getPlannedEndDate).or().gt(TaskEntity::getPlannedEndDate, dueSoonEnd));
             default -> wrapper.eq(TaskEntity::getStatus, status);
         }
@@ -342,6 +348,7 @@ public class TaskService {
                 .tags(entity.getTags())
                 .remark(entity.getRemark())
                 .sortOrder(entity.getSortOrder())
+                .createdAt(entity.getCreatedAt())
                 .build();
     }
 
