@@ -109,6 +109,13 @@ public class FileController {
         return ApiResponse.success(fileService.createFolder(request), MDC.get("traceId"));
     }
 
+    @Operation(summary = "删除文件夹", description = "删除指定文件夹，文件夹内的文件将移至根目录。")
+    @DeleteMapping("/folders/{id}")
+    public ApiResponse<Void> deleteFolder(@PathVariable Long id) {
+        fileService.deleteFolder(id);
+        return ApiResponse.success(null, MDC.get("traceId"));
+    }
+
     @Operation(summary = "查询文件夹列表", description = "按业务类型和业务ID查询已创建的文件夹。")
     @GetMapping("/folders")
     public ApiResponse<List<FileFolderResponse>> listFolders(

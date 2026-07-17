@@ -30,6 +30,9 @@ public record TodoItemResponse(
         @Schema(description = "负责人姓名。")
         String ownerName,
 
+        @Schema(description = "创建人姓名（Bug 卡片专用）。")
+        String creatorName,
+
         @Schema(description = "计划结束日期，格式 yyyy-MM-dd。")
         LocalDate plannedEndDate,
 

@@ -15,6 +15,8 @@ import com.jitong.projectflow.file.entity.FileFolderEntity;
 import com.jitong.projectflow.file.entity.FileMetadata;
 import com.jitong.projectflow.file.mapper.FileFolderMapper;
 import com.jitong.projectflow.file.mapper.FileMetadataMapper;
+import com.jitong.projectflow.system.entity.SystemUser;
+import com.jitong.projectflow.system.mapper.SystemUserMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -41,6 +43,7 @@ public class FileService {
     private final FileStorageService fileStorageService;
     private final BusinessAccessService businessAccessService;
     private final FileFolderMapper fileFolderMapper;
+    private final SystemUserMapper systemUserMapper;
 
     public FileResponse upload(String businessType, Long businessId, String versionNo, MultipartFile file) {
         return upload(businessType, businessId, versionNo, DEFAULT_STORAGE_LOCATION, null, file);
@@ -195,6 +198,21 @@ public class FileService {
         return metadata;
     }
 
+    public void deleteFolder(Long id) {
+        FileFolderEntity folder = fileFolderMapper.selectById(id);
+        if (folder == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "文件夹不存在");
+        }
+        LambdaQueryWrapper<FileMetadata> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(FileMetadata::getFolderId, id);
+        List<FileMetadata> filesInFolder = fileMetadataMapper.selectList(wrapper);
+        filesInFolder.forEach(file -> {
+            file.setFolderId(null);
+            fileMetadataMapper.updateById(file);
+        });
+        fileFolderMapper.deleteById(id);
+    }
+
     public FileFolderResponse createFolder(FileFolderCreateRequest request) {
         FileFolderEntity entity = new FileFolderEntity();
         entity.setBusinessType(request.getBusinessType());
@@ -332,8 +350,17 @@ public class FileService {
                 .storageType(metadata.getStorageType())
                 .url(fileStorageService.publicUrl(metadata.getStorageKey()))
                 .uploaderId(metadata.getUploaderId())
+                .uploaderName(resolveUploaderName(metadata.getUploaderId()))
                 .uploadedAt(metadata.getUploadedAt())
                 .build();
+    }
+
+    private String resolveUploaderName(Long uploaderId) {
+        if (uploaderId == null) {
+            return null;
+        }
+        SystemUser user = systemUserMapper.selectById(uploaderId);
+        return user == null ? null : user.getRealName();
     }
 
     private void validateFolder(String businessType, Long businessId, Long folderId) {

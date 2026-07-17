@@ -208,6 +208,7 @@ public class TaskService {
         if (request.getDescription() != null) entity.setDescription(request.getDescription());
         if (request.getTags() != null) entity.setTags(request.getTags());
         if (request.getRemark() != null) entity.setRemark(request.getRemark());
+        entity.setStatus(calculateStatus(entity).name());
         entity.setUpdatedBy(CurrentUserContext.userIdOrNull());
         taskMapper.updateById(entity);
         operationLogService.record("task", "Task", id, "UPDATE", "编辑任务：" + entity.getName());
@@ -253,7 +254,7 @@ public class TaskService {
         }
         wrapper.eq(request.getAssigneeId() != null, TaskEntity::getAssigneeId, request.getAssigneeId());
         wrapper.eq(StringUtils.hasText(request.getPriority()), TaskEntity::getPriority, request.getPriority());
-        wrapper.eq(StringUtils.hasText(request.getStatus()), TaskEntity::getStatus, request.getStatus());
+        applyStatusQuery(wrapper, request.getStatus());
         wrapper.eq(request.getPlannedEndDate() != null, TaskEntity::getPlannedEndDate, request.getPlannedEndDate());
         wrapper.like(StringUtils.hasText(request.getKeyword()), TaskEntity::getName, request.getKeyword());
         applyReadScope(wrapper);
@@ -280,6 +281,40 @@ public class TaskService {
                 LocalDate.now());
     }
 
+    private void applyStatusQuery(LambdaQueryWrapper<TaskEntity> wrapper, String status) {
+        if (!StringUtils.hasText(status)) {
+            return;
+        }
+        LocalDate today = LocalDate.now();
+        LocalDate dueSoonEnd = today.plusDays(3);
+        switch (status) {
+            case "COMPLETED" -> wrapper.isNotNull(TaskEntity::getActualEndDate);
+            case "PAUSED" -> wrapper.eq(TaskEntity::getStatus, TaskStatus.PAUSED.name());
+            case "OVERDUE" -> wrapper
+                    .isNull(TaskEntity::getActualEndDate)
+                    .ne(TaskEntity::getStatus, TaskStatus.PAUSED.name())
+                    .isNotNull(TaskEntity::getPlannedEndDate)
+                    .lt(TaskEntity::getPlannedEndDate, today);
+            case "DUE_SOON" -> wrapper
+                    .isNull(TaskEntity::getActualEndDate)
+                    .ne(TaskEntity::getStatus, TaskStatus.PAUSED.name())
+                    .isNotNull(TaskEntity::getPlannedEndDate)
+                    .ge(TaskEntity::getPlannedEndDate, today)
+                    .le(TaskEntity::getPlannedEndDate, dueSoonEnd);
+            case "IN_PROGRESS" -> wrapper
+                    .isNull(TaskEntity::getActualEndDate)
+                    .ne(TaskEntity::getStatus, TaskStatus.PAUSED.name())
+                    .isNotNull(TaskEntity::getActualStartDate)
+                    .and(q -> q.isNull(TaskEntity::getPlannedEndDate).or().gt(TaskEntity::getPlannedEndDate, dueSoonEnd));
+            case "NOT_STARTED" -> wrapper
+                    .isNull(TaskEntity::getActualEndDate)
+                    .ne(TaskEntity::getStatus, TaskStatus.PAUSED.name())
+                    .isNull(TaskEntity::getActualStartDate)
+                    .and(q -> q.isNull(TaskEntity::getPlannedEndDate).or().gt(TaskEntity::getPlannedEndDate, dueSoonEnd));
+            default -> wrapper.eq(TaskEntity::getStatus, status);
+        }
+    }
+
     private TaskEntity requireTask(Long id) {
         TaskEntity entity = taskMapper.selectById(id);
         if (entity == null) {
@@ -289,6 +324,7 @@ public class TaskService {
     }
 
     private TaskResponse toResponse(TaskEntity entity) {
+        TaskStatus displayStatus = calculateStatus(entity);
         return TaskResponse.builder()
                 .id(entity.getId())
                 .projectId(entity.getProjectId())
@@ -296,7 +332,7 @@ public class TaskService {
                 .name(entity.getName())
                 .roleName(entity.getRoleName())
                 .priority(entity.getPriority())
-                .status(entity.getStatus())
+                .status(displayStatus.name())
                 .assigneeId(entity.getAssigneeId())
                 .plannedStartDate(entity.getPlannedStartDate())
                 .plannedEndDate(entity.getPlannedEndDate())

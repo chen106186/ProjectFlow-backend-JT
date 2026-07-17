@@ -296,6 +296,7 @@ public class DashboardService {
                 task.getStatus(),
                 projectNames.get(task.getProjectId()),
                 userNames.get(task.getAssigneeId()),
+                null,
                 task.getPlannedEndDate(),
                 overdueDays);
         return new TodoWithSortKey(
@@ -314,6 +315,7 @@ public class DashboardService {
                 bug.getStatus(),
                 projectNames.get(bug.getProjectId()),
                 userNames.get(bug.getAssigneeId()),
+                userNames.get(bug.getCreatorId()),
                 null,
                 0);
         return new TodoWithSortKey(
@@ -332,6 +334,7 @@ public class DashboardService {
                 req.getStatus(),
                 projectNames.get(req.getProjectId()),
                 userNames.get(req.getCreatedBy()),
+                null,
                 null,
                 0);
         return new TodoWithSortKey(

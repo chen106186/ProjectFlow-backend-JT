@@ -36,6 +36,8 @@ public class FileResponse {
     private String url;
     @Schema(description = "上传人ID。")
     private Long uploaderId;
+    @Schema(description = "上传人姓名。")
+    private String uploaderName;
     @Schema(description = "上传时间，格式 yyyy-MM-dd HH:mm:ss。")
     private LocalDateTime uploadedAt;
 }
