@@ -45,8 +45,11 @@ public class DictService {
         add("projectStatus", "项目状态",
                 item("NOT_STARTED", "未开始"),
                 item("IN_PROGRESS", "进行中"),
+                item("DUE_SOON", "即将到期"),
+                item("OVERDUE", "已逾期"),
                 item("PAUSED", "已暂停"),
                 item("COMPLETED", "已完成"),
+                item("OVERDUE_COMPLETED", "逾期完成"),
                 item("CANCELLED", "已取消"));
         add("contractStatus", "合同状态",
                 item("NOT_SIGNED", "未签约"),

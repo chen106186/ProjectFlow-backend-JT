@@ -32,6 +32,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -78,6 +79,9 @@ public class ProjectService {
         entity.setPlannedEndDate(request.getPlannedEndDate());
         entity.setActualStartDate(request.getActualStartDate());
         entity.setActualEndDate(request.getActualEndDate());
+        if ("MANAGEMENT".equals(entity.getProjectType())) {
+            entity.setStatus(calculateManagementStatus(entity, request.getStatus()));
+        }
         entity.setCreatedBy(CurrentUserContext.userIdOrNull());
         projectMapper.insert(entity);
         saveParticipants(entity.getId(), request.getParticipantIds());
@@ -119,7 +123,6 @@ public class ProjectService {
         if (request.getProjectBusinessType() != null) entity.setProjectBusinessType(request.getProjectBusinessType());
         if (request.getName() != null) entity.setName(request.getName());
         if (request.getStage() != null) entity.setStage(request.getStage());
-        if (request.getStatus() != null) entity.setStatus(request.getStatus());
         if (request.getContractStatus() != null) entity.setContractStatus(request.getContractStatus());
         if (request.getBusinessDepartment() != null) entity.setBusinessDepartment(request.getBusinessDepartment());
         if (request.getContractorUnit() != null) entity.setContractorUnit(request.getContractorUnit());
@@ -132,6 +135,11 @@ public class ProjectService {
         if (request.getPlannedEndDate() != null) entity.setPlannedEndDate(request.getPlannedEndDate());
         if (request.getActualStartDate() != null) entity.setActualStartDate(request.getActualStartDate());
         if (request.getActualEndDate() != null) entity.setActualEndDate(request.getActualEndDate());
+        if ("MANAGEMENT".equals(entity.getProjectType())) {
+            entity.setStatus(calculateManagementStatus(entity, request.getStatus()));
+        } else {
+            if (request.getStatus() != null) entity.setStatus(request.getStatus());
+        }
         entity.setUpdatedBy(CurrentUserContext.userIdOrNull());
         projectMapper.updateById(entity);
         if (request.getParticipantIds() != null) {
@@ -180,6 +188,38 @@ public class ProjectService {
             throw new BusinessException(ErrorCode.NOT_FOUND, "项目不存在");
         }
         return entity;
+    }
+
+    /** 根据流程图计算管理类项目状态。只有"已暂停"可由用户手动传入；其余状态均由日期自动判定。 */
+    String calculateManagementStatus(ProjectEntity entity, String requestedStatus) {
+        if ("PAUSED".equals(requestedStatus)) {
+            return "PAUSED";
+        }
+        LocalDate plannedEnd = entity.getPlannedEndDate();
+        LocalDate actualStart = entity.getActualStartDate();
+        LocalDate actualEnd = entity.getActualEndDate();
+        // 已填实际结束时间 → 已完成 or 逾期完成
+        if (actualEnd != null) {
+            if (plannedEnd != null && actualEnd.isAfter(plannedEnd)) {
+                return "OVERDUE_COMPLETED";
+            }
+            return "COMPLETED";
+        }
+        // 未填实际开始时间 → 未开始
+        if (actualStart == null) {
+            return "NOT_STARTED";
+        }
+        // 已开始，无结束 → 根据与计划结束时间的距离判断
+        LocalDate today = LocalDate.now();
+        if (plannedEnd != null) {
+            if (today.isAfter(plannedEnd)) {
+                return "OVERDUE";
+            }
+            if (!today.isBefore(plannedEnd.minusDays(7))) {
+                return "DUE_SOON";
+            }
+        }
+        return "IN_PROGRESS";
     }
 
     private void applyReadScope(LambdaQueryWrapper<ProjectEntity> wrapper) {
