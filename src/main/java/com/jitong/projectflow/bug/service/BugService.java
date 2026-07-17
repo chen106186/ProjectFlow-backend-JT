@@ -13,6 +13,7 @@ import com.jitong.projectflow.bug.dto.BugFixRequest;
 import com.jitong.projectflow.bug.dto.BugResolveRequest;
 import com.jitong.projectflow.bug.dto.BugQueryRequest;
 import com.jitong.projectflow.bug.dto.BugResponse;
+import com.jitong.projectflow.bug.dto.BugSummaryResponse;
 import com.jitong.projectflow.bug.dto.BugUpdateRequest;
 import com.jitong.projectflow.bug.entity.BugCommentEntity;
 import com.jitong.projectflow.bug.entity.BugEntity;
@@ -41,6 +42,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -86,14 +88,7 @@ public class BugService {
         LambdaQueryWrapper<BugEntity> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(StringUtils.hasText(request.getStatus()), BugEntity::getStatus, request.getStatus());
         wrapper.eq(StringUtils.hasText(request.getPriority()), BugEntity::getPriority, request.getPriority());
-        if (request.getProjectId() != null) {
-            ProjectEntity proj = projectMapper.selectById(request.getProjectId());
-            if (proj != null && "EXECUTION".equals(proj.getProjectType()) && proj.getManagementProjectId() != null) {
-                wrapper.in(BugEntity::getProjectId, List.of(request.getProjectId(), proj.getManagementProjectId()));
-            } else {
-                wrapper.eq(BugEntity::getProjectId, request.getProjectId());
-            }
-        }
+        applyProjectScope(wrapper, request.getProjectId());
         wrapper.eq(request.getAssigneeId() != null, BugEntity::getAssigneeId, request.getAssigneeId());
         wrapper.eq(request.getCreatorId() != null, BugEntity::getCreatorId, request.getCreatorId());
         wrapper.like(StringUtils.hasText(request.getKeyword()), BugEntity::getTitle, request.getKeyword());
@@ -106,6 +101,28 @@ public class BugService {
         Map<Long, String> projectNames = batchProjectNames(records.stream()
                 .map(BugEntity::getProjectId).filter(Objects::nonNull).collect(Collectors.toSet()));
         return PageUtils.toResult(page, records.stream().map(b -> toResponse(b, userNames, projectNames)).toList());
+    }
+
+    public BugSummaryResponse summary(Long projectId) {
+        LambdaQueryWrapper<BugEntity> baseWrapper = new LambdaQueryWrapper<>();
+        applyProjectScope(baseWrapper, projectId);
+        List<BugEntity> bugs = safeList(bugMapper.selectList(baseWrapper));
+        return new BugSummaryResponse(
+                bugs.size(),
+                countBy(bugs, BugEntity::getStatus),
+                countBy(bugs, BugEntity::getPriority));
+    }
+
+    private void applyProjectScope(LambdaQueryWrapper<BugEntity> wrapper, Long projectId) {
+        if (projectId == null) {
+            return;
+        }
+        ProjectEntity proj = projectMapper.selectById(projectId);
+        if (proj != null && "EXECUTION".equals(proj.getProjectType()) && proj.getManagementProjectId() != null) {
+            wrapper.in(BugEntity::getProjectId, List.of(projectId, proj.getManagementProjectId()));
+        } else {
+            wrapper.eq(BugEntity::getProjectId, projectId);
+        }
     }
 
     public List<BugResponse> listMine() {
@@ -385,6 +402,17 @@ public class BugService {
         if (projectId == null) return "未知项目";
         ProjectEntity project = projectMapper.selectById(projectId);
         return project != null ? project.getName() : "未知项目";
+    }
+
+    private <T> List<T> safeList(List<T> values) {
+        return values == null ? List.of() : values;
+    }
+
+    private <T> Map<String, Long> countBy(List<T> values, Function<T, String> classifier) {
+        return values.stream()
+                .map(classifier)
+                .filter(Objects::nonNull)
+                .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
     }
 
     private String bugStatusLabel(String status) {
