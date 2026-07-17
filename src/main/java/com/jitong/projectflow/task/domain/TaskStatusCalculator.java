@@ -3,6 +3,10 @@ package com.jitong.projectflow.task.domain;
 import java.time.LocalDate;
 
 public class TaskStatusCalculator {
+    public TaskStatus calculate(LocalDate plannedEndDate, LocalDate actualStartDate, LocalDate actualEndDate, boolean paused, LocalDate today) {
+        return calculate(null, plannedEndDate, actualStartDate, actualEndDate, paused, today);
+    }
+
     public TaskStatus calculate(LocalDate plannedStartDate, LocalDate plannedEndDate, LocalDate actualStartDate, LocalDate actualEndDate, boolean paused, LocalDate today) {
         if (paused) {
             return TaskStatus.PAUSED;
