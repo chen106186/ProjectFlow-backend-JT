@@ -119,7 +119,7 @@ public class RequirementService {
         if (entity == null) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "需求不存在");
         }
-        businessAccessService.requireRequirementManage(entity);
+        businessAccessService.requireRequirementOwner(entity);
 
         RequirementEntity before = copyRequirement(entity);
 
@@ -145,7 +145,7 @@ public class RequirementService {
         if (entity == null) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "需求不存在");
         }
-        businessAccessService.requireRequirementManage(entity);
+        businessAccessService.requireRequirementOwner(entity);
 
         RequirementStatus from = RequirementStatus.valueOf(entity.getStatus());
         RequirementStatus to;

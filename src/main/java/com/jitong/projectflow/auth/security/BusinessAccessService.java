@@ -78,6 +78,14 @@ public class BusinessAccessService {
         throwForbidden();
     }
 
+    public void requireRequirementOwner(RequirementEntity requirement) {
+        Long userId = currentUserId();
+        if (isSystemAdmin() || same(userId, requirement.getCreatedBy())) {
+            return;
+        }
+        throwForbidden();
+    }
+
     public void requireFileDelete(FileMetadata metadata) {
         Long userId = currentUserId();
         if (isSystemAdmin() || same(userId, metadata.getUploaderId())) {
