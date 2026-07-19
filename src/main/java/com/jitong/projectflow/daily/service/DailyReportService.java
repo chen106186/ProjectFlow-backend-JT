@@ -85,7 +85,12 @@ public class DailyReportService {
         }
         DailyReportQueryRequest request = new DailyReportQueryRequest();
         request.setReporterId(CurrentUserContext.userId());
-        return dailyReportMapper.selectList(buildQuery(request)).stream().map(e -> toResponse(e, null)).toList();
+        SystemUser currentUser = systemUserMapper.selectById(CurrentUserContext.userId());
+        String currentUserName = currentUser != null
+                ? (currentUser.getRealName() != null ? currentUser.getRealName() : currentUser.getUsername())
+                : null;
+        return dailyReportMapper.selectList(buildQuery(request)).stream()
+                .map(e -> toResponse(e, currentUserName)).toList();
     }
 
     public DailyReportResponse getById(Long id) {
