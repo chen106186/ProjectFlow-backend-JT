@@ -338,6 +338,7 @@ public class RequirementService {
                 .id(entity.getId())
                 .requirementNo(entity.getRequirementNo())
                 .projectId(entity.getProjectId())
+                .projectName(projectName(entity.getProjectId()))
                 .reviewerId(entity.getReviewerId())
                 .reviewerName(nameMap.getOrDefault(entity.getReviewerId(), ""))
                 .title(entity.getTitle())

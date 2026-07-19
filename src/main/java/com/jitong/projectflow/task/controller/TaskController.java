@@ -117,12 +117,18 @@ public class TaskController {
     }
 
     @Operation(summary = "删除任务",
-            description = "逻辑删除指定任务，系统会校验接口权限和业务数据归属。")
-
+            description = "逻辑删除指定任务及其所有子孙任务，系统会校验接口权限和业务数据归属。")
     @DeleteMapping("/{id}")
     public ApiResponse<Void> delete(@PathVariable Long id) {
         taskService.delete(id);
         return ApiResponse.success(null, MDC.get("traceId"));
+    }
+
+    @Operation(summary = "查询子任务列表",
+            description = "查询指定任务的直接子任务列表，按排序号升序返回。")
+    @GetMapping("/{id}/subtasks")
+    public ApiResponse<List<TaskResponse>> listSubtasks(@PathVariable Long id) {
+        return ApiResponse.success(taskService.listSubtasks(id), MDC.get("traceId"));
     }
 
     @Operation(summary = "填报任务实际时间",

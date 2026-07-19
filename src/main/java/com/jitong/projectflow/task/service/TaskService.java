@@ -54,6 +54,11 @@ public class TaskService {
     private final TaskStatusCalculator statusCalculator = new TaskStatusCalculator();
 
     public TaskResponse create(TaskCreateRequest request) {
+        if (request.getParentId() != null) {
+            if (computeDepth(request.getParentId()) >= 3) {
+                throw new BusinessException(ErrorCode.BAD_REQUEST, "子任务最多支持三级");
+            }
+        }
         TaskEntity entity = createEntity(request);
         taskMapper.insert(entity);
         afterTaskCreated(entity);
@@ -238,8 +243,34 @@ public class TaskService {
     public void delete(Long id) {
         TaskEntity entity = requireTask(id);
         businessAccessService.requireTaskManage(entity);
-        taskMapper.deleteById(id);
+        deleteWithDescendants(id);
         operationLogService.record("task", "Task", id, "DELETE", "删除任务：" + entity.getName());
+    }
+
+    public List<TaskResponse> listSubtasks(Long id) {
+        requireTask(id);
+        return taskMapper.selectList(new LambdaQueryWrapper<TaskEntity>()
+                .eq(TaskEntity::getParentId, id)
+                .orderByAsc(TaskEntity::getSortOrder))
+                .stream().map(this::toResponse).toList();
+    }
+
+    private void deleteWithDescendants(Long id) {
+        taskMapper.selectList(new LambdaQueryWrapper<TaskEntity>().eq(TaskEntity::getParentId, id))
+                .forEach(child -> deleteWithDescendants(child.getId()));
+        taskMapper.deleteById(id);
+    }
+
+    private int computeDepth(Long taskId) {
+        int depth = 0;
+        Long current = taskId;
+        while (current != null && depth <= 4) {
+            TaskEntity entity = taskMapper.selectById(current);
+            if (entity == null) break;
+            current = entity.getParentId();
+            if (current != null) depth++;
+        }
+        return depth;
     }
 
     private LambdaQueryWrapper<TaskEntity> buildQuery(TaskQueryRequest request) {

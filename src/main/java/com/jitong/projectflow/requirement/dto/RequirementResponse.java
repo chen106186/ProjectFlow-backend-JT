@@ -20,6 +20,9 @@ public class RequirementResponse {
     @Schema(description = "项目 ID。")
     private Long projectId;
 
+    @Schema(description = "项目名称。")
+    private String projectName;
+
     @Schema(description = "审核人用户 ID。")
     private Long reviewerId;
 
