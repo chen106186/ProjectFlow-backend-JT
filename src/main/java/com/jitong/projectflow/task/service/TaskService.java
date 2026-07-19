@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.jitong.projectflow.auth.security.BusinessAccessService;
 import com.jitong.projectflow.auth.security.CurrentUserContext;
+import com.jitong.projectflow.common.api.DateRangeValidator;
 import com.jitong.projectflow.common.api.PageResult;
 import com.jitong.projectflow.common.api.PageUtils;
 import com.jitong.projectflow.common.error.BusinessException;
@@ -59,6 +60,7 @@ public class TaskService {
                 throw new BusinessException(ErrorCode.BAD_REQUEST, "子任务最多支持三级");
             }
         }
+        DateRangeValidator.validate(request.getPlannedStartDate(), request.getPlannedEndDate(), "计划");
         TaskEntity entity = createEntity(request);
         taskMapper.insert(entity);
         afterTaskCreated(entity);
@@ -210,6 +212,8 @@ public class TaskService {
         if (request.getPlannedEndDate() != null) entity.setPlannedEndDate(request.getPlannedEndDate());
         if (request.getActualStartDate() != null) entity.setActualStartDate(request.getActualStartDate());
         if (request.getActualEndDate() != null) entity.setActualEndDate(request.getActualEndDate());
+        DateRangeValidator.validate(entity.getPlannedStartDate(), entity.getPlannedEndDate(), "计划");
+        DateRangeValidator.validate(entity.getActualStartDate(), entity.getActualEndDate(), "实际");
         if (request.getDescription() != null) entity.setDescription(request.getDescription());
         if (request.getTags() != null) entity.setTags(request.getTags());
         if (request.getRemark() != null) entity.setRemark(request.getRemark());
@@ -232,6 +236,7 @@ public class TaskService {
         businessAccessService.requireTaskActualTimeManage(entity);
         if (request.getActualStartDate() != null) entity.setActualStartDate(request.getActualStartDate());
         if (request.getActualEndDate() != null) entity.setActualEndDate(request.getActualEndDate());
+        DateRangeValidator.validate(entity.getActualStartDate(), entity.getActualEndDate(), "实际");
         if (request.getRemark() != null) entity.setRemark(request.getRemark());
         entity.setStatus(calculateStatus(entity).name());
         entity.setUpdatedBy(CurrentUserContext.userIdOrNull());

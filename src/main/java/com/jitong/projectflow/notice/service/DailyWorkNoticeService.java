@@ -64,27 +64,24 @@ public class DailyWorkNoticeService {
             String content;
 
             long total = overdueCount + dueSoonCount + inProgressCount + bugPendingCount;
-            if (total > 0) {
-                title = "早安，" + userName + "！今日共有 " + total + " 项工作待处理";
-                StringBuilder sb = new StringBuilder();
-                if (overdueCount > 0) sb.append("逾期任务 ").append(overdueCount).append(" 个");
-                if (dueSoonCount > 0) {
-                    if (sb.length() > 0) sb.append("　｜　");
-                    sb.append("即将到期任务 ").append(dueSoonCount).append(" 个");
-                }
-                if (inProgressCount > 0) {
-                    if (sb.length() > 0) sb.append("　｜　");
-                    sb.append("进行中任务 ").append(inProgressCount).append(" 个");
-                }
-                if (bugPendingCount > 0) {
-                    if (sb.length() > 0) sb.append("　｜　");
-                    sb.append("待处理缺陷 ").append(bugPendingCount).append(" 个");
-                }
-                content = sb.toString();
-            } else {
-                title = "早安，" + userName + "！祝您今日工作顺利";
-                content = "今日暂无待处理任务，请关注新任务分配";
+            if (total == 0) continue;
+
+            title = "早安，" + userName + "！今日共有 " + total + " 项工作待处理";
+            StringBuilder sb = new StringBuilder();
+            if (overdueCount > 0) sb.append("逾期任务 ").append(overdueCount).append(" 个");
+            if (dueSoonCount > 0) {
+                if (sb.length() > 0) sb.append("　｜　");
+                sb.append("即将到期任务 ").append(dueSoonCount).append(" 个");
             }
+            if (inProgressCount > 0) {
+                if (sb.length() > 0) sb.append("　｜　");
+                sb.append("进行中任务 ").append(inProgressCount).append(" 个");
+            }
+            if (bugPendingCount > 0) {
+                if (sb.length() > 0) sb.append("　｜　");
+                sb.append("待处理缺陷 ").append(bugPendingCount).append(" 个");
+            }
+            content = sb.toString();
 
             noticeService.create(user.getId(), NoticeType.SYSTEM, title, content, null, null);
             sent++;

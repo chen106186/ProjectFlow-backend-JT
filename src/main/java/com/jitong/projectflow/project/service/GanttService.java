@@ -2,6 +2,7 @@ package com.jitong.projectflow.project.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.jitong.projectflow.auth.security.CurrentUserContext;
+import com.jitong.projectflow.common.api.DateRangeValidator;
 import com.jitong.projectflow.common.error.BusinessException;
 import com.jitong.projectflow.common.error.ErrorCode;
 import com.jitong.projectflow.notice.domain.NoticeType;
@@ -77,6 +78,8 @@ public class GanttService {
         if (req.getPlannedEndDate() != null) entity.setPlannedEndDate(req.getPlannedEndDate());
         if (req.getActualStartDate() != null) entity.setActualStartDate(req.getActualStartDate());
         if (req.getActualEndDate() != null) entity.setActualEndDate(req.getActualEndDate());
+        DateRangeValidator.validate(entity.getPlannedStartDate(), entity.getPlannedEndDate(), "计划");
+        DateRangeValidator.validate(entity.getActualStartDate(), entity.getActualEndDate(), "实际");
         // 状态由计划/实际时间自动计算，不接受手动传入
         ProjectNodeStatus calculated = statusCalculator.calculate(
                 entity.getPlannedStartDate(), entity.getPlannedEndDate(),

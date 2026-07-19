@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.jitong.projectflow.auth.security.BusinessAccessService;
 import com.jitong.projectflow.auth.security.CurrentUserContext;
+import com.jitong.projectflow.common.api.DateRangeValidator;
 import com.jitong.projectflow.common.api.PageResult;
 import com.jitong.projectflow.common.api.PageUtils;
 import com.jitong.projectflow.common.error.BusinessException;
@@ -79,6 +80,8 @@ public class ProjectService {
         entity.setPlannedEndDate(request.getPlannedEndDate());
         entity.setActualStartDate(request.getActualStartDate());
         entity.setActualEndDate(request.getActualEndDate());
+        DateRangeValidator.validate(entity.getPlannedStartDate(), entity.getPlannedEndDate(), "计划");
+        DateRangeValidator.validate(entity.getActualStartDate(), entity.getActualEndDate(), "实际");
         entity.setStatus(calculateProjectStatus(entity, request.getStatus()));
         entity.setCreatedBy(CurrentUserContext.userIdOrNull());
         projectMapper.insert(entity);
@@ -133,6 +136,8 @@ public class ProjectService {
         if (request.getPlannedEndDate() != null) entity.setPlannedEndDate(request.getPlannedEndDate());
         if (request.getActualStartDate() != null) entity.setActualStartDate(request.getActualStartDate());
         if (request.getActualEndDate() != null) entity.setActualEndDate(request.getActualEndDate());
+        DateRangeValidator.validate(entity.getPlannedStartDate(), entity.getPlannedEndDate(), "计划");
+        DateRangeValidator.validate(entity.getActualStartDate(), entity.getActualEndDate(), "实际");
         entity.setStatus(calculateProjectStatus(entity, request.getStatus()));
         entity.setUpdatedBy(CurrentUserContext.userIdOrNull());
         projectMapper.updateById(entity);
