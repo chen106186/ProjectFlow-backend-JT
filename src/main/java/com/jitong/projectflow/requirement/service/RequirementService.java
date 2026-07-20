@@ -95,7 +95,6 @@ public class RequirementService {
         wrapper.eq(StringUtils.hasText(request.getRequirementType()), RequirementEntity::getRequirementType, request.getRequirementType());
         wrapper.eq(StringUtils.hasText(request.getPriority()), RequirementEntity::getPriority, request.getPriority());
         wrapper.eq(StringUtils.hasText(request.getStatus()), RequirementEntity::getStatus, request.getStatus());
-        applyReadScope(wrapper);
         wrapper.orderByDesc(RequirementEntity::getCreatedAt);
         Page<RequirementEntity> page = requirementMapper.selectPage(PageUtils.toPage(request), wrapper);
         List<RequirementEntity> records = page.getRecords();
@@ -225,15 +224,7 @@ public class RequirementService {
                 .collect(Collectors.toList());
     }
 
-    private void applyReadScope(LambdaQueryWrapper<RequirementEntity> wrapper) {
-        if (businessAccessService.isSystemAdmin() || businessAccessService.canViewAll()) {
-            return;
-        }
-        Long userId = CurrentUserContext.userId();
-        wrapper.and(scope -> scope.eq(RequirementEntity::getCreatedBy, userId)
-                .or()
-                .eq(RequirementEntity::getReviewerId, userId));
-    }
+
 
     private Map<Long, String> loadUserNames(List<Long> userIds) {
         List<Long> distinctIds = userIds.stream().filter(Objects::nonNull).distinct().collect(Collectors.toList());
