@@ -6,6 +6,8 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
+import java.util.List;
+
 @Data
 public class BugCreateRequest {
     @NotNull
@@ -13,6 +15,8 @@ public class BugCreateRequest {
     private Long projectId;
     @Schema(description = "任务 ID。")
     private Long taskId;
+    @Schema(description = "关联任务 ID 列表，支持一个 Bug 关联多个任务。")
+    private List<Long> relatedTaskIds;
     @NotBlank
     @Schema(description = "标题。")
     private String title;

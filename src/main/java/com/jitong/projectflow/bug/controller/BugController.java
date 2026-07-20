@@ -62,9 +62,11 @@ public class BugController {
         return ApiResponse.success(bugService.summary(projectId), MDC.get("traceId"));
     }
 
+    @Operation(summary = "查询我的 Bug",
+            description = "查询当前登录用户创建或被指定处理的全部 Bug，支持按关键字、项目、优先级、状态和创建人筛选。")
     @GetMapping("/my")
-    public ApiResponse<List<BugResponse>> listMine() {
-        return ApiResponse.success(bugService.listMine(), MDC.get("traceId"));
+    public ApiResponse<List<BugResponse>> listMine(@ModelAttribute BugQueryRequest request) {
+        return ApiResponse.success(bugService.listMine(request), MDC.get("traceId"));
     }
 
     @Operation(summary = "查询 Bug 详情",
@@ -93,6 +95,13 @@ public class BugController {
     @PatchMapping("/{id:\\d+}/close")
     public ApiResponse<BugResponse> close(@PathVariable Long id) {
         return ApiResponse.success(bugService.close(id), MDC.get("traceId"));
+    }
+
+    @Operation(summary = "重新打开 Bug",
+            description = "将已关闭的 Bug 状态重置为待修复，只有创建人或系统管理员可操作。")
+    @PatchMapping("/{id:\\d+}/reopen")
+    public ApiResponse<BugResponse> reopen(@PathVariable Long id) {
+        return ApiResponse.success(bugService.reopen(id), MDC.get("traceId"));
     }
 
     @Operation(summary = "删除 Bug",

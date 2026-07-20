@@ -28,8 +28,6 @@ public class DailyWorkNoticeService {
     private final NoticeService noticeService;
     private final SystemUserMapper systemUserMapper;
 
-    /** 每天 08:00 向全体在职用户发送当日工作提醒 */
-    @Scheduled(cron = "${projectflow.notice.daily-work-cron:0 0 8 * * ?}")
     public void sendDailyWorkNotice() {
         int sent = sendDailyWorkNotice(LocalDate.now());
         log.info("[定时] 每日工作提醒发送完成，共发送 {} 条", sent);

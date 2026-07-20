@@ -86,7 +86,8 @@ public class DictService {
         add("requirementStatus", "需求状态", items(RequirementStatus.values(), Map.of(
                 RequirementStatus.PENDING_REVIEW.name(), "待评审",
                 RequirementStatus.ACCEPTED.name(), "已采纳",
-                RequirementStatus.REJECTED.name(), "已拒绝")));
+                RequirementStatus.REJECTED.name(), "未采纳",
+                RequirementStatus.SHELVED.name(), "已搁置")));
         add("requirementPriority", "需求优先级", items(RequirementPriority.values(), priorityLabels()));
         add("requirementType", "需求类型",
                 item("FUNCTION", "功能需求"),

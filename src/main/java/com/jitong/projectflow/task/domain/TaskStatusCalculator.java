@@ -20,7 +20,7 @@ public class TaskStatusCalculator {
         if (plannedEndDate != null && !today.isBefore(plannedEndDate.minusDays(3))) {
             return TaskStatus.DUE_SOON;
         }
-        if (actualStartDate != null || (plannedStartDate != null && !today.isBefore(plannedStartDate))) {
+        if (actualStartDate != null) {
             return TaskStatus.IN_PROGRESS;
         }
         return TaskStatus.NOT_STARTED;

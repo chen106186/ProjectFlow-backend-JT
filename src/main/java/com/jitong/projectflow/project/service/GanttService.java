@@ -12,6 +12,7 @@ import com.jitong.projectflow.project.domain.GanttSummaryData;
 import com.jitong.projectflow.project.domain.ProjectNodeStatus;
 import com.jitong.projectflow.project.domain.ProjectNodeStatusCalculator;
 import com.jitong.projectflow.project.domain.ProjectNodeTemplate;
+import com.jitong.projectflow.project.domain.ProjectStatusCalculator;
 import com.jitong.projectflow.project.dto.GanttNodeResponse;
 import com.jitong.projectflow.project.dto.GanttSummaryResponse;
 import com.jitong.projectflow.project.dto.ProjectNodeUpdateRequest;
@@ -39,6 +40,7 @@ public class GanttService {
     private final ProjectNodeMapper projectNodeMapper;
     private final GanttNodeSummaryCalculator calculator = new GanttNodeSummaryCalculator();
     private final ProjectNodeStatusCalculator statusCalculator = new ProjectNodeStatusCalculator();
+    private static final ProjectStatusCalculator PROJECT_STATUS_CALCULATOR = new ProjectStatusCalculator();
     private final OperationLogService operationLogService;
     private final NoticeService noticeService;
     private final ProjectMapper projectMapper;
@@ -97,6 +99,7 @@ public class GanttService {
         projectNodeMapper.updateById(entity);
         syncToManagementNode(entity, req);
         syncToExecutionNode(entity, req);
+        recalcProjectStatuses(entity.getProjectId());
 
         String newStatus = entity.getStatus();
         StringBuilder logContent = new StringBuilder("编辑项目节点：").append(entity.getNodeName());
@@ -116,6 +119,37 @@ public class GanttService {
         }
 
         return toResponse(entity);
+    }
+
+    /** 重算原始项目及其关联管理类/执行类项目的状态（基于各自的甘特节点）。 */
+    private void recalcProjectStatuses(Long originProjectId) {
+        syncProjectStatus(originProjectId);
+        ProjectEntity project = projectMapper.selectById(originProjectId);
+        if (project == null) return;
+        if ("EXECUTION".equals(project.getProjectType()) && project.getManagementProjectId() != null) {
+            syncProjectStatus(project.getManagementProjectId());
+        } else if ("MANAGEMENT".equals(project.getProjectType())) {
+            ProjectEntity exec = projectMapper.selectOne(
+                    new LambdaQueryWrapper<ProjectEntity>()
+                            .eq(ProjectEntity::getManagementProjectId, originProjectId)
+                            .eq(ProjectEntity::getProjectType, "EXECUTION"));
+            if (exec != null) syncProjectStatus(exec.getId());
+        }
+    }
+
+    private void syncProjectStatus(Long projectId) {
+        ProjectEntity project = projectMapper.selectById(projectId);
+        if (project == null
+                || "PAUSED".equals(project.getStatus())
+                || "CANCELLED".equals(project.getStatus())) return;
+        List<ProjectNodeEntity> nodes = projectNodeMapper.selectList(
+                new LambdaQueryWrapper<ProjectNodeEntity>()
+                        .eq(ProjectNodeEntity::getProjectId, projectId));
+        String newStatus = PROJECT_STATUS_CALCULATOR.computeFromNodes(nodes);
+        if (!newStatus.equals(project.getStatus())) {
+            project.setStatus(newStatus);
+            projectMapper.updateById(project);
+        }
     }
 
     private void sendStageChangeNotice(ProjectNodeEntity node) {

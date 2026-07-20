@@ -10,6 +10,7 @@ import com.jitong.projectflow.common.api.PageUtils;
 import com.jitong.projectflow.common.error.BusinessException;
 import com.jitong.projectflow.common.error.ErrorCode;
 import com.jitong.projectflow.project.domain.ProjectNodeTemplate;
+import com.jitong.projectflow.project.domain.ProjectStatusCalculator;
 import com.jitong.projectflow.project.dto.ProjectCreateRequest;
 import com.jitong.projectflow.project.dto.ProjectNodeCreateRequest;
 import com.jitong.projectflow.project.dto.ProjectQueryRequest;
@@ -33,7 +34,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
-import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -45,6 +45,7 @@ import java.util.stream.Collectors;
 public class ProjectService {
     private final ProjectMapper projectMapper;
     private final ProjectNodeMapper projectNodeMapper;
+    private final ProjectStatusCalculator projectStatusCalculator = new ProjectStatusCalculator();
     private final ProjectParticipantMapper participantMapper;
     private final OperationLogService operationLogService;
     private final BusinessAccessService businessAccessService;
@@ -189,36 +190,18 @@ public class ProjectService {
         return entity;
     }
 
-    /** 计算项目状态。只有"已暂停"可由用户手动传入；其余状态均由日期自动判定（管理类和执行类均适用）。 */
+    /** 计算项目状态。只有"已暂停"可由用户手动传入；其余状态由甘特节点数据自动判定。 */
     String calculateProjectStatus(ProjectEntity entity, String requestedStatus) {
         if ("PAUSED".equals(requestedStatus)) {
             return "PAUSED";
         }
-        LocalDate plannedEnd = entity.getPlannedEndDate();
-        LocalDate actualStart = entity.getActualStartDate();
-        LocalDate actualEnd = entity.getActualEndDate();
-        // 已填实际结束时间 → 已完成 or 逾期完成
-        if (actualEnd != null) {
-            if (plannedEnd != null && actualEnd.isAfter(plannedEnd)) {
-                return "OVERDUE_COMPLETED";
-            }
-            return "COMPLETED";
-        }
-        // 未填实际开始时间 → 未开始
-        if (actualStart == null) {
+        if (entity.getId() == null) {
             return "NOT_STARTED";
         }
-        // 已开始，无结束 → 根据与计划结束时间的距离判断
-        LocalDate today = LocalDate.now();
-        if (plannedEnd != null) {
-            if (today.isAfter(plannedEnd)) {
-                return "OVERDUE";
-            }
-            if (!today.isBefore(plannedEnd.minusDays(7))) {
-                return "DUE_SOON";
-            }
-        }
-        return "IN_PROGRESS";
+        List<ProjectNodeEntity> nodes = projectNodeMapper.selectList(
+                new LambdaQueryWrapper<ProjectNodeEntity>()
+                        .eq(ProjectNodeEntity::getProjectId, entity.getId()));
+        return projectStatusCalculator.computeFromNodes(nodes);
     }
 
     private void applyReadScope(LambdaQueryWrapper<ProjectEntity> wrapper) {

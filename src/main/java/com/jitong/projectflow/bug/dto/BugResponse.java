@@ -21,6 +21,10 @@ public class BugResponse {
     private Long projectId;
     @Schema(description = "任务 ID。")
     private Long taskId;
+    @Schema(description = "关联任务 ID 列表。")
+    private List<Long> relatedTaskIds;
+    @Schema(description = "关联任务列表。")
+    private List<BugRelatedTaskResponse> relatedTasks;
     @Schema(description = "标题。")
     private String title;
     @Schema(description = "状态。")

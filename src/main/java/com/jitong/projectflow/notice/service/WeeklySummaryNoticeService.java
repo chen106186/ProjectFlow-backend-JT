@@ -22,7 +22,6 @@ public class WeeklySummaryNoticeService {
         this.noticeService = noticeService;
     }
 
-    @Scheduled(cron = "${projectflow.notice.weekly-summary-cron:0 0 9 ? * MON}")
     public void sendWeeklySummary() {
         sendWeeklySummary(LocalDate.now());
     }

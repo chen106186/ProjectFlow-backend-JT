@@ -356,6 +356,7 @@ public class DashboardService {
         List<Long> userIds = new ArrayList<>();
         tasks.stream().map(TaskEntity::getAssigneeId).filter(Objects::nonNull).forEach(userIds::add);
         bugs.stream().map(BugEntity::getAssigneeId).filter(Objects::nonNull).forEach(userIds::add);
+        bugs.stream().map(BugEntity::getCreatorId).filter(Objects::nonNull).forEach(userIds::add);
         requirements.stream().map(RequirementEntity::getCreatedBy).filter(Objects::nonNull).forEach(userIds::add);
         return userIds.isEmpty() ? Map.of() : toUserNameMap(systemUserMapper.selectByIds(distinct(userIds)));
     }

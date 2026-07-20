@@ -13,12 +13,14 @@ import com.jitong.projectflow.bug.dto.BugFixRequest;
 import com.jitong.projectflow.bug.dto.BugResolveRequest;
 import com.jitong.projectflow.bug.dto.BugQueryRequest;
 import com.jitong.projectflow.bug.dto.BugResponse;
+import com.jitong.projectflow.bug.dto.BugRelatedTaskResponse;
 import com.jitong.projectflow.bug.dto.BugSummaryResponse;
 import com.jitong.projectflow.bug.dto.BugUpdateRequest;
 import com.jitong.projectflow.bug.entity.BugCommentEntity;
 import com.jitong.projectflow.bug.entity.BugEntity;
 import com.jitong.projectflow.bug.mapper.BugCommentMapper;
 import com.jitong.projectflow.bug.mapper.BugMapper;
+import com.jitong.projectflow.bug.mapper.BugTaskMapper;
 import com.jitong.projectflow.common.api.PageResult;
 import com.jitong.projectflow.common.api.PageUtils;
 import com.jitong.projectflow.common.error.BusinessException;
@@ -33,6 +35,8 @@ import com.jitong.projectflow.system.entity.OperationLog;
 import com.jitong.projectflow.system.entity.SystemUser;
 import com.jitong.projectflow.system.mapper.OperationLogMapper;
 import com.jitong.projectflow.system.mapper.SystemUserMapper;
+import com.jitong.projectflow.task.entity.TaskEntity;
+import com.jitong.projectflow.task.mapper.TaskMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -57,11 +61,14 @@ public class BugService {
     private final SystemUserMapper userMapper;
     private final ProjectMapper projectMapper;
     private final OperationLogMapper operationLogMapper;
+    private final BugTaskMapper bugTaskMapper;
+    private final TaskMapper taskMapper;
 
     public BugResponse create(BugCreateRequest request) {
+        List<Long> relatedTaskIds = normalizeRelatedTaskIds(request.getTaskId(), request.getRelatedTaskIds());
         BugEntity entity = new BugEntity();
         entity.setProjectId(request.getProjectId());
-        entity.setTaskId(request.getTaskId());
+        entity.setTaskId(primaryTaskId(relatedTaskIds));
         entity.setTitle(request.getTitle());
         entity.setStatus(BugStatus.PENDING_FIX.name());
         entity.setPriority(request.getPriority());
@@ -72,6 +79,7 @@ public class BugService {
         entity.setCreatedBy(CurrentUserContext.userIdOrNull());
         entity.setBugNo(bugMapper.selectMaxBugNo() + 1L);
         bugMapper.insert(entity);
+        syncRelatedTasks(entity.getId(), relatedTaskIds);
         operationLogService.record("bug", "Bug", entity.getId(), "CREATE", "新建Bug：" + entity.getTitle());
         if (entity.getAssigneeId() != null) {
             String projectName = resolveProjectName(entity.getProjectId());
@@ -89,6 +97,7 @@ public class BugService {
         wrapper.eq(StringUtils.hasText(request.getStatus()), BugEntity::getStatus, request.getStatus());
         wrapper.eq(StringUtils.hasText(request.getPriority()), BugEntity::getPriority, request.getPriority());
         applyProjectScope(wrapper, request.getProjectId());
+        applyTaskScope(wrapper, request.getTaskId());
         wrapper.eq(request.getAssigneeId() != null, BugEntity::getAssigneeId, request.getAssigneeId());
         wrapper.eq(request.getCreatorId() != null, BugEntity::getCreatorId, request.getCreatorId());
         wrapper.like(StringUtils.hasText(request.getKeyword()), BugEntity::getTitle, request.getKeyword());
@@ -125,10 +134,27 @@ public class BugService {
         }
     }
 
-    public List<BugResponse> listMine() {
+    private void applyTaskScope(LambdaQueryWrapper<BugEntity> wrapper, Long taskId) {
+        if (taskId == null) {
+            return;
+        }
+        wrapper.and(taskScope -> taskScope.eq(BugEntity::getTaskId, taskId)
+                .or()
+                .inSql(BugEntity::getId, "SELECT bug_id FROM pf_bug_task WHERE task_id = " + taskId));
+    }
+
+    public List<BugResponse> listMine(BugQueryRequest request) {
         Long userId = CurrentUserContext.userId();
         LambdaQueryWrapper<BugEntity> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(BugEntity::getCreatorId, userId).or().eq(BugEntity::getAssigneeId, userId);
+        wrapper.and(w -> w.eq(BugEntity::getCreatorId, userId).or().eq(BugEntity::getAssigneeId, userId));
+        if (request != null) {
+            wrapper.eq(request.getProjectId() != null, BugEntity::getProjectId, request.getProjectId());
+            applyTaskScope(wrapper, request.getTaskId());
+            wrapper.eq(StringUtils.hasText(request.getPriority()), BugEntity::getPriority, request.getPriority());
+            wrapper.eq(StringUtils.hasText(request.getStatus()), BugEntity::getStatus, request.getStatus());
+            wrapper.like(StringUtils.hasText(request.getKeyword()), BugEntity::getTitle, request.getKeyword());
+            wrapper.eq(request.getCreatorId() != null, BugEntity::getCreatorId, request.getCreatorId());
+        }
         wrapper.orderByDesc(BugEntity::getCreatedAt);
         List<BugEntity> records = bugMapper.selectList(wrapper);
         Map<Long, String> userNames = batchUserNames(records.stream()
@@ -170,7 +196,11 @@ public class BugService {
         ensureMutable(entity);
         businessAccessService.requireBugEdit(entity);
         if (request.getProjectId() != null) entity.setProjectId(request.getProjectId());
-        if (request.getTaskId() != null) entity.setTaskId(request.getTaskId());
+        if (request.getRelatedTaskIds() != null || request.getTaskId() != null) {
+            List<Long> relatedTaskIds = normalizeRelatedTaskIds(request.getTaskId(), request.getRelatedTaskIds());
+            entity.setTaskId(primaryTaskId(relatedTaskIds));
+            syncRelatedTasks(id, relatedTaskIds);
+        }
         if (request.getTitle() != null) entity.setTitle(request.getTitle());
         if (request.getStatus() != null) entity.setStatus(request.getStatus());
         if (request.getPriority() != null) entity.setPriority(request.getPriority());
@@ -220,6 +250,21 @@ public class BugService {
         bugMapper.updateById(entity);
         operationLogService.record("bug", "Bug", id, "CLOSE",
                 "Bug状态由" + bugStatusLabel(oldStatus) + "变为已关闭：" + entity.getTitle());
+        return getById(id);
+    }
+
+    public BugResponse reopen(Long id) {
+        BugEntity entity = requireBug(id);
+        if (!BugStatus.CLOSED.name().equals(entity.getStatus())) {
+            throw new BusinessException(ErrorCode.CONFLICT, "仅已关闭的 Bug 可以重新打开");
+        }
+        businessAccessService.requireBugClose(entity);
+        entity.setStatus(BugStatus.PENDING_FIX.name());
+        entity.setClosedAt(null);
+        entity.setUpdatedBy(CurrentUserContext.userIdOrNull());
+        bugMapper.updateById(entity);
+        operationLogService.record("bug", "Bug", id, "UPDATE_STATUS",
+                "Bug已关闭状态重新打开为待修复：" + entity.getTitle());
         return getById(id);
     }
 
@@ -338,12 +383,53 @@ public class BugService {
                 .eq(BugEntity::getAssigneeId, userId));
     }
 
+    private List<Long> normalizeRelatedTaskIds(Long taskId, List<Long> relatedTaskIds) {
+        Stream<Long> explicitIds = relatedTaskIds == null ? Stream.empty() : relatedTaskIds.stream();
+        return Stream.concat(Stream.of(taskId), explicitIds)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+    }
+
+    private Long primaryTaskId(List<Long> relatedTaskIds) {
+        return relatedTaskIds.isEmpty() ? null : relatedTaskIds.get(0);
+    }
+
+    private void syncRelatedTasks(Long bugId, List<Long> relatedTaskIds) {
+        bugTaskMapper.deleteByBugId(bugId);
+        for (Long taskId : relatedTaskIds) {
+            bugTaskMapper.insert(bugId, taskId);
+        }
+    }
+
+    private List<Long> loadRelatedTaskIds(BugEntity entity) {
+        List<Long> linkedIds = safeList(bugTaskMapper.findTaskIdsByBugId(entity.getId()));
+        return normalizeRelatedTaskIds(entity.getTaskId(), linkedIds);
+    }
+
+    private List<BugRelatedTaskResponse> loadRelatedTasks(List<Long> taskIds) {
+        if (taskIds.isEmpty()) {
+            return List.of();
+        }
+        Map<Long, String> taskNames = taskMapper.selectBatchIds(taskIds).stream()
+                .collect(Collectors.toMap(TaskEntity::getId, TaskEntity::getName));
+        return taskIds.stream()
+                .map(id -> BugRelatedTaskResponse.builder()
+                        .id(id)
+                        .name(taskNames.getOrDefault(id, "任务 " + id))
+                        .build())
+                .toList();
+    }
+
     private BugResponse toResponse(BugEntity entity, Map<Long, String> userNames, Map<Long, String> projectNames) {
+        List<Long> relatedTaskIds = loadRelatedTaskIds(entity);
         return BugResponse.builder()
                 .id(entity.getId())
                 .bugNo(entity.getBugNo())
                 .projectId(entity.getProjectId())
                 .taskId(entity.getTaskId())
+                .relatedTaskIds(relatedTaskIds)
+                .relatedTasks(loadRelatedTasks(relatedTaskIds))
                 .title(entity.getTitle())
                 .status(entity.getStatus())
                 .priority(entity.getPriority())
