@@ -14,15 +14,15 @@ public class TaskStatusCalculator {
         if (actualEndDate != null) {
             return TaskStatus.COMPLETED;
         }
+        if (actualStartDate == null) {
+            return TaskStatus.NOT_STARTED;
+        }
         if (plannedEndDate != null && today.isAfter(plannedEndDate)) {
             return TaskStatus.OVERDUE;
         }
         if (plannedEndDate != null && !today.isBefore(plannedEndDate.minusDays(3))) {
             return TaskStatus.DUE_SOON;
         }
-        if (actualStartDate != null) {
-            return TaskStatus.IN_PROGRESS;
-        }
-        return TaskStatus.NOT_STARTED;
+        return TaskStatus.IN_PROGRESS;
     }
 }

@@ -330,29 +330,25 @@ public class TaskService {
             case "OVERDUE" -> wrapper
                     .isNull(TaskEntity::getActualEndDate)
                     .ne(TaskEntity::getStatus, TaskStatus.PAUSED.name())
+                    .isNotNull(TaskEntity::getActualStartDate)
                     .isNotNull(TaskEntity::getPlannedEndDate)
                     .lt(TaskEntity::getPlannedEndDate, today);
             case "DUE_SOON" -> wrapper
                     .isNull(TaskEntity::getActualEndDate)
                     .ne(TaskEntity::getStatus, TaskStatus.PAUSED.name())
+                    .isNotNull(TaskEntity::getActualStartDate)
                     .isNotNull(TaskEntity::getPlannedEndDate)
                     .ge(TaskEntity::getPlannedEndDate, today)
                     .le(TaskEntity::getPlannedEndDate, dueSoonEnd);
             case "IN_PROGRESS" -> wrapper
                     .isNull(TaskEntity::getActualEndDate)
                     .ne(TaskEntity::getStatus, TaskStatus.PAUSED.name())
-                    .and(start -> start
-                            .isNotNull(TaskEntity::getActualStartDate)
-                            .or(q -> q.isNull(TaskEntity::getActualStartDate)
-                                    .isNotNull(TaskEntity::getPlannedStartDate)
-                                    .le(TaskEntity::getPlannedStartDate, today)))
+                    .isNotNull(TaskEntity::getActualStartDate)
                     .and(q -> q.isNull(TaskEntity::getPlannedEndDate).or().gt(TaskEntity::getPlannedEndDate, dueSoonEnd));
             case "NOT_STARTED" -> wrapper
                     .isNull(TaskEntity::getActualEndDate)
                     .ne(TaskEntity::getStatus, TaskStatus.PAUSED.name())
-                    .isNull(TaskEntity::getActualStartDate)
-                    .and(q -> q.isNull(TaskEntity::getPlannedStartDate).or().gt(TaskEntity::getPlannedStartDate, today))
-                    .and(q -> q.isNull(TaskEntity::getPlannedEndDate).or().gt(TaskEntity::getPlannedEndDate, dueSoonEnd));
+                    .isNull(TaskEntity::getActualStartDate);
             default -> wrapper.eq(TaskEntity::getStatus, status);
         }
     }

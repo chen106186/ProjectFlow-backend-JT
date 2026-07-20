@@ -26,6 +26,8 @@ import com.jitong.projectflow.system.entity.SystemUser;
 import com.jitong.projectflow.system.mapper.RoleMapper;
 import com.jitong.projectflow.system.mapper.SystemUserMapper;
 import com.jitong.projectflow.system.mapper.UserRoleMapper;
+import com.jitong.projectflow.task.entity.TaskEntity;
+import com.jitong.projectflow.task.mapper.TaskMapper;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -47,10 +49,12 @@ public class GanttService {
     private final SystemUserMapper systemUserMapper;
     private final RoleMapper roleMapper;
     private final UserRoleMapper userRoleMapper;
+    private final TaskMapper taskMapper;
 
     public GanttService(ProjectNodeMapper projectNodeMapper, OperationLogService operationLogService,
                         NoticeService noticeService, ProjectMapper projectMapper,
-                        SystemUserMapper systemUserMapper, RoleMapper roleMapper, UserRoleMapper userRoleMapper) {
+                        SystemUserMapper systemUserMapper, RoleMapper roleMapper, UserRoleMapper userRoleMapper,
+                        TaskMapper taskMapper) {
         this.projectNodeMapper = projectNodeMapper;
         this.operationLogService = operationLogService;
         this.noticeService = noticeService;
@@ -58,6 +62,7 @@ public class GanttService {
         this.systemUserMapper = systemUserMapper;
         this.roleMapper = roleMapper;
         this.userRoleMapper = userRoleMapper;
+        this.taskMapper = taskMapper;
     }
 
     public List<GanttNodeResponse> getGanttNodes(Long projectId) {
@@ -226,12 +231,19 @@ public class GanttService {
 
         GanttSummaryData data = calculator.calculate(statuses, actualEndDates, plannedEndDates, progressPercents, LocalDate.now());
 
+        long totalTasks = taskMapper.selectCount(new LambdaQueryWrapper<TaskEntity>()
+                .eq(TaskEntity::getProjectId, projectId));
+        long completedTasks = totalTasks == 0 ? 0 : taskMapper.selectCount(new LambdaQueryWrapper<TaskEntity>()
+                .eq(TaskEntity::getProjectId, projectId)
+                .eq(TaskEntity::getStatus, "COMPLETED"));
+        int overallProgress = totalTasks == 0 ? 0 : (int) Math.round(completedTasks * 100.0 / totalTasks);
+
         return GanttSummaryResponse.builder()
                 .total(data.total())
                 .completed(data.completed())
                 .overdue(data.overdue())
                 .dueSoon(data.dueSoon())
-                .overallProgress(data.overallProgress())
+                .overallProgress(overallProgress)
                 .build();
     }
 
