@@ -37,5 +37,8 @@ public record TodoItemResponse(
         LocalDate plannedEndDate,
 
         @Schema(description = "逾期天数，未逾期时为 0。")
-        long overdueDays) {
+        long overdueDays,
+
+        @Schema(description = "需求类型（需求待办专用）。")
+        String requirementType) {
 }

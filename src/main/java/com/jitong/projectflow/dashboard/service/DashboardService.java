@@ -298,7 +298,8 @@ public class DashboardService {
                 userNames.get(task.getAssigneeId()),
                 null,
                 task.getPlannedEndDate(),
-                overdueDays);
+                overdueDays,
+                null);
         return new TodoWithSortKey(
                 item,
                 new TodoSortKey(priorityRank(task.getPriority()), overdueDays, task.getPlannedEndDate(), task.getId()));
@@ -317,7 +318,8 @@ public class DashboardService {
                 userNames.get(bug.getAssigneeId()),
                 userNames.get(bug.getCreatorId()),
                 null,
-                0);
+                0,
+                null);
         return new TodoWithSortKey(
                 item,
                 new TodoSortKey(priorityRank(bug.getPriority()), 0, null, bug.getId()));
@@ -336,7 +338,8 @@ public class DashboardService {
                 userNames.get(req.getCreatedBy()),
                 null,
                 null,
-                0);
+                0,
+                req.getRequirementType());
         return new TodoWithSortKey(
                 item,
                 new TodoSortKey(priorityRank(req.getPriority()), 0, null, req.getId()));
