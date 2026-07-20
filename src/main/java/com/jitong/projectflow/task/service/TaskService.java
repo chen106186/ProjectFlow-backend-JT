@@ -423,12 +423,22 @@ public class TaskService {
                 .build();
     }
 
-    /** 任务列表范围：执行类 → 本项目 + 父管理类；其他 → 本项目 */
+    /** 任务列表范围：执行类 → 本项目 + 父管理类；管理类 → 本项目 + 子执行类；其他 → 本项目 */
     private List<Long> resolveProjectIds(Long projectId) {
         if (projectId == null) return List.of();
         ProjectEntity proj = projectMapper.selectById(projectId);
-        if (proj != null && "EXECUTION".equals(proj.getProjectType()) && proj.getManagementProjectId() != null) {
+        if (proj == null) return List.of(projectId);
+        if ("EXECUTION".equals(proj.getProjectType()) && proj.getManagementProjectId() != null) {
             return List.of(projectId, proj.getManagementProjectId());
+        }
+        if ("MANAGEMENT".equals(proj.getProjectType())) {
+            ProjectEntity exec = projectMapper.selectOne(
+                    new LambdaQueryWrapper<ProjectEntity>()
+                            .eq(ProjectEntity::getManagementProjectId, projectId)
+                            .eq(ProjectEntity::getProjectType, "EXECUTION"));
+            if (exec != null) {
+                return List.of(projectId, exec.getId());
+            }
         }
         return List.of(projectId);
     }
