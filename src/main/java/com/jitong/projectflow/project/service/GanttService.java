@@ -244,6 +244,8 @@ public class GanttService {
                 .overdue(data.overdue())
                 .dueSoon(data.dueSoon())
                 .overallProgress(overallProgress)
+                .totalTaskCount(totalTasks)
+                .completedTaskCount(completedTasks)
                 .build();
     }
 

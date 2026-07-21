@@ -23,4 +23,10 @@ public class GanttSummaryResponse {
 
     @Schema(description = "整体进度百分比。")
     private int overallProgress;
+
+    @Schema(description = "总任务数（用于进度计算）。")
+    private long totalTaskCount;
+
+    @Schema(description = "已完成任务数（用于进度计算）。")
+    private long completedTaskCount;
 }
