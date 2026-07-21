@@ -22,11 +22,29 @@ public class AliyunOssFileStorageService implements FileStorageService {
     private final AliyunOssStorageProperties properties;
 
     public AliyunOssFileStorageService(AliyunOssStorageProperties properties) {
+        validateProperties(properties);
         this.properties = properties;
-        this.ossClient = new OSSClientBuilder().build(
-                properties.endpoint(),
-                properties.accessKeyId(),
-                properties.accessKeySecret());
+        try {
+            this.ossClient = new OSSClientBuilder().build(
+                    properties.endpoint(),
+                    properties.accessKeyId(),
+                    properties.accessKeySecret());
+        } catch (Exception e) {
+            throw new IllegalStateException(
+                    "Aliyun OSS client init failed. endpoint=" + properties.endpoint()
+                    + ", bucket=" + properties.bucketName() + ". Cause: " + e.getMessage(), e);
+        }
+    }
+
+    private static void validateProperties(AliyunOssStorageProperties p) {
+        if (p.endpoint() == null || p.endpoint().isBlank())
+            throw new IllegalStateException("projectflow.storage.aliyun-oss.endpoint is required");
+        if (p.accessKeyId() == null || p.accessKeyId().isBlank())
+            throw new IllegalStateException("projectflow.storage.aliyun-oss.access-key-id is required");
+        if (p.accessKeySecret() == null || p.accessKeySecret().isBlank())
+            throw new IllegalStateException("projectflow.storage.aliyun-oss.access-key-secret is required");
+        if (p.bucketName() == null || p.bucketName().isBlank())
+            throw new IllegalStateException("projectflow.storage.aliyun-oss.bucket-name is required");
     }
 
     @Override
