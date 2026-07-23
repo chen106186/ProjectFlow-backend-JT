@@ -293,7 +293,6 @@ public class TaskService {
         applyStatusQuery(wrapper, request.getStatus());
         wrapper.eq(request.getPlannedEndDate() != null, TaskEntity::getPlannedEndDate, request.getPlannedEndDate());
         wrapper.like(StringUtils.hasText(request.getKeyword()), TaskEntity::getName, request.getKeyword());
-        applyReadScope(wrapper);
         wrapper.orderByDesc(TaskEntity::getCreatedAt);
         return wrapper;
     }
