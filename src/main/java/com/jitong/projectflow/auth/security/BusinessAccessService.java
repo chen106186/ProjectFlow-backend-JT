@@ -124,12 +124,17 @@ public class BusinessAccessService {
                         || "system:role:update".equals(authority.getAuthority()));
     }
 
-    /** 是否拥有"查看全部业务数据"权限：仅总经办或系统管理员。 */
+    /** 是否拥有"查看全部业务数据"权限：总经办、系统管理员或拥有 data:view:all 权限码的角色（如部门领导）。 */
     public boolean canViewAll() {
         if (isGmOffice() || isSystemAdmin()) {
             return true;
         }
-        return false;
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null) {
+            return false;
+        }
+        return authentication.getAuthorities().stream()
+                .anyMatch(a -> "data:view:all".equals(a.getAuthority()));
     }
 
     private boolean canManageProject(Long projectId, Long userId) {

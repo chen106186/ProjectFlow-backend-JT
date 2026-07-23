@@ -59,6 +59,7 @@ public class DashboardService {
                         .eq(ProjectEntity::getProjectType, "EXECUTION"));
         long inProgressProjectCount = projectMapper.selectCount(
                 new LambdaQueryWrapper<ProjectEntity>()
+                        .eq(ProjectEntity::getProjectType, "MANAGEMENT")
                         .eq(ProjectEntity::getStatus, "IN_PROGRESS"));
         long completedProjectCount = projectMapper.selectCount(
                 new LambdaQueryWrapper<ProjectEntity>()
@@ -120,6 +121,17 @@ public class DashboardService {
         // 总经办：targetUserId=null 表示全员，targetUserId!=null 表示指定用户；普通用户强制用自己
         final Long effectiveUserId = businessAccessService.canViewAll() ? targetUserId : userId;
         final boolean hasUserFilter = effectiveUserId != null;
+
+        // 查询当前用户负责的项目，项目经理可以看到负责项目下的所有任务和 Bug
+        List<Long> managedProjectIds = List.of();
+        if (hasUserFilter) {
+            managedProjectIds = projectMapper.selectList(
+                    new LambdaQueryWrapper<ProjectEntity>()
+                            .eq(ProjectEntity::getManagerId, effectiveUserId))
+                    .stream().map(ProjectEntity::getId).toList();
+        }
+        final List<Long> fManagedIds = managedProjectIds;
+
         // 计算时间范围
         LocalDate today = LocalDate.now();
         LocalDate startDate = null;
@@ -145,41 +157,37 @@ public class DashboardService {
         final LocalDate fEnd = endDate;
 
         // 聚合统计（带时间过滤）
-        long myTaskTotal = taskMapper.selectCount(
-                new LambdaQueryWrapper<TaskEntity>()
-                        .eq(hasUserFilter, TaskEntity::getAssigneeId, effectiveUserId)
-                        .ge(hasPeriod, TaskEntity::getCreatedAt, hasPeriod ? startOfDay(fStart) : null)
-                        .le(hasPeriod, TaskEntity::getCreatedAt, hasPeriod ? endOfDay(fEnd) : null));
+        LambdaQueryWrapper<TaskEntity> taskTotalW = new LambdaQueryWrapper<TaskEntity>()
+                .ge(hasPeriod, TaskEntity::getCreatedAt, hasPeriod ? startOfDay(fStart) : null)
+                .le(hasPeriod, TaskEntity::getCreatedAt, hasPeriod ? endOfDay(fEnd) : null);
+        applyTaskUserScope(taskTotalW, hasUserFilter, effectiveUserId, fManagedIds);
+        long myTaskTotal = taskMapper.selectCount(taskTotalW);
 
-        long myTaskCompleted = taskMapper.selectCount(
-                new LambdaQueryWrapper<TaskEntity>()
-                        .eq(hasUserFilter, TaskEntity::getAssigneeId, effectiveUserId)
-                        .eq(TaskEntity::getStatus, TaskStatus.COMPLETED.name())
-                        .ge(hasPeriod, TaskEntity::getCreatedAt, hasPeriod ? startOfDay(fStart) : null)
-                        .le(hasPeriod, TaskEntity::getCreatedAt, hasPeriod ? endOfDay(fEnd) : null));
+        LambdaQueryWrapper<TaskEntity> taskCompletedW = new LambdaQueryWrapper<TaskEntity>()
+                .eq(TaskEntity::getStatus, TaskStatus.COMPLETED.name())
+                .ge(hasPeriod, TaskEntity::getCreatedAt, hasPeriod ? startOfDay(fStart) : null)
+                .le(hasPeriod, TaskEntity::getCreatedAt, hasPeriod ? endOfDay(fEnd) : null);
+        applyTaskUserScope(taskCompletedW, hasUserFilter, effectiveUserId, fManagedIds);
+        long myTaskCompleted = taskMapper.selectCount(taskCompletedW);
 
-        long myTaskOverdue = taskMapper.selectCount(
-                new LambdaQueryWrapper<TaskEntity>()
-                        .eq(hasUserFilter, TaskEntity::getAssigneeId, effectiveUserId)
-                        .eq(TaskEntity::getStatus, TaskStatus.OVERDUE.name())
-                        .ge(hasPeriod, TaskEntity::getCreatedAt, hasPeriod ? startOfDay(fStart) : null)
-                        .le(hasPeriod, TaskEntity::getCreatedAt, hasPeriod ? endOfDay(fEnd) : null));
+        LambdaQueryWrapper<TaskEntity> taskOverdueW = new LambdaQueryWrapper<TaskEntity>()
+                .eq(TaskEntity::getStatus, TaskStatus.OVERDUE.name())
+                .ge(hasPeriod, TaskEntity::getCreatedAt, hasPeriod ? startOfDay(fStart) : null)
+                .le(hasPeriod, TaskEntity::getCreatedAt, hasPeriod ? endOfDay(fEnd) : null);
+        applyTaskUserScope(taskOverdueW, hasUserFilter, effectiveUserId, fManagedIds);
+        long myTaskOverdue = taskMapper.selectCount(taskOverdueW);
 
         LambdaQueryWrapper<BugEntity> bugTotalW = new LambdaQueryWrapper<BugEntity>()
                 .ge(hasPeriod, BugEntity::getCreatedAt, hasPeriod ? startOfDay(fStart) : null)
                 .le(hasPeriod, BugEntity::getCreatedAt, hasPeriod ? endOfDay(fEnd) : null);
-        if (hasUserFilter) {
-            bugTotalW.and(w -> w.eq(BugEntity::getAssigneeId, effectiveUserId).or().eq(BugEntity::getCreatorId, effectiveUserId));
-        }
+        applyBugUserScope(bugTotalW, hasUserFilter, effectiveUserId, fManagedIds);
         long myBugTotal = bugMapper.selectCount(bugTotalW);
 
         LambdaQueryWrapper<BugEntity> bugOpenW = new LambdaQueryWrapper<BugEntity>()
                 .ne(BugEntity::getStatus, BugStatus.CLOSED.name())
                 .ge(hasPeriod, BugEntity::getCreatedAt, hasPeriod ? startOfDay(fStart) : null)
                 .le(hasPeriod, BugEntity::getCreatedAt, hasPeriod ? endOfDay(fEnd) : null);
-        if (hasUserFilter) {
-            bugOpenW.and(w -> w.eq(BugEntity::getAssigneeId, effectiveUserId).or().eq(BugEntity::getCreatorId, effectiveUserId));
-        }
+        applyBugUserScope(bugOpenW, hasUserFilter, effectiveUserId, fManagedIds);
         long myBugOpen = bugMapper.selectCount(bugOpenW);
 
         long myRequirementTotal = requirementMapper.selectCount(
@@ -202,26 +210,23 @@ public class DashboardService {
                         .eq(NoticeEntity::getReadFlag, 0));
 
         // 状态/优先级分布（全量，不受时间过滤，反映当前整体工作状态）
-        List<TaskEntity> myTasks = safeList(taskMapper.selectList(
-                new LambdaQueryWrapper<TaskEntity>()
-                        .eq(hasUserFilter, TaskEntity::getAssigneeId, effectiveUserId)));
+        LambdaQueryWrapper<TaskEntity> myTasksW = new LambdaQueryWrapper<>();
+        applyTaskUserScope(myTasksW, hasUserFilter, effectiveUserId, fManagedIds);
+        List<TaskEntity> myTasks = safeList(taskMapper.selectList(myTasksW));
 
         LambdaQueryWrapper<BugEntity> bugDistW = new LambdaQueryWrapper<>();
-        if (hasUserFilter) {
-            bugDistW.and(wrapper -> wrapper.eq(BugEntity::getAssigneeId, effectiveUserId)
-                    .or().eq(BugEntity::getCreatorId, effectiveUserId));
-        }
+        applyBugUserScope(bugDistW, hasUserFilter, effectiveUserId, fManagedIds);
         List<BugEntity> myBugs = safeList(bugMapper.selectList(bugDistW));
 
         // 任务完成趋势（按 actualEndDate 分组，仅在 period != "all" 时计算）
         List<TrendDataPoint> completionTrend;
         if (hasPeriod) {
-            List<TaskEntity> completedInPeriod = safeList(taskMapper.selectList(
-                    new LambdaQueryWrapper<TaskEntity>()
-                            .eq(hasUserFilter, TaskEntity::getAssigneeId, effectiveUserId)
-                            .eq(TaskEntity::getStatus, TaskStatus.COMPLETED.name())
-                            .ge(TaskEntity::getActualEndDate, startDate)
-                            .le(TaskEntity::getActualEndDate, endDate)));
+            LambdaQueryWrapper<TaskEntity> completedPeriodW = new LambdaQueryWrapper<TaskEntity>()
+                    .eq(TaskEntity::getStatus, TaskStatus.COMPLETED.name())
+                    .ge(TaskEntity::getActualEndDate, startDate)
+                    .le(TaskEntity::getActualEndDate, endDate);
+            applyTaskUserScope(completedPeriodW, hasUserFilter, effectiveUserId, fManagedIds);
+            List<TaskEntity> completedInPeriod = safeList(taskMapper.selectList(completedPeriodW));
             Map<LocalDate, Long> byDate = completedInPeriod.stream()
                     .filter(t -> t.getActualEndDate() != null)
                     .collect(Collectors.groupingBy(TaskEntity::getActualEndDate, Collectors.counting()));
@@ -262,6 +267,30 @@ public class DashboardService {
                 .completionTrend(completionTrend)
                 .projectDistribution(projectDistribution)
                 .build();
+    }
+
+    /** 任务用户范围：本人负责 或 负责项目下的任务 */
+    private void applyTaskUserScope(LambdaQueryWrapper<TaskEntity> w, boolean hasFilter,
+                                    Long userId, List<Long> managedProjectIds) {
+        if (!hasFilter) return;
+        if (!managedProjectIds.isEmpty()) {
+            w.and(q -> q.eq(TaskEntity::getAssigneeId, userId).or().in(TaskEntity::getProjectId, managedProjectIds));
+        } else {
+            w.eq(TaskEntity::getAssigneeId, userId);
+        }
+    }
+
+    /** Bug 用户范围：本人指定/提交 或 负责项目下的 Bug */
+    private void applyBugUserScope(LambdaQueryWrapper<BugEntity> w, boolean hasFilter,
+                                   Long userId, List<Long> managedProjectIds) {
+        if (!hasFilter) return;
+        if (!managedProjectIds.isEmpty()) {
+            w.and(q -> q.eq(BugEntity::getAssigneeId, userId)
+                    .or().eq(BugEntity::getCreatorId, userId)
+                    .or().in(BugEntity::getProjectId, managedProjectIds));
+        } else {
+            w.and(q -> q.eq(BugEntity::getAssigneeId, userId).or().eq(BugEntity::getCreatorId, userId));
+        }
     }
 
     private static LocalDateTime startOfDay(LocalDate date) {

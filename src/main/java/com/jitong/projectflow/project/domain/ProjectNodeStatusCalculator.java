@@ -15,8 +15,8 @@ public class ProjectNodeStatusCalculator {
             LocalDate actualEndDate,
             LocalDate today) {
 
-        // 1. 已填写实际结束时间 → 已完成 or 逾期完成
-        if (actualEndDate != null) {
+        // 1. 实际结束时间已到达（<= 今天）→ 已完成 or 逾期完成
+        if (actualEndDate != null && !actualEndDate.isAfter(today)) {
             if (plannedEndDate != null && actualEndDate.isAfter(plannedEndDate)) {
                 return ProjectNodeStatus.OVERDUE_COMPLETED;
             }

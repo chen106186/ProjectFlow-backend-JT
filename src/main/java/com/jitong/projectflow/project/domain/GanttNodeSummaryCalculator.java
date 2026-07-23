@@ -37,8 +37,8 @@ public class GanttNodeSummaryCalculator {
 
             progressSum += progress;
 
-            // completed: actualEndDate != null OR status == "COMPLETED"
-            if (actualEnd != null || "COMPLETED".equals(status)) {
+            // completed: 节点状态为已完成或逾期完成（已含实际结束时间 <= 今天的判断）
+            if ("COMPLETED".equals(status) || "OVERDUE_COMPLETED".equals(status)) {
                 completed++;
             }
 

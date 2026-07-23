@@ -1,6 +1,7 @@
 package com.jitong.projectflow.project.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.jitong.projectflow.auth.security.CurrentUserContext;
 import com.jitong.projectflow.common.api.DateRangeValidator;
 import com.jitong.projectflow.common.error.BusinessException;
@@ -81,19 +82,21 @@ public class GanttService {
 
         String oldStatus = entity.getStatus();
         if (req.getNodeName() != null) entity.setNodeName(req.getNodeName());
-        if (req.getPlannedStartDate() != null) entity.setPlannedStartDate(req.getPlannedStartDate());
-        if (req.getPlannedEndDate() != null) entity.setPlannedEndDate(req.getPlannedEndDate());
-        if (req.getActualStartDate() != null) entity.setActualStartDate(req.getActualStartDate());
-        if (req.getActualEndDate() != null) entity.setActualEndDate(req.getActualEndDate());
+        // 直接覆盖日期字段（含 null 以支持清除），不做 null 判断
+        entity.setPlannedStartDate(req.getPlannedStartDate());
+        entity.setPlannedEndDate(req.getPlannedEndDate());
+        entity.setActualStartDate(req.getActualStartDate());
+        entity.setActualEndDate(req.getActualEndDate());
         DateRangeValidator.validate(entity.getPlannedStartDate(), entity.getPlannedEndDate(), "计划");
         DateRangeValidator.validate(entity.getActualStartDate(), entity.getActualEndDate(), "实际");
         // 状态由计划/实际时间自动计算，不接受手动传入
+        LocalDate today = LocalDate.now();
         ProjectNodeStatus calculated = statusCalculator.calculate(
                 entity.getPlannedStartDate(), entity.getPlannedEndDate(),
-                entity.getActualStartDate(), entity.getActualEndDate(), LocalDate.now());
+                entity.getActualStartDate(), entity.getActualEndDate(), today);
         entity.setStatus(calculated.name());
-        // 已填写实际结束时间则进度自动设为 100%
-        if (entity.getActualEndDate() != null) {
+        // 实际结束时间已到达时进度自动设为 100%
+        if (entity.getActualEndDate() != null && !entity.getActualEndDate().isAfter(today)) {
             entity.setProgressPercent(100);
         } else if (req.getProgressPercent() != null) {
             entity.setProgressPercent(req.getProgressPercent());
@@ -101,7 +104,17 @@ public class GanttService {
         validateNode(entity);
         entity.setUpdatedBy(CurrentUserContext.userId());
 
-        projectNodeMapper.updateById(entity);
+        // 使用 LambdaUpdateWrapper 强制写入日期字段（updateById 默认跳过 null 字段）
+        projectNodeMapper.update(null, new LambdaUpdateWrapper<ProjectNodeEntity>()
+                .eq(ProjectNodeEntity::getId, entity.getId())
+                .set(req.getNodeName() != null, ProjectNodeEntity::getNodeName, req.getNodeName())
+                .set(ProjectNodeEntity::getPlannedStartDate, entity.getPlannedStartDate())
+                .set(ProjectNodeEntity::getPlannedEndDate, entity.getPlannedEndDate())
+                .set(ProjectNodeEntity::getActualStartDate, entity.getActualStartDate())
+                .set(ProjectNodeEntity::getActualEndDate, entity.getActualEndDate())
+                .set(ProjectNodeEntity::getStatus, entity.getStatus())
+                .set(ProjectNodeEntity::getProgressPercent, entity.getProgressPercent())
+                .set(ProjectNodeEntity::getUpdatedBy, entity.getUpdatedBy()));
         syncToManagementNode(entity, req);
         syncToExecutionNode(entity, req);
         recalcProjectStatuses(entity.getProjectId());
@@ -236,14 +249,13 @@ public class GanttService {
         long completedTasks = totalTasks == 0 ? 0 : taskMapper.selectCount(new LambdaQueryWrapper<TaskEntity>()
                 .eq(TaskEntity::getProjectId, projectId)
                 .eq(TaskEntity::getStatus, "COMPLETED"));
-        int overallProgress = totalTasks == 0 ? 0 : (int) Math.round(completedTasks * 100.0 / totalTasks);
 
         return GanttSummaryResponse.builder()
                 .total(data.total())
                 .completed(data.completed())
                 .overdue(data.overdue())
                 .dueSoon(data.dueSoon())
-                .overallProgress(overallProgress)
+                .overallProgress(data.overallProgress())
                 .totalTaskCount(totalTasks)
                 .completedTaskCount(completedTasks)
                 .build();
@@ -296,24 +308,33 @@ public class GanttService {
                 project.getManagementProjectId(), execNode.getNodeCode(), execNode.getNodeName());
         if (mgmtNode == null) return;
 
-        if (req.getPlannedStartDate() != null) mgmtNode.setPlannedStartDate(req.getPlannedStartDate());
-        if (req.getPlannedEndDate() != null) mgmtNode.setPlannedEndDate(req.getPlannedEndDate());
-        if (req.getActualStartDate() != null) mgmtNode.setActualStartDate(req.getActualStartDate());
-        if (req.getActualEndDate() != null) mgmtNode.setActualEndDate(req.getActualEndDate());
+        mgmtNode.setPlannedStartDate(req.getPlannedStartDate());
+        mgmtNode.setPlannedEndDate(req.getPlannedEndDate());
+        mgmtNode.setActualStartDate(req.getActualStartDate());
+        mgmtNode.setActualEndDate(req.getActualEndDate());
 
+        LocalDate today = LocalDate.now();
         ProjectNodeStatus calculated = statusCalculator.calculate(
                 mgmtNode.getPlannedStartDate(), mgmtNode.getPlannedEndDate(),
-                mgmtNode.getActualStartDate(), mgmtNode.getActualEndDate(), LocalDate.now());
+                mgmtNode.getActualStartDate(), mgmtNode.getActualEndDate(), today);
         mgmtNode.setStatus(calculated.name());
 
-        if (mgmtNode.getActualEndDate() != null) {
+        if (mgmtNode.getActualEndDate() != null && !mgmtNode.getActualEndDate().isAfter(today)) {
             mgmtNode.setProgressPercent(100);
         } else if (req.getProgressPercent() != null) {
             mgmtNode.setProgressPercent(req.getProgressPercent());
         }
 
         mgmtNode.setUpdatedBy(CurrentUserContext.userId());
-        projectNodeMapper.updateById(mgmtNode);
+        projectNodeMapper.update(null, new LambdaUpdateWrapper<ProjectNodeEntity>()
+                .eq(ProjectNodeEntity::getId, mgmtNode.getId())
+                .set(ProjectNodeEntity::getPlannedStartDate, mgmtNode.getPlannedStartDate())
+                .set(ProjectNodeEntity::getPlannedEndDate, mgmtNode.getPlannedEndDate())
+                .set(ProjectNodeEntity::getActualStartDate, mgmtNode.getActualStartDate())
+                .set(ProjectNodeEntity::getActualEndDate, mgmtNode.getActualEndDate())
+                .set(ProjectNodeEntity::getStatus, mgmtNode.getStatus())
+                .set(ProjectNodeEntity::getProgressPercent, mgmtNode.getProgressPercent())
+                .set(ProjectNodeEntity::getUpdatedBy, mgmtNode.getUpdatedBy()));
     }
 
     /** 当管理类项目节点更新后，同步到对应执行类项目的节点。 */
@@ -332,24 +353,33 @@ public class GanttService {
                 execProject.getId(), mgmtNode.getNodeCode(), mgmtNode.getNodeName());
         if (execNode == null) return;
 
-        if (req.getPlannedStartDate() != null) execNode.setPlannedStartDate(req.getPlannedStartDate());
-        if (req.getPlannedEndDate() != null) execNode.setPlannedEndDate(req.getPlannedEndDate());
-        if (req.getActualStartDate() != null) execNode.setActualStartDate(req.getActualStartDate());
-        if (req.getActualEndDate() != null) execNode.setActualEndDate(req.getActualEndDate());
+        execNode.setPlannedStartDate(req.getPlannedStartDate());
+        execNode.setPlannedEndDate(req.getPlannedEndDate());
+        execNode.setActualStartDate(req.getActualStartDate());
+        execNode.setActualEndDate(req.getActualEndDate());
 
+        LocalDate today = LocalDate.now();
         ProjectNodeStatus calculated = statusCalculator.calculate(
                 execNode.getPlannedStartDate(), execNode.getPlannedEndDate(),
-                execNode.getActualStartDate(), execNode.getActualEndDate(), LocalDate.now());
+                execNode.getActualStartDate(), execNode.getActualEndDate(), today);
         execNode.setStatus(calculated.name());
 
-        if (execNode.getActualEndDate() != null) {
+        if (execNode.getActualEndDate() != null && !execNode.getActualEndDate().isAfter(today)) {
             execNode.setProgressPercent(100);
         } else if (req.getProgressPercent() != null) {
             execNode.setProgressPercent(req.getProgressPercent());
         }
 
         execNode.setUpdatedBy(CurrentUserContext.userId());
-        projectNodeMapper.updateById(execNode);
+        projectNodeMapper.update(null, new LambdaUpdateWrapper<ProjectNodeEntity>()
+                .eq(ProjectNodeEntity::getId, execNode.getId())
+                .set(ProjectNodeEntity::getPlannedStartDate, execNode.getPlannedStartDate())
+                .set(ProjectNodeEntity::getPlannedEndDate, execNode.getPlannedEndDate())
+                .set(ProjectNodeEntity::getActualStartDate, execNode.getActualStartDate())
+                .set(ProjectNodeEntity::getActualEndDate, execNode.getActualEndDate())
+                .set(ProjectNodeEntity::getStatus, execNode.getStatus())
+                .set(ProjectNodeEntity::getProgressPercent, execNode.getProgressPercent())
+                .set(ProjectNodeEntity::getUpdatedBy, execNode.getUpdatedBy()));
     }
 
     private ProjectNodeEntity findMatchingManagementNode(Long mgmtProjectId, String nodeCode, String nodeName) {
