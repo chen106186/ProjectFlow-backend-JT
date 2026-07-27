@@ -127,7 +127,8 @@ public class DashboardService {
         if (hasUserFilter) {
             managedProjectIds = projectMapper.selectList(
                     new LambdaQueryWrapper<ProjectEntity>()
-                            .eq(ProjectEntity::getManagerId, effectiveUserId))
+                            .and(w -> w.eq(ProjectEntity::getManagerId, effectiveUserId)
+                                    .or().apply("FIND_IN_SET({0}, co_manager_ids) > 0", String.valueOf(effectiveUserId))))
                     .stream().map(ProjectEntity::getId).toList();
         }
         final List<Long> fManagedIds = managedProjectIds;

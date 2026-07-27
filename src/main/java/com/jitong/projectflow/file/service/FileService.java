@@ -156,6 +156,11 @@ public class FileService {
         if (file.getSize() > MAX_FILE_SIZE) {
             throw new BusinessException(ErrorCode.BAD_REQUEST, "文件大小不能超过50MB");
         }
+        // 所有 image/* 类型（包括 HEIC、WebP、GIF 等）直接放行
+        String contentType = file.getContentType();
+        if (contentType != null && contentType.startsWith("image/")) {
+            return;
+        }
         String extension = extensionOf(file.getOriginalFilename());
         if (!ALLOWED_EXTENSIONS.contains(extension)) {
             throw new BusinessException(ErrorCode.BAD_REQUEST, "不支持的文件类型");

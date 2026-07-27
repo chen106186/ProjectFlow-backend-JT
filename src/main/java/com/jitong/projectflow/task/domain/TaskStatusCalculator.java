@@ -11,7 +11,7 @@ public class TaskStatusCalculator {
         if (paused) {
             return TaskStatus.PAUSED;
         }
-        if (actualEndDate != null) {
+        if (actualEndDate != null && !actualEndDate.isAfter(today)) {
             return TaskStatus.COMPLETED;
         }
         if (actualStartDate == null) {

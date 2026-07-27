@@ -34,6 +34,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -74,7 +75,11 @@ public class ProjectService {
         entity.setContractorUnit(request.getContractorUnit());
         entity.setBusinessSupervisor(request.getBusinessSupervisor());
         entity.setReceivableAmount(request.getReceivableAmount());
-        entity.setManagerId(request.getManagerId());
+        List<Long> mgrIds = resolveManagerIds(request.getManagerIds(), request.getManagerId());
+        entity.setManagerId(mgrIds.isEmpty() ? null : mgrIds.get(0));
+        entity.setCoManagerIds(mgrIds.size() > 1
+                ? mgrIds.stream().skip(1).map(String::valueOf).collect(Collectors.joining(","))
+                : null);
         entity.setManagementProjectId(request.getManagementProjectId());
         entity.setDescription(request.getDescription());
         entity.setPlannedStartDate(request.getPlannedStartDate());
@@ -130,7 +135,14 @@ public class ProjectService {
         if (request.getContractorUnit() != null) entity.setContractorUnit(request.getContractorUnit());
         if (request.getBusinessSupervisor() != null) entity.setBusinessSupervisor(request.getBusinessSupervisor());
         if (request.getReceivableAmount() != null) entity.setReceivableAmount(request.getReceivableAmount());
-        if (request.getManagerId() != null) entity.setManagerId(request.getManagerId());
+        if (request.getManagerIds() != null && !request.getManagerIds().isEmpty()) {
+            entity.setManagerId(request.getManagerIds().get(0));
+            entity.setCoManagerIds(request.getManagerIds().size() > 1
+                    ? request.getManagerIds().stream().skip(1).map(String::valueOf).collect(Collectors.joining(","))
+                    : null);
+        } else if (request.getManagerId() != null) {
+            entity.setManagerId(request.getManagerId());
+        }
         if (request.getManagementProjectId() != null) entity.setManagementProjectId(request.getManagementProjectId());
         if (request.getDescription() != null) entity.setDescription(request.getDescription());
         if (request.getPlannedStartDate() != null) entity.setPlannedStartDate(request.getPlannedStartDate());
@@ -221,6 +233,7 @@ public class ProjectService {
         response.setBusinessSupervisor(entity.getBusinessSupervisor());
         response.setReceivableAmount(entity.getReceivableAmount());
         response.setManagerId(entity.getManagerId());
+        response.setManagerIds(buildManagerIds(entity.getManagerId(), entity.getCoManagerIds()));
         response.setManagementProjectId(entity.getManagementProjectId());
         response.setParticipantIds(participantMapper.selectUserIdsByProjectId(entity.getId()));
         response.setType(projectBusinessTypeLabel(entity.getProjectBusinessType()));
@@ -341,6 +354,25 @@ public class ProjectService {
             node.setCreatedBy(createdBy);
             projectNodeMapper.insert(node);
         }
+    }
+
+    private static List<Long> resolveManagerIds(List<Long> managerIds, Long managerId) {
+        if (managerIds != null && !managerIds.isEmpty()) return managerIds;
+        return managerId != null ? List.of(managerId) : List.of();
+    }
+
+    private static List<Long> buildManagerIds(Long managerId, String coManagerIds) {
+        List<Long> result = new ArrayList<>();
+        if (managerId != null) result.add(managerId);
+        if (StringUtils.hasText(coManagerIds)) {
+            for (String s : coManagerIds.split(",")) {
+                String t = s.trim();
+                if (!t.isEmpty()) {
+                    try { result.add(Long.parseLong(t)); } catch (NumberFormatException ignored) {}
+                }
+            }
+        }
+        return result;
     }
 
     private String projectBusinessTypeLabel(String projectBusinessType) {

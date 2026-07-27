@@ -30,11 +30,10 @@ public class TaskStatusSchedulerService {
     }
 
     public int syncTaskStatuses(LocalDate today) {
-        // 只处理非终态任务（COMPLETED 和 PAUSED 由用户手动控制，不自动变更）
+        // 跳过 PAUSED（用户手动暂停，不自动变更）；COMPLETED 也需每日重算，以纠正"实际完成时间未到今日"的误标
         List<TaskEntity> tasks = taskMapper.selectList(
                 new LambdaQueryWrapper<TaskEntity>()
-                        .notIn(TaskEntity::getStatus,
-                                TaskStatus.COMPLETED.name(), TaskStatus.PAUSED.name()));
+                        .ne(TaskEntity::getStatus, TaskStatus.PAUSED.name()));
 
         int updated = 0;
         for (TaskEntity task : tasks) {

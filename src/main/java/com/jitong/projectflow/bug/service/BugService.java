@@ -145,8 +145,20 @@ public class BugService {
 
     public List<BugResponse> listMine(BugQueryRequest request) {
         Long userId = CurrentUserContext.userId();
+        List<Long> managedProjectIds = projectMapper.selectList(
+                        new LambdaQueryWrapper<ProjectEntity>()
+                                .and(w -> w.eq(ProjectEntity::getManagerId, userId)
+                                        .or().apply("FIND_IN_SET({0}, co_manager_ids) > 0", String.valueOf(userId)))
+                                .select(ProjectEntity::getId))
+                .stream().map(ProjectEntity::getId).toList();
         LambdaQueryWrapper<BugEntity> wrapper = new LambdaQueryWrapper<>();
-        wrapper.and(w -> w.eq(BugEntity::getCreatorId, userId).or().eq(BugEntity::getAssigneeId, userId));
+        if (!managedProjectIds.isEmpty()) {
+            wrapper.and(w -> w.eq(BugEntity::getCreatorId, userId)
+                    .or().eq(BugEntity::getAssigneeId, userId)
+                    .or().in(BugEntity::getProjectId, managedProjectIds));
+        } else {
+            wrapper.and(w -> w.eq(BugEntity::getCreatorId, userId).or().eq(BugEntity::getAssigneeId, userId));
+        }
         if (request != null) {
             wrapper.eq(request.getProjectId() != null, BugEntity::getProjectId, request.getProjectId());
             applyTaskScope(wrapper, request.getTaskId());

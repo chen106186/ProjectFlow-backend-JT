@@ -31,8 +31,11 @@ public class ProjectResponse {
     private String businessSupervisor;
     @Schema(description = "回款金额（元）。")
     private BigDecimal receivableAmount;
-    @Schema(description = "项目经理用户 ID。")
+    @Schema(description = "项目经理用户 ID（主要负责人）。")
     private Long managerId;
+
+    @Schema(description = "全部项目经理用户 ID 列表（含主要和协同负责人）。")
+    private List<Long> managerIds;
     @Schema(description = "关联管理类项目 ID（执行类项目专用）。")
     private Long managementProjectId;
     @Schema(description = "参与人员用户 ID 列表。")

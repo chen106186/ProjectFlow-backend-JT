@@ -2,6 +2,7 @@ package com.jitong.projectflow.file.storage;
 
 import com.aliyun.oss.OSS;
 import com.aliyun.oss.OSSClientBuilder;
+import com.aliyun.oss.model.ObjectMetadata;
 import com.jitong.projectflow.file.domain.FileStorageService;
 import com.jitong.projectflow.file.domain.FileUploadCommand;
 import com.jitong.projectflow.file.domain.StoredFile;
@@ -50,8 +51,20 @@ public class AliyunOssFileStorageService implements FileStorageService {
     @Override
     public StoredFile upload(FileUploadCommand command) {
         String objectKey = buildObjectKey(command.originalName());
-        ossClient.putObject(properties.bucketName(), objectKey, command.inputStream());
-        return new StoredFile("ALIYUN_OSS", objectKey, command.fileSize());
+        ObjectMetadata meta = new ObjectMetadata();
+        if (command.contentType() != null) {
+            meta.setContentType(command.contentType());
+        }
+        if (command.fileSize() > 0) {
+            meta.setContentLength(command.fileSize());
+        }
+        ossClient.putObject(properties.bucketName(), objectKey, command.inputStream(), meta);
+        // 优先从 OSS 获取实际存储大小，避免依赖上传前声明的大小
+        long actualSize = command.fileSize();
+        try {
+            actualSize = ossClient.getObjectMetadata(properties.bucketName(), objectKey).getContentLength();
+        } catch (Exception ignored) {}
+        return new StoredFile("ALIYUN_OSS", objectKey, actualSize);
     }
 
     @Override

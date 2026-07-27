@@ -14,6 +14,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 @Service
 @RequiredArgsConstructor
@@ -24,7 +25,8 @@ public class BusinessAccessService {
 
     public void requireProjectManage(ProjectEntity project) {
         Long userId = currentUserId();
-        if (isSystemAdmin() || same(userId, project.getManagerId()) || same(userId, project.getCreatedBy())) {
+        if (isSystemAdmin() || same(userId, project.getManagerId()) || same(userId, project.getCreatedBy())
+                || isCoManager(userId, project.getCoManagerIds())) {
             return;
         }
         throwForbidden();
@@ -142,7 +144,17 @@ public class BusinessAccessService {
             return false;
         }
         ProjectEntity project = projectMapper.selectById(projectId);
-        return project != null && (same(userId, project.getManagerId()) || same(userId, project.getCreatedBy()));
+        return project != null && (same(userId, project.getManagerId()) || same(userId, project.getCreatedBy())
+                || isCoManager(userId, project.getCoManagerIds()));
+    }
+
+    private boolean isCoManager(Long userId, String coManagerIds) {
+        if (userId == null || !StringUtils.hasText(coManagerIds)) return false;
+        String idStr = String.valueOf(userId);
+        for (String s : coManagerIds.split(",")) {
+            if (idStr.equals(s.trim())) return true;
+        }
+        return false;
     }
 
     private Long currentUserId() {

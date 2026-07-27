@@ -44,8 +44,11 @@ public class ProjectUpdateRequest {
     @JsonAlias("amount")
     private java.math.BigDecimal receivableAmount;
 
-    @Schema(description = "项目经理用户 ID。")
+    @Schema(description = "项目经理用户 ID（已废弃，请使用 managerIds）。")
     private Long managerId;
+
+    @Schema(description = "项目经理用户 ID 列表（多选，null 表示不修改）。")
+    private List<Long> managerIds;
 
     @Schema(description = "关联管理类项目 ID（执行类项目专用）。")
     private Long managementProjectId;

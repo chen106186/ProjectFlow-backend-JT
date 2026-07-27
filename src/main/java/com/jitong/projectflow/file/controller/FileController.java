@@ -147,9 +147,9 @@ public class FileController {
         MediaType mediaType = StringUtils.hasText(metadata.getContentType())
                 ? MediaType.parseMediaType(metadata.getContentType())
                 : MediaType.APPLICATION_OCTET_STREAM;
+        // 不设置 Content-Length，由 Spring 使用分块传输，避免 DB 存储的大小与 OSS 实际大小不一致导致图片截断
         return ResponseEntity.ok()
                 .contentType(mediaType)
-                .contentLength(metadata.getFileSize() == null ? 0 : metadata.getFileSize())
                 .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename*=UTF-8''" + encodedName)
                 .body(new InputStreamResource(result.inputStream()));
     }
@@ -166,7 +166,6 @@ public class FileController {
                 : MediaType.APPLICATION_OCTET_STREAM;
         return ResponseEntity.ok()
                 .contentType(mediaType)
-                .contentLength(metadata.getFileSize() == null ? 0 : metadata.getFileSize())
                 .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename*=UTF-8''" + encodedName)
                 .body(new InputStreamResource(result.inputStream()));
     }

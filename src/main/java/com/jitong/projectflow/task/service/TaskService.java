@@ -169,9 +169,22 @@ public class TaskService {
     }
 
     public List<TaskResponse> listMine() {
-        TaskQueryRequest request = new TaskQueryRequest();
-        request.setAssigneeId(CurrentUserContext.userId());
-        return taskMapper.selectList(buildQuery(request)).stream().map(this::toResponse).toList();
+        Long userId = CurrentUserContext.userId();
+        List<Long> managedProjectIds = projectMapper.selectList(
+                        new LambdaQueryWrapper<ProjectEntity>()
+                                .and(w -> w.eq(ProjectEntity::getManagerId, userId)
+                                        .or().apply("FIND_IN_SET({0}, co_manager_ids) > 0", String.valueOf(userId)))
+                                .select(ProjectEntity::getId))
+                .stream().map(ProjectEntity::getId).toList();
+        LambdaQueryWrapper<TaskEntity> wrapper = new LambdaQueryWrapper<>();
+        if (!managedProjectIds.isEmpty()) {
+            wrapper.and(w -> w.eq(TaskEntity::getAssigneeId, userId)
+                    .or().in(TaskEntity::getProjectId, managedProjectIds));
+        } else {
+            wrapper.eq(TaskEntity::getAssigneeId, userId);
+        }
+        wrapper.orderByDesc(TaskEntity::getCreatedAt);
+        return taskMapper.selectList(wrapper).stream().map(this::toResponse).toList();
     }
 
     public TaskResponse getById(Long id) {
