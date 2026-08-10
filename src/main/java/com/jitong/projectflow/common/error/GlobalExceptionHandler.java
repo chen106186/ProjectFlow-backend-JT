@@ -16,6 +16,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 
 import java.util.stream.Collectors;
 
@@ -76,6 +77,11 @@ public class GlobalExceptionHandler {
                         "数据保存或查询失败，请检查提交内容后重试。",
                         traceId()
                 ));
+    }
+
+    @ExceptionHandler(AsyncRequestNotUsableException.class)
+    void handleClientDisconnect(AsyncRequestNotUsableException ex, HttpServletRequest request) {
+        log.debug("客户端提前断开连接 path={}", requestPath(request));
     }
 
     @ExceptionHandler(Exception.class)
