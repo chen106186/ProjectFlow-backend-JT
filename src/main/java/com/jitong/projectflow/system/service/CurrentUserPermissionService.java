@@ -77,6 +77,15 @@ public class CurrentUserPermissionService {
         return extractPermissions(menus);
     }
 
+    public List<String> getAuthoritiesByUserId(Long userId) {
+        List<RoleEntity> roles = loadUserRoles(userId);
+        Set<String> authorities = new LinkedHashSet<>(extractPermissions(loadMenusForRoles(roles, userId)));
+        roles.stream().map(RoleEntity::getCode).filter(java.util.Objects::nonNull)
+                .map(code -> "ROLE_" + code.toUpperCase(java.util.Locale.ROOT))
+                .forEach(authorities::add);
+        return List.copyOf(authorities);
+    }
+
     public String getDeptNameByUserId(Long userId) {
         SystemUser user = systemUserMapper.selectById(userId);
         if (user == null || user.getDepartmentId() == null) {
@@ -103,7 +112,8 @@ public class CurrentUserPermissionService {
         if (roleIds.isEmpty()) {
             return List.of();
         }
-        return roleMapper.selectList(new LambdaQueryWrapper<RoleEntity>().in(RoleEntity::getId, roleIds));
+        return roleMapper.selectList(new LambdaQueryWrapper<RoleEntity>()
+                .in(RoleEntity::getId, roleIds).eq(RoleEntity::getEnabled, true));
     }
 
     private List<MenuEntity> loadMenusForRoles(List<RoleEntity> roles, Long userId) {

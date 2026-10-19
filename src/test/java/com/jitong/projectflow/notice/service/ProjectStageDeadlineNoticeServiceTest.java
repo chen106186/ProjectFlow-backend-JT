@@ -6,6 +6,7 @@ import com.jitong.projectflow.project.entity.ProjectEntity;
 import com.jitong.projectflow.project.entity.ProjectNodeEntity;
 import com.jitong.projectflow.project.mapper.ProjectMapper;
 import com.jitong.projectflow.project.mapper.ProjectNodeMapper;
+import com.jitong.projectflow.system.mapper.SystemUserMapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -27,6 +28,7 @@ class ProjectStageDeadlineNoticeServiceTest {
     ProjectMapper projectMapper;
     @Mock
     NoticeService noticeService;
+    @Mock SystemUserMapper systemUserMapper;
 
     @Test
     void scanProjectStageDeadlinesNotifiesProjectManager() {
@@ -43,11 +45,11 @@ class ProjectStageDeadlineNoticeServiceTest {
         when(projectNodeMapper.selectList(any(Wrapper.class))).thenReturn(List.of(node));
         when(projectMapper.selectById(1L)).thenReturn(project);
 
-        int created = new ProjectStageDeadlineNoticeService(projectNodeMapper, projectMapper, noticeService)
+        int created = new ProjectStageDeadlineNoticeService(projectNodeMapper, projectMapper, noticeService, systemUserMapper)
                 .scanProjectStageDeadlines(today);
 
         assertThat(created).isEqualTo(1);
-        verify(noticeService).create(1001L, NoticeType.PROJECT_WARNING, "项目阶段即将到期",
-                "研发平台 - 测试验收 将于 2026-07-09 到期，请及时推进。", "ProjectNode", 10L);
+        verify(noticeService).create(1001L, NoticeType.PROJECT_WARNING, "项目「研发平台」测试验收阶段即将到期，请及时处理",
+                "项目负责人：未知", "ProjectNode", 10L);
     }
 }

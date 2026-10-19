@@ -2,6 +2,7 @@ package com.jitong.projectflow.system.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.jitong.projectflow.auth.security.CurrentUserContext;
+import com.jitong.projectflow.auth.security.BusinessAccessService;
 import com.jitong.projectflow.common.error.BusinessException;
 import com.jitong.projectflow.common.error.ErrorCode;
 import com.jitong.projectflow.system.audit.OperationLogService;
@@ -12,6 +13,10 @@ import com.jitong.projectflow.system.dto.UserPasswordResetRequest;
 import com.jitong.projectflow.system.dto.UserRoleAssignRequest;
 import com.jitong.projectflow.system.dto.UserUpdateRequest;
 import com.jitong.projectflow.system.entity.SystemUser;
+import com.jitong.projectflow.system.entity.RoleEntity;
+import com.jitong.projectflow.system.entity.DepartmentEntity;
+import com.jitong.projectflow.system.mapper.DepartmentMapper;
+import com.jitong.projectflow.system.mapper.RoleMapper;
 import com.jitong.projectflow.system.mapper.SystemUserMapper;
 import com.jitong.projectflow.system.mapper.UserRoleMapper;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +26,7 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 @Service
 @RequiredArgsConstructor
@@ -29,8 +35,12 @@ public class SystemUserManagementService {
     private final UserRoleMapper userRoleMapper;
     private final PasswordEncoder passwordEncoder;
     private final OperationLogService operationLogService;
+    private final RoleMapper roleMapper;
+    private final BusinessAccessService businessAccessService;
+    private final DepartmentMapper departmentMapper;
 
     public UserDetailResponse create(UserCreateRequest request) {
+        requireSafeDepartmentAssignment(request.getDepartmentId());
         ensureUsernameUnique(request.getUsername(), null);
         SystemUser user = new SystemUser();
         user.setDepartmentId(request.getDepartmentId());
@@ -70,6 +80,10 @@ public class SystemUserManagementService {
 
     public UserDetailResponse update(Long id, UserUpdateRequest request) {
         SystemUser user = requireUser(id);
+        requireAdminForPrivilegedTarget(id, user);
+        if (request.getDepartmentId() != null && !request.getDepartmentId().equals(user.getDepartmentId())) {
+            requireSafeDepartmentAssignment(request.getDepartmentId());
+        }
         if (request.getDepartmentId() != null) user.setDepartmentId(request.getDepartmentId());
         if (request.getRealName() != null) user.setRealName(request.getRealName());
         if (request.getPhone() != null) user.setPhone(request.getPhone());
@@ -88,6 +102,7 @@ public class SystemUserManagementService {
 
     public UserDetailResponse updateEnabled(Long id, UserEnabledUpdateRequest request) {
         SystemUser user = requireUser(id);
+        requireAdminForPrivilegedTarget(id, user);
         user.setEnabled(request.getEnabled());
         user.setUpdatedBy(CurrentUserContext.userIdOrNull());
         user.setUpdatedAt(LocalDateTime.now());
@@ -99,6 +114,7 @@ public class SystemUserManagementService {
 
     public void resetPassword(Long id, UserPasswordResetRequest request) {
         SystemUser user = requireUser(id);
+        requireAdminForPrivilegedTarget(id, user);
         user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
         user.setUpdatedBy(CurrentUserContext.userIdOrNull());
         user.setUpdatedAt(LocalDateTime.now());
@@ -109,6 +125,7 @@ public class SystemUserManagementService {
 
     public List<Long> assignRoles(Long id, UserRoleAssignRequest request) {
         SystemUser target = requireUser(id);
+        requireAdminForPrivilegedTarget(id, target);
         List<Long> roleIds = request.getRoleIds() == null ? List.of() : request.getRoleIds();
         userRoleMapper.deleteByUserId(id);
         for (Long roleId : roleIds) {
@@ -127,6 +144,32 @@ public class SystemUserManagementService {
         }
         if (systemUserMapper.selectCount(wrapper) > 0) {
             throw new BusinessException(ErrorCode.CONFLICT, "用户名已存在");
+        }
+    }
+
+    private void requireAdminForPrivilegedTarget(Long userId, SystemUser target) {
+        if (businessAccessService.isSystemAdmin()) return;
+        if (target.getDepartmentId() != null) {
+            DepartmentEntity department = departmentMapper.selectById(target.getDepartmentId());
+            if (department != null && "总经办".equals(department.getName())) {
+                throw new BusinessException(ErrorCode.FORBIDDEN, "无权修改总经办账号");
+            }
+        }
+        for (Long roleId : userRoleMapper.selectRoleIdsByUserId(userId)) {
+            RoleEntity role = roleMapper.selectById(roleId);
+            if (role == null || role.getCode() == null) continue;
+            String code = role.getCode().trim().toUpperCase(Locale.ROOT);
+            if ("ADMIN".equals(code) || "SUPER_ADMIN".equals(code)) {
+                throw new BusinessException(ErrorCode.FORBIDDEN, "无权修改管理员账号");
+            }
+        }
+    }
+
+    private void requireSafeDepartmentAssignment(Long departmentId) {
+        if (departmentId == null || businessAccessService.isSystemAdmin()) return;
+        DepartmentEntity department = departmentMapper.selectById(departmentId);
+        if (department != null && "总经办".equals(department.getName())) {
+            throw new BusinessException(ErrorCode.FORBIDDEN, "无权分配总经办部门");
         }
     }
 

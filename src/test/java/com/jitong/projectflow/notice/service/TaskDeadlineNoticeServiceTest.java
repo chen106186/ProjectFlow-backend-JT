@@ -5,6 +5,8 @@ import com.jitong.projectflow.notice.domain.NoticeType;
 import com.jitong.projectflow.task.domain.TaskStatus;
 import com.jitong.projectflow.task.entity.TaskEntity;
 import com.jitong.projectflow.task.mapper.TaskMapper;
+import com.jitong.projectflow.project.mapper.ProjectMapper;
+import com.jitong.projectflow.system.mapper.SystemUserMapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -30,6 +32,8 @@ class TaskDeadlineNoticeServiceTest {
 
     @Mock
     private NoticeService noticeService;
+    @Mock private ProjectMapper projectMapper;
+    @Mock private SystemUserMapper systemUserMapper;
 
     @InjectMocks
     private TaskDeadlineNoticeService service;
@@ -44,10 +48,10 @@ class TaskDeadlineNoticeServiceTest {
         int created = service.scanTaskDeadlines(today);
 
         assertThat(created).isEqualTo(2);
-        verify(noticeService).create(1001L, NoticeType.PROJECT_WARNING, "任务即将到期",
-                "接口联调 将于 2026-07-10 到期，请及时推进。", "Task", 1L);
-        verify(noticeService).create(1002L, NoticeType.PROJECT_WARNING, "任务已逾期",
-                "缺陷修复 已于 2026-07-07 逾期，请尽快处理。", "Task", 2L);
+        verify(noticeService).create(1001L, NoticeType.PROJECT_WARNING, "任务「接口联调」即将于 2026-07-10 到期",
+                "所属项目：未知项目　｜　任务负责人：未知", "Task", 1L);
+        verify(noticeService).create(1002L, NoticeType.TASK_OVERDUE, "任务「缺陷修复」已逾期 1 天，请及时处理",
+                "所属项目：未知项目　｜　任务负责人：未知", "Task", 2L);
     }
 
     @Test
@@ -56,7 +60,7 @@ class TaskDeadlineNoticeServiceTest {
         TaskEntity task = task(1L, "接口联调", 1001L, today.plusDays(1), TaskStatus.IN_PROGRESS);
         when(taskMapper.selectList(any(Wrapper.class))).thenReturn(List.of(task));
         when(noticeService.existsBusinessNotice(1001L, NoticeType.PROJECT_WARNING,
-                "任务即将到期", "Task", 1L)).thenReturn(true);
+                "任务「接口联调」即将于 2026-07-09 到期", "Task", 1L)).thenReturn(true);
 
         int created = service.scanTaskDeadlines(today);
 

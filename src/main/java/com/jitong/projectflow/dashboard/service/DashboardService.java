@@ -20,6 +20,8 @@ import com.jitong.projectflow.requirement.mapper.RequirementMapper;
 import com.jitong.projectflow.system.entity.SystemUser;
 import com.jitong.projectflow.system.mapper.SystemUserMapper;
 import com.jitong.projectflow.task.domain.TaskStatus;
+import com.jitong.projectflow.task.domain.TaskStatusCalculator;
+import com.jitong.projectflow.task.domain.TaskStatusQuery;
 import com.jitong.projectflow.task.entity.TaskEntity;
 import com.jitong.projectflow.task.mapper.TaskMapper;
 import lombok.RequiredArgsConstructor;
@@ -49,21 +51,23 @@ public class DashboardService {
     private final NoticeMapper noticeMapper;
     private final SystemUserMapper systemUserMapper;
     private final BusinessAccessService businessAccessService;
+    private final TaskStatusCalculator taskStatusCalculator = new TaskStatusCalculator();
 
     public DashboardSummaryResponse getSummary() {
         long managementProjectCount = projectMapper.selectCount(
-                new LambdaQueryWrapper<ProjectEntity>()
+                projectScopeQuery()
                         .eq(ProjectEntity::getProjectType, "MANAGEMENT"));
         long executionProjectCount = projectMapper.selectCount(
-                new LambdaQueryWrapper<ProjectEntity>()
+                projectScopeQuery()
                         .eq(ProjectEntity::getProjectType, "EXECUTION"));
         long inProgressProjectCount = projectMapper.selectCount(
-                new LambdaQueryWrapper<ProjectEntity>()
+                projectScopeQuery()
                         .eq(ProjectEntity::getProjectType, "MANAGEMENT")
                         .eq(ProjectEntity::getStatus, "IN_PROGRESS"));
         long completedProjectCount = projectMapper.selectCount(
-                new LambdaQueryWrapper<ProjectEntity>()
-                        .eq(ProjectEntity::getStatus, "COMPLETED"));
+                projectScopeQuery()
+                        .eq(ProjectEntity::getProjectType, "MANAGEMENT")
+                        .in(ProjectEntity::getStatus, List.of("COMPLETED", "OVERDUE_COMPLETED")));
 
         return new DashboardSummaryResponse(
                 managementProjectCount,
@@ -72,10 +76,20 @@ public class DashboardService {
                 completedProjectCount);
     }
 
+    private LambdaQueryWrapper<ProjectEntity> projectScopeQuery() {
+        LambdaQueryWrapper<ProjectEntity> query = new LambdaQueryWrapper<>();
+        if (!businessAccessService.canViewAll()) {
+            query.inSql(ProjectEntity::getId, businessAccessService.readableProjectIdsSql());
+        }
+        return query;
+    }
+
     public List<TodoItemResponse> listTodos(Long userId) {
         boolean viewAll = businessAccessService.canViewAll();
         LambdaQueryWrapper<TaskEntity> taskWrapper = new LambdaQueryWrapper<TaskEntity>()
-                .ne(TaskEntity::getStatus, TaskStatus.COMPLETED.name());
+                .and(w -> w.eq(TaskEntity::getStatus, TaskStatus.PAUSED.name())
+                        .or().isNull(TaskEntity::getActualEndDate)
+                        .or().gt(TaskEntity::getActualEndDate, LocalDate.now()));
         if (!viewAll) {
             taskWrapper.eq(TaskEntity::getAssigneeId, userId);
         }
@@ -92,7 +106,8 @@ public class DashboardService {
         LambdaQueryWrapper<RequirementEntity> reqWrapper = new LambdaQueryWrapper<RequirementEntity>()
                 .eq(RequirementEntity::getStatus, RequirementStatus.PENDING_REVIEW.name());
         if (!viewAll) {
-            reqWrapper.eq(RequirementEntity::getCreatedBy, userId);
+            reqWrapper.and(w -> w.eq(RequirementEntity::getReviewerId, userId)
+                    .or().isNull(RequirementEntity::getReviewerId).eq(RequirementEntity::getCreatedBy, userId));
         }
         List<RequirementEntity> requirements = requirementMapper.selectList(reqWrapper);
 
@@ -165,16 +180,14 @@ public class DashboardService {
         long myTaskTotal = taskMapper.selectCount(taskTotalW);
 
         LambdaQueryWrapper<TaskEntity> taskCompletedW = new LambdaQueryWrapper<TaskEntity>()
-                .eq(TaskEntity::getStatus, TaskStatus.COMPLETED.name())
-                .ge(hasPeriod, TaskEntity::getCreatedAt, hasPeriod ? startOfDay(fStart) : null)
-                .le(hasPeriod, TaskEntity::getCreatedAt, hasPeriod ? endOfDay(fEnd) : null);
+                .ge(hasPeriod, TaskEntity::getActualEndDate, fStart)
+                .le(hasPeriod, TaskEntity::getActualEndDate, fEnd);
+        TaskStatusQuery.apply(taskCompletedW, TaskStatus.COMPLETED, today);
         applyTaskUserScope(taskCompletedW, hasUserFilter, effectiveUserId, fManagedIds);
         long myTaskCompleted = taskMapper.selectCount(taskCompletedW);
 
-        LambdaQueryWrapper<TaskEntity> taskOverdueW = new LambdaQueryWrapper<TaskEntity>()
-                .eq(TaskEntity::getStatus, TaskStatus.OVERDUE.name())
-                .ge(hasPeriod, TaskEntity::getCreatedAt, hasPeriod ? startOfDay(fStart) : null)
-                .le(hasPeriod, TaskEntity::getCreatedAt, hasPeriod ? endOfDay(fEnd) : null);
+        LambdaQueryWrapper<TaskEntity> taskOverdueW = new LambdaQueryWrapper<>();
+        TaskStatusQuery.apply(taskOverdueW, TaskStatus.OVERDUE, today);
         applyTaskUserScope(taskOverdueW, hasUserFilter, effectiveUserId, fManagedIds);
         long myTaskOverdue = taskMapper.selectCount(taskOverdueW);
 
@@ -185,9 +198,7 @@ public class DashboardService {
         long myBugTotal = bugMapper.selectCount(bugTotalW);
 
         LambdaQueryWrapper<BugEntity> bugOpenW = new LambdaQueryWrapper<BugEntity>()
-                .ne(BugEntity::getStatus, BugStatus.CLOSED.name())
-                .ge(hasPeriod, BugEntity::getCreatedAt, hasPeriod ? startOfDay(fStart) : null)
-                .le(hasPeriod, BugEntity::getCreatedAt, hasPeriod ? endOfDay(fEnd) : null);
+                .ne(BugEntity::getStatus, BugStatus.CLOSED.name());
         applyBugUserScope(bugOpenW, hasUserFilter, effectiveUserId, fManagedIds);
         long myBugOpen = bugMapper.selectCount(bugOpenW);
 
@@ -223,9 +234,9 @@ public class DashboardService {
         List<TrendDataPoint> completionTrend;
         if (hasPeriod) {
             LambdaQueryWrapper<TaskEntity> completedPeriodW = new LambdaQueryWrapper<TaskEntity>()
-                    .eq(TaskEntity::getStatus, TaskStatus.COMPLETED.name())
                     .ge(TaskEntity::getActualEndDate, startDate)
                     .le(TaskEntity::getActualEndDate, endDate);
+            TaskStatusQuery.apply(completedPeriodW, TaskStatus.COMPLETED, today);
             applyTaskUserScope(completedPeriodW, hasUserFilter, effectiveUserId, fManagedIds);
             List<TaskEntity> completedInPeriod = safeList(taskMapper.selectList(completedPeriodW));
             Map<LocalDate, Long> byDate = completedInPeriod.stream()
@@ -262,7 +273,7 @@ public class DashboardService {
                 .myRequirementTotal(myRequirementTotal)
                 .myRequirementAccepted(myRequirementAccepted)
                 .unreadNoticeCount(unreadNoticeCount)
-                .taskStatusDistribution(countBy(myTasks, TaskEntity::getStatus))
+                .taskStatusDistribution(countBy(myTasks, task -> currentTaskStatus(task, today)))
                 .taskPriorityDistribution(countBy(myTasks, TaskEntity::getPriority))
                 .bugStatusDistribution(countBy(myBugs, BugEntity::getStatus))
                 .completionTrend(completionTrend)
@@ -323,7 +334,7 @@ public class DashboardService {
                 task.getId(),
                 task.getName(),
                 task.getPriority(),
-                task.getStatus(),
+                currentTaskStatus(task, today),
                 projectNames.get(task.getProjectId()),
                 userNames.get(task.getAssigneeId()),
                 null,
@@ -355,6 +366,11 @@ public class DashboardService {
                 new TodoSortKey(priorityRank(bug.getPriority()), 0, null, bug.getId()));
     }
 
+    private String currentTaskStatus(TaskEntity task, LocalDate today) {
+        return taskStatusCalculator.calculate(task.getPlannedStartDate(), task.getPlannedEndDate(),
+                task.getActualStartDate(), task.getActualEndDate(), TaskStatus.PAUSED.name().equals(task.getStatus()), today).name();
+    }
+
     private TodoWithSortKey requirementTodo(RequirementEntity req,
                                             Map<Long, String> projectNames,
                                             Map<Long, String> userNames) {
@@ -365,7 +381,7 @@ public class DashboardService {
                 req.getPriority(),
                 req.getStatus(),
                 projectNames.get(req.getProjectId()),
-                userNames.get(req.getCreatedBy()),
+                userNames.get(req.getReviewerId() != null ? req.getReviewerId() : req.getCreatedBy()),
                 null,
                 null,
                 0,
@@ -391,6 +407,7 @@ public class DashboardService {
         bugs.stream().map(BugEntity::getAssigneeId).filter(Objects::nonNull).forEach(userIds::add);
         bugs.stream().map(BugEntity::getCreatorId).filter(Objects::nonNull).forEach(userIds::add);
         requirements.stream().map(RequirementEntity::getCreatedBy).filter(Objects::nonNull).forEach(userIds::add);
+        requirements.stream().map(RequirementEntity::getReviewerId).filter(Objects::nonNull).forEach(userIds::add);
         return userIds.isEmpty() ? Map.of() : toUserNameMap(systemUserMapper.selectByIds(distinct(userIds)));
     }
 

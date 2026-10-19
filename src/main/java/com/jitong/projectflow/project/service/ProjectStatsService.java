@@ -1,6 +1,9 @@
 package com.jitong.projectflow.project.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.jitong.projectflow.auth.security.BusinessAccessService;
+import com.jitong.projectflow.common.error.BusinessException;
+import com.jitong.projectflow.common.error.ErrorCode;
 import com.jitong.projectflow.bug.mapper.BugMapper;
 import com.jitong.projectflow.project.entity.ProjectEntity;
 import com.jitong.projectflow.project.dto.ProjectStatsResponse;
@@ -22,15 +25,21 @@ public class ProjectStatsService {
     private final TaskMapper taskMapper;
     private final BugMapper bugMapper;
     private final ProjectMapper projectMapper;
+    private final BusinessAccessService businessAccessService;
 
     public List<ProjectStatsResponse> batchStats(List<Long> projectIds) {
         if (projectIds.isEmpty()) {
             return List.of();
         }
 
-        Map<Long, Long> taskCounts = countByProjectIds(taskMapper, projectIds);
         Map<Long, ProjectEntity> projectMap = projectMapper.selectBatchIds(projectIds).stream()
                 .collect(Collectors.toMap(ProjectEntity::getId, project -> project));
+        projectIds.forEach(id -> {
+            ProjectEntity project = projectMap.get(id);
+            if (project == null) throw new BusinessException(ErrorCode.NOT_FOUND, "项目不存在");
+            businessAccessService.requireProjectRead(project);
+        });
+        Map<Long, Long> taskCounts = countByProjectIds(taskMapper, projectIds);
         Map<Long, Long> bugCounts = countBugsByProjectScope(projectIds, projectMap);
 
         return projectIds.stream()
@@ -47,6 +56,7 @@ public class ProjectStatsService {
                 .filter(project -> "EXECUTION".equals(project.getProjectType()))
                 .map(ProjectEntity::getManagementProjectId)
                 .filter(id -> id != null && id > 0)
+                .filter(businessAccessService::canReadProject)
                 .forEach(bugProjectIds::add);
 
         Map<Long, Long> rawCounts = countByProjectIds(bugMapper, bugProjectIds.stream().toList());
@@ -57,7 +67,8 @@ public class ProjectStatsService {
                     ProjectEntity project = projectMap.get(id);
                     Long managementProjectId = project == null ? null : project.getManagementProjectId();
                     if (project != null && "EXECUTION".equals(project.getProjectType())
-                            && managementProjectId != null && !managementProjectId.equals(id)) {
+                            && managementProjectId != null && !managementProjectId.equals(id)
+                            && bugProjectIds.contains(managementProjectId)) {
                         count += rawCounts.getOrDefault(managementProjectId, 0L);
                     }
                     return count;

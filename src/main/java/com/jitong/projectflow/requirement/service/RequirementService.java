@@ -8,6 +8,7 @@ import com.jitong.projectflow.common.api.PageResult;
 import com.jitong.projectflow.common.api.PageUtils;
 import com.jitong.projectflow.common.error.BusinessException;
 import com.jitong.projectflow.common.error.ErrorCode;
+import com.jitong.projectflow.common.service.BusinessNumberService;
 import com.jitong.projectflow.notice.domain.NoticeType;
 import com.jitong.projectflow.notice.service.NoticeService;
 import com.jitong.projectflow.project.entity.ProjectEntity;
@@ -28,6 +29,7 @@ import com.jitong.projectflow.system.entity.SystemUser;
 import com.jitong.projectflow.system.mapper.OperationLogMapper;
 import com.jitong.projectflow.system.mapper.SystemUserMapper;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.util.Collections;
@@ -46,6 +48,7 @@ public class RequirementService {
     private final OperationLogMapper operationLogMapper;
     private final NoticeService noticeService;
     private final BusinessAccessService businessAccessService;
+    private final BusinessNumberService businessNumberService;
     private final RequirementStatusPolicy statusPolicy = new RequirementStatusPolicy();
 
     public RequirementService(RequirementMapper requirementMapper,
@@ -54,7 +57,8 @@ public class RequirementService {
                               OperationLogService operationLogService,
                               OperationLogMapper operationLogMapper,
                               NoticeService noticeService,
-                              BusinessAccessService businessAccessService) {
+                              BusinessAccessService businessAccessService,
+                              BusinessNumberService businessNumberService) {
         this.requirementMapper = requirementMapper;
         this.systemUserMapper = systemUserMapper;
         this.projectMapper = projectMapper;
@@ -62,11 +66,14 @@ public class RequirementService {
         this.operationLogMapper = operationLogMapper;
         this.noticeService = noticeService;
         this.businessAccessService = businessAccessService;
+        this.businessNumberService = businessNumberService;
     }
 
+    @Transactional
     public RequirementResponse create(RequirementCreateRequest req) {
+        requireProjectRead(req.projectId());
         RequirementEntity entity = new RequirementEntity();
-        entity.setRequirementNo(requirementMapper.selectMaxRequirementNo() + 1L);
+        entity.setRequirementNo(businessNumberService.nextRequirementNo());
         entity.setTitle(req.title());
         entity.setRequirementType(req.requirementType());
         entity.setPriority(req.priority());
@@ -78,6 +85,7 @@ public class RequirementService {
         entity.setCreatedBy(CurrentUserContext.userId());
 
         requirementMapper.insert(entity);
+        notifyReviewer(entity);
 
         operationLogService.record("requirement", "Requirement", entity.getId(), "CREATE",
                 "提交需求：「" + entity.getTitle() + "」，状态待评审");
@@ -95,6 +103,17 @@ public class RequirementService {
         wrapper.eq(StringUtils.hasText(request.getRequirementType()), RequirementEntity::getRequirementType, request.getRequirementType());
         wrapper.eq(StringUtils.hasText(request.getPriority()), RequirementEntity::getPriority, request.getPriority());
         wrapper.eq(StringUtils.hasText(request.getStatus()), RequirementEntity::getStatus, request.getStatus());
+        if (Boolean.TRUE.equals(request.getMineOnly())) {
+            Long userId = CurrentUserContext.userId();
+            wrapper.and(w -> w.eq(RequirementEntity::getCreatedBy, userId)
+                    .or().eq(RequirementEntity::getReviewerId, userId));
+        }
+        if (!businessAccessService.canViewAll()) {
+            Long userId = CurrentUserContext.userId();
+            wrapper.and(w -> w.eq(RequirementEntity::getCreatedBy, userId)
+                    .or().eq(RequirementEntity::getReviewerId, userId)
+                    .or().inSql(RequirementEntity::getProjectId, businessAccessService.readableProjectIdsSql()));
+        }
         wrapper.orderByDesc(RequirementEntity::getCreatedAt);
         Page<RequirementEntity> page = requirementMapper.selectPage(PageUtils.toPage(request), wrapper);
         List<RequirementEntity> records = page.getRecords();
@@ -109,10 +128,11 @@ public class RequirementService {
         if (entity == null) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "需求不存在");
         }
-        businessAccessService.requireRequirementManage(entity);
+        businessAccessService.requireRequirementRead(entity);
         return toResponse(entity, loadUserNames(java.util.Arrays.asList(entity.getCreatedBy(), entity.getReviewerId())));
     }
 
+    @Transactional
     public RequirementResponse update(Long id, RequirementUpdateRequest req) {
         RequirementEntity entity = requirementMapper.selectById(id);
         if (entity == null) {
@@ -121,6 +141,10 @@ public class RequirementService {
         businessAccessService.requireRequirementOwner(entity);
 
         RequirementEntity before = copyRequirement(entity);
+        if (req.projectId() != null) requireProjectRead(req.projectId());
+        if (req.status() != null && !req.status().equals(entity.getStatus())) {
+            transition(entity, req.status());
+        }
 
         if (req.title() != null) entity.setTitle(req.title());
         if (req.requirementType() != null) entity.setRequirementType(req.requirementType());
@@ -129,41 +153,46 @@ public class RequirementService {
         if (req.reviewerId() != null) entity.setReviewerId(req.reviewerId());
         if (req.description() != null) entity.setDescription(req.description());
         if (req.tags() != null) entity.setTags(req.tags());
-        if (req.status() != null) entity.setStatus(req.status());
         entity.setUpdatedBy(CurrentUserContext.userId());
 
         requirementMapper.updateById(entity);
+        if (!Objects.equals(before.getReviewerId(), entity.getReviewerId())) notifyReviewer(entity);
 
         operationLogService.record("requirement", "Requirement", id, "UPDATE", buildUpdateContent(before, entity));
 
         return toResponse(entity, loadUserNames(java.util.Arrays.asList(entity.getCreatedBy(), entity.getReviewerId())));
     }
 
+    @Transactional
     public RequirementResponse updateStatus(Long id, RequirementStatusUpdateRequest req) {
         RequirementEntity entity = requirementMapper.selectById(id);
         if (entity == null) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "需求不存在");
         }
-        businessAccessService.requireRequirementOwner(entity);
+        transition(entity, req.status());
+        requirementMapper.updateById(entity);
+        return toResponse(entity, loadUserNames(java.util.Arrays.asList(entity.getCreatedBy(), entity.getReviewerId())));
+    }
 
+    private void transition(RequirementEntity entity, String requestedStatus) {
+        businessAccessService.requireRequirementReview(entity);
         RequirementStatus from = RequirementStatus.valueOf(entity.getStatus());
         RequirementStatus to;
         try {
-            to = RequirementStatus.valueOf(req.status());
+            to = RequirementStatus.valueOf(requestedStatus);
         } catch (IllegalArgumentException e) {
-            throw new BusinessException(ErrorCode.BAD_REQUEST, "无效的状态值: " + req.status());
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "无效的状态值: " + requestedStatus);
         }
 
         if (!statusPolicy.canTransition(from, to)) {
             throw new BusinessException(ErrorCode.CONFLICT, "需求状态流转不合法");
         }
 
+        if (from == to) return;
         entity.setStatus(to.name());
         entity.setUpdatedBy(CurrentUserContext.userId());
 
-        requirementMapper.updateById(entity);
-
-        operationLogService.record("requirement", "Requirement", id, "STATUS_CHANGE",
+        operationLogService.record("requirement", "Requirement", entity.getId(), "STATUS_CHANGE",
                 "「" + entity.getTitle() + "」需求状态：" + statusLabel(from.name()) + " → " + statusLabel(to.name()));
 
         Long currentUserId = CurrentUserContext.userIdOrNull();
@@ -173,16 +202,30 @@ public class RequirementService {
                     "需求状态变更",
                     entity.getTitle() + "：" + statusLabel(from.name()) + " -> " + statusLabel(to.name()),
                     "Requirement",
-                    id);
+                    entity.getId());
         }
 
-        return toResponse(entity, loadUserNames(java.util.Arrays.asList(entity.getCreatedBy(), entity.getReviewerId())));
+        if (to == RequirementStatus.PENDING_REVIEW) notifyReviewer(entity);
+    }
+
+    private void requireProjectRead(Long projectId) {
+        ProjectEntity project = projectMapper.selectById(projectId);
+        if (project == null) throw new BusinessException(ErrorCode.NOT_FOUND, "项目不存在");
+        businessAccessService.requireProjectRead(project);
+    }
+
+    private void notifyReviewer(RequirementEntity entity) {
+        if (entity.getReviewerId() != null && RequirementStatus.PENDING_REVIEW.name().equals(entity.getStatus())) {
+            noticeService.create(entity.getReviewerId(), NoticeType.REQUIREMENT_STATUS_CHANGED,
+                    "您有一条需求待评审", entity.getTitle(), "Requirement", entity.getId());
+        }
     }
 
     public List<RequirementResponse> listMine() {
         Long userId = CurrentUserContext.userId();
         LambdaQueryWrapper<RequirementEntity> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(RequirementEntity::getCreatedBy, userId);
+        wrapper.and(w -> w.eq(RequirementEntity::getCreatedBy, userId)
+                .or().eq(RequirementEntity::getReviewerId, userId));
         wrapper.orderByDesc(RequirementEntity::getCreatedAt);
         List<RequirementEntity> entities = requirementMapper.selectList(wrapper);
         Map<Long, String> nameMap = loadUserNames(entities.stream()
@@ -196,7 +239,7 @@ public class RequirementService {
         if (entity == null) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "需求不存在");
         }
-        businessAccessService.requireRequirementManage(entity);
+        businessAccessService.requireRequirementRead(entity);
 
         LambdaQueryWrapper<OperationLog> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(OperationLog::getBusinessType, "Requirement");
@@ -320,6 +363,7 @@ public class RequirementService {
             case "PENDING_REVIEW" -> "待评审";
             case "ACCEPTED" -> "已采纳";
             case "REJECTED" -> "已拒绝";
+            case "SHELVED" -> "已搁置";
             default -> status;
         };
     }

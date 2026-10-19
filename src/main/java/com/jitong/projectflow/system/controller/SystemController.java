@@ -36,6 +36,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.MDC;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
@@ -79,6 +80,7 @@ public class SystemController {
     @Operation(summary = "分页查询操作日志",
             description = "按模块、业务类型、操作人和时间范围分页查询系统操作日志。")
     @GetMapping("/logs")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_SUPER_ADMIN', 'system:log:view')")
     public ApiResponse<PageResult<OperationLogResponse>> listOperationLogs(@Valid @ModelAttribute OperationLogQueryRequest request) {
         return ApiResponse.success(operationLogQueryService.list(request), MDC.get("traceId"));
     }
@@ -93,6 +95,7 @@ public class SystemController {
     @Operation(summary = "新增用户",
             description = "创建系统用户，设置所属部门、岗位、账号状态、初始密码和初始角色。")
     @PostMapping("/users")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_SUPER_ADMIN', 'system:user:create') and (#request.roleIds == null or #request.roleIds.isEmpty() or hasAnyAuthority('ROLE_ADMIN', 'ROLE_SUPER_ADMIN'))")
     public ApiResponse<UserDetailResponse> createUser(@Valid @RequestBody UserCreateRequest request) {
         return ApiResponse.success(systemUserManagementService.create(request), MDC.get("traceId"));
     }
@@ -100,6 +103,7 @@ public class SystemController {
     @Operation(summary = "查询用户详情",
             description = "根据用户 ID 查询系统用户基础资料、部门和角色信息。")
     @GetMapping("/users/{id}")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_SUPER_ADMIN', 'system:user:view')")
     public ApiResponse<UserDetailResponse> getUser(@PathVariable Long id) {
         return ApiResponse.success(systemUserManagementService.getById(id), MDC.get("traceId"));
     }
@@ -107,6 +111,7 @@ public class SystemController {
     @Operation(summary = "编辑用户",
             description = "修改系统用户基础资料、所属部门和账号信息。")
     @PutMapping("/users/{id}")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_SUPER_ADMIN', 'system:user:update')")
     public ApiResponse<UserDetailResponse> updateUser(@PathVariable Long id, @Valid @RequestBody UserUpdateRequest request) {
         return ApiResponse.success(systemUserManagementService.update(id, request), MDC.get("traceId"));
     }
@@ -114,6 +119,7 @@ public class SystemController {
     @Operation(summary = "启用或禁用用户",
             description = "更新系统用户启用状态，禁用后该用户不可继续登录。")
     @PatchMapping("/users/{id}/enabled")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_SUPER_ADMIN', 'system:user:update')")
     public ApiResponse<UserDetailResponse> updateUserEnabled(
             @PathVariable Long id,
             @Valid @RequestBody UserEnabledUpdateRequest request) {
@@ -123,6 +129,7 @@ public class SystemController {
     @Operation(summary = "重置用户密码",
             description = "为指定系统用户重置登录密码。")
     @PatchMapping("/users/{id}/password")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_SUPER_ADMIN')")
     public ApiResponse<Void> resetUserPassword(
             @PathVariable Long id,
             @Valid @RequestBody UserPasswordResetRequest request) {
@@ -133,6 +140,7 @@ public class SystemController {
     @Operation(summary = "分配用户角色",
             description = "为指定系统用户重新分配角色列表。")
     @PutMapping("/users/{id}/roles")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_SUPER_ADMIN')")
     public ApiResponse<List<Long>> assignUserRoles(
             @PathVariable Long id,
             @Valid @RequestBody UserRoleAssignRequest request) {
@@ -149,6 +157,7 @@ public class SystemController {
     @Operation(summary = "新增部门",
             description = "新增部门节点并设置上级部门、排序和负责人信息。")
     @PostMapping("/departments")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_SUPER_ADMIN')")
     public ApiResponse<DepartmentResponse> createDepartment(@Valid @RequestBody DepartmentCreateRequest request) {
         return ApiResponse.success(departmentManagementService.create(request), MDC.get("traceId"));
     }
@@ -156,6 +165,7 @@ public class SystemController {
     @Operation(summary = "编辑部门",
             description = "修改部门名称、上级部门、排序和负责人信息。")
     @PutMapping("/departments/{id}")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_SUPER_ADMIN')")
     public ApiResponse<DepartmentResponse> updateDepartment(
             @PathVariable Long id,
             @Valid @RequestBody DepartmentUpdateRequest request) {
@@ -165,6 +175,7 @@ public class SystemController {
     @Operation(summary = "删除部门",
             description = "删除指定部门，存在子部门或关联用户时不允许删除。")
     @DeleteMapping("/departments/{id}")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_SUPER_ADMIN')")
     public ApiResponse<Void> deleteDepartment(@PathVariable Long id) {
         departmentManagementService.delete(id);
         return ApiResponse.success(null, MDC.get("traceId"));
@@ -180,6 +191,7 @@ public class SystemController {
     @Operation(summary = "新增角色",
             description = "新增系统角色并设置角色编码、名称和启用状态。")
     @PostMapping("/roles")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_SUPER_ADMIN')")
     public ApiResponse<RoleResponse> createRole(@Valid @RequestBody RoleCreateRequest request) {
         return ApiResponse.success(roleManagementService.create(request), MDC.get("traceId"));
     }
@@ -187,6 +199,7 @@ public class SystemController {
     @Operation(summary = "查询角色详情",
             description = "根据角色 ID 查询角色基础信息和已分配菜单权限。")
     @GetMapping("/roles/{id}")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_SUPER_ADMIN', 'system:role:view')")
     public ApiResponse<RoleDetailResponse> getRole(@PathVariable Long id) {
         return ApiResponse.success(roleManagementService.getById(id), MDC.get("traceId"));
     }
@@ -194,6 +207,7 @@ public class SystemController {
     @Operation(summary = "编辑角色",
             description = "修改系统角色名称、编码、排序和启用状态。")
     @PutMapping("/roles/{id}")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_SUPER_ADMIN')")
     public ApiResponse<RoleResponse> updateRole(@PathVariable Long id, @Valid @RequestBody RoleUpdateRequest request) {
         return ApiResponse.success(roleManagementService.update(id, request), MDC.get("traceId"));
     }
@@ -201,6 +215,7 @@ public class SystemController {
     @Operation(summary = "删除角色",
             description = "删除指定角色，已分配给用户时不允许删除。")
     @DeleteMapping("/roles/{id}")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_SUPER_ADMIN')")
     public ApiResponse<Void> deleteRole(@PathVariable Long id) {
         roleManagementService.delete(id);
         return ApiResponse.success(null, MDC.get("traceId"));
@@ -209,6 +224,7 @@ public class SystemController {
     @Operation(summary = "查询角色菜单权限",
             description = "查询指定角色已分配的菜单和按钮权限 ID 列表。")
     @GetMapping("/roles/{id}/menus")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_SUPER_ADMIN', 'system:role:view', 'system:role:assign-menu')")
     public ApiResponse<List<Long>> getRoleMenus(@PathVariable Long id) {
         return ApiResponse.success(roleManagementService.getMenuIds(id), MDC.get("traceId"));
     }
@@ -216,6 +232,7 @@ public class SystemController {
     @Operation(summary = "分配角色菜单权限",
             description = "为指定角色重新分配菜单和按钮权限。")
     @PutMapping("/roles/{id}/menus")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_SUPER_ADMIN')")
     public ApiResponse<List<Long>> assignRoleMenus(@PathVariable Long id, @Valid @RequestBody RoleMenuAssignRequest request) {
         return ApiResponse.success(roleManagementService.assignMenus(id, request), MDC.get("traceId"));
     }
@@ -223,6 +240,7 @@ public class SystemController {
     @Operation(summary = "查询菜单列表",
             description = "查询系统菜单、目录和按钮权限列表。")
     @GetMapping("/menus")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_SUPER_ADMIN', 'system:menu:view', 'system:role:view', 'system:role:assign-menu')")
     public ApiResponse<List<MenuResponse>> listMenus() {
         return ApiResponse.success(systemQueryService.listMenus(), MDC.get("traceId"));
     }
@@ -230,6 +248,7 @@ public class SystemController {
     @Operation(summary = "新增菜单",
             description = "新增目录、菜单或按钮权限节点。")
     @PostMapping("/menus")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_SUPER_ADMIN')")
     public ApiResponse<MenuResponse> createMenu(@Valid @RequestBody MenuCreateRequest request) {
         return ApiResponse.success(menuManagementService.create(request), MDC.get("traceId"));
     }
@@ -237,6 +256,7 @@ public class SystemController {
     @Operation(summary = "编辑菜单",
             description = "修改目录、菜单或按钮权限的名称、路径、权限码和排序。")
     @PutMapping("/menus/{id}")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_SUPER_ADMIN')")
     public ApiResponse<MenuResponse> updateMenu(@PathVariable Long id, @Valid @RequestBody MenuUpdateRequest request) {
         return ApiResponse.success(menuManagementService.update(id, request), MDC.get("traceId"));
     }
@@ -244,6 +264,7 @@ public class SystemController {
     @Operation(summary = "删除菜单",
             description = "删除指定菜单或按钮权限节点，存在子节点时不允许删除。")
     @DeleteMapping("/menus/{id}")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_SUPER_ADMIN')")
     public ApiResponse<Void> deleteMenu(@PathVariable Long id) {
         menuManagementService.delete(id);
         return ApiResponse.success(null, MDC.get("traceId"));

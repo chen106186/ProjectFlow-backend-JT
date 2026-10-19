@@ -35,7 +35,7 @@ class DepartmentManagementServiceTest {
         new DepartmentManagementService(departmentMapper, systemUserMapper, operationLogService).create(request);
 
         verify(departmentMapper).insert(any(DepartmentEntity.class));
-        verify(operationLogService).record("system", "Department", null, "CREATE", "Create department Delivery");
+        verify(operationLogService).record("system", "Department", null, "CREATE", "新建部门：Delivery");
     }
 
     @Test

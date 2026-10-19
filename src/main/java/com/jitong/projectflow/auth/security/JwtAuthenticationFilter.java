@@ -35,17 +35,20 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             if (header != null && header.startsWith("Bearer ")) {
                 String token = header.substring(7);
                 Long userId = jwtTokenService.parseUserId(token);
-                CurrentUserContext.set(userId);
-                CurrentUserContext.setDeptName(currentUserPermissionService.getDeptNameByUserId(userId));
-                List<SimpleGrantedAuthority> authorities = currentUserPermissionService.getPermissionsByUserId(userId).stream()
+                List<SimpleGrantedAuthority> authorities = currentUserPermissionService.getAuthoritiesByUserId(userId).stream()
                         .map(SimpleGrantedAuthority::new)
                         .toList();
+                String deptName = currentUserPermissionService.getDeptNameByUserId(userId);
                 UsernamePasswordAuthenticationToken authentication =
                         new UsernamePasswordAuthenticationToken(userId, null, authorities);
                 authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                CurrentUserContext.set(userId);
+                CurrentUserContext.setDeptName(deptName);
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             }
         } catch (Exception e) {
+            CurrentUserContext.clear();
+            SecurityContextHolder.clearContext();
             log.debug("JWT token rejected for {}: {}", request.getRequestURI(), e.getMessage());
         }
         try {

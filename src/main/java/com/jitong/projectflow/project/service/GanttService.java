@@ -3,6 +3,7 @@ package com.jitong.projectflow.project.service;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.jitong.projectflow.auth.security.CurrentUserContext;
+import com.jitong.projectflow.auth.security.BusinessAccessService;
 import com.jitong.projectflow.common.api.DateRangeValidator;
 import com.jitong.projectflow.common.error.BusinessException;
 import com.jitong.projectflow.common.error.ErrorCode;
@@ -51,11 +52,12 @@ public class GanttService {
     private final RoleMapper roleMapper;
     private final UserRoleMapper userRoleMapper;
     private final TaskMapper taskMapper;
+    private final BusinessAccessService businessAccessService;
 
     public GanttService(ProjectNodeMapper projectNodeMapper, OperationLogService operationLogService,
                         NoticeService noticeService, ProjectMapper projectMapper,
                         SystemUserMapper systemUserMapper, RoleMapper roleMapper, UserRoleMapper userRoleMapper,
-                        TaskMapper taskMapper) {
+                        TaskMapper taskMapper, BusinessAccessService businessAccessService) {
         this.projectNodeMapper = projectNodeMapper;
         this.operationLogService = operationLogService;
         this.noticeService = noticeService;
@@ -64,9 +66,11 @@ public class GanttService {
         this.roleMapper = roleMapper;
         this.userRoleMapper = userRoleMapper;
         this.taskMapper = taskMapper;
+        this.businessAccessService = businessAccessService;
     }
 
     public List<GanttNodeResponse> getGanttNodes(Long projectId) {
+        businessAccessService.requireProjectRead(requireProject(projectId));
         LambdaQueryWrapper<ProjectNodeEntity> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(ProjectNodeEntity::getProjectId, projectId)
                .orderByAsc(ProjectNodeEntity::getSortOrder);
@@ -74,7 +78,9 @@ public class GanttService {
         return entities.stream().map(this::toResponse).collect(Collectors.toList());
     }
 
+    @org.springframework.transaction.annotation.Transactional
     public GanttNodeResponse updateNode(Long projectId, Long nodeId, ProjectNodeUpdateRequest req) {
+        businessAccessService.requireProjectManage(requireProject(projectId));
         ProjectNodeEntity entity = projectNodeMapper.selectById(nodeId);
         if (entity == null || !projectId.equals(entity.getProjectId())) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "项目节点不存在");
@@ -225,6 +231,7 @@ public class GanttService {
     }
 
     public GanttSummaryResponse getSummary(Long projectId) {
+        businessAccessService.requireProjectRead(requireProject(projectId));
         LambdaQueryWrapper<ProjectNodeEntity> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(ProjectNodeEntity::getProjectId, projectId);
         List<ProjectNodeEntity> entities = projectNodeMapper.selectList(wrapper);
@@ -259,6 +266,12 @@ public class GanttService {
                 .totalTaskCount(totalTasks)
                 .completedTaskCount(completedTasks)
                 .build();
+    }
+
+    private ProjectEntity requireProject(Long projectId) {
+        ProjectEntity project = projectMapper.selectById(projectId);
+        if (project == null) throw new BusinessException(ErrorCode.NOT_FOUND, "项目不存在");
+        return project;
     }
 
     private void validateNode(ProjectNodeEntity entity) {
@@ -307,6 +320,7 @@ public class GanttService {
         ProjectNodeEntity mgmtNode = findMatchingManagementNode(
                 project.getManagementProjectId(), execNode.getNodeCode(), execNode.getNodeName());
         if (mgmtNode == null) return;
+        businessAccessService.requireProjectManage(requireProject(project.getManagementProjectId()));
 
         mgmtNode.setPlannedStartDate(req.getPlannedStartDate());
         mgmtNode.setPlannedEndDate(req.getPlannedEndDate());
@@ -352,6 +366,7 @@ public class GanttService {
         ProjectNodeEntity execNode = findNodeInProject(
                 execProject.getId(), mgmtNode.getNodeCode(), mgmtNode.getNodeName());
         if (execNode == null) return;
+        businessAccessService.requireProjectManage(execProject);
 
         execNode.setPlannedStartDate(req.getPlannedStartDate());
         execNode.setPlannedEndDate(req.getPlannedEndDate());

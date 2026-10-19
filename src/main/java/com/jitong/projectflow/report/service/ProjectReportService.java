@@ -3,6 +3,7 @@ package com.jitong.projectflow.report.service;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.jitong.projectflow.auth.security.BusinessAccessService;
+import com.jitong.projectflow.file.service.FileService;
 import com.jitong.projectflow.auth.security.CurrentUserContext;
 import com.jitong.projectflow.common.api.PageResult;
 import com.jitong.projectflow.common.api.PageUtils;
@@ -23,12 +24,14 @@ import com.jitong.projectflow.report.mapper.ProjectReportMapper;
 import com.jitong.projectflow.system.audit.OperationLogService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
+@Transactional
 public class ProjectReportService {
     private static final String DEFAULT_STATUS = "PREPARING";
 
@@ -36,8 +39,10 @@ public class ProjectReportService {
     private final ProjectReportItemMapper projectReportItemMapper;
     private final OperationLogService operationLogService;
     private final BusinessAccessService businessAccessService;
+    private final FileService fileService;
 
     public ProjectReportResponse create(ProjectReportCreateRequest request) {
+        businessAccessService.requireProjectRead(request.getProjectId());
         ProjectReportEntity entity = new ProjectReportEntity();
         entity.setProjectId(request.getProjectId());
         entity.setTitle(request.getTitle());
@@ -62,13 +67,17 @@ public class ProjectReportService {
 
     public ProjectReportResponse getById(Long id) {
         ProjectReportEntity entity = requireReport(id);
+        businessAccessService.requireProjectReportRead(entity);
         return toResponse(entity, listItemEntities(id).stream().map(this::toItemResponse).toList());
     }
 
     public ProjectReportResponse update(Long id, ProjectReportUpdateRequest request) {
         ProjectReportEntity entity = requireReport(id);
         businessAccessService.requireProjectReportManage(entity);
-        if (request.getProjectId() != null) entity.setProjectId(request.getProjectId());
+        if (request.getProjectId() != null) {
+            businessAccessService.requireProjectRead(request.getProjectId());
+            entity.setProjectId(request.getProjectId());
+        }
         if (request.getTitle() != null) entity.setTitle(request.getTitle());
         if (request.getReportType() != null) entity.setReportType(request.getReportType());
         if (request.getStatus() != null) entity.setStatus(request.getStatus());
@@ -100,6 +109,7 @@ public class ProjectReportService {
     public void delete(Long id) {
         ProjectReportEntity entity = requireReport(id);
         businessAccessService.requireProjectReportManage(entity);
+        fileService.purgeForBusiness("PROJECT_REPORT", id);
         projectReportMapper.deleteById(id);
         operationLogService.record("project-report", "ProjectReport", id, "DELETE", "删除汇报：" + entity.getTitle());
     }
@@ -149,6 +159,10 @@ public class ProjectReportService {
 
     private LambdaQueryWrapper<ProjectReportEntity> buildQuery(ProjectReportQueryRequest request) {
         LambdaQueryWrapper<ProjectReportEntity> wrapper = new LambdaQueryWrapper<>();
+        if (!businessAccessService.canViewAll()) {
+            wrapper.and(scope -> scope.eq(ProjectReportEntity::getCreatedBy, CurrentUserContext.userId())
+                    .or().inSql(ProjectReportEntity::getProjectId, businessAccessService.readableProjectIdsSql()));
+        }
         wrapper.eq(request.getProjectId() != null, ProjectReportEntity::getProjectId, request.getProjectId());
         wrapper.eq(StringUtils.hasText(request.getStatus()), ProjectReportEntity::getStatus, request.getStatus());
         wrapper.eq(StringUtils.hasText(request.getReportType()), ProjectReportEntity::getReportType, request.getReportType());

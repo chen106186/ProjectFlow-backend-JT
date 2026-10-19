@@ -49,15 +49,19 @@ public class DevBypassFilter extends OncePerRequestFilter {
                     log.debug("Dev mode: invalid token, falling back to devUserId={}", devUserId);
                 }
             }
-            CurrentUserContext.set(userId);
-            List<SimpleGrantedAuthority> authorities = currentUserPermissionService.getPermissionsByUserId(userId).stream()
+            List<SimpleGrantedAuthority> authorities = currentUserPermissionService.getAuthoritiesByUserId(userId).stream()
                     .map(SimpleGrantedAuthority::new)
                     .toList();
+            String deptName = currentUserPermissionService.getDeptNameByUserId(userId);
             UsernamePasswordAuthenticationToken authentication =
                     new UsernamePasswordAuthenticationToken(userId, null, authorities);
             authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+            CurrentUserContext.set(userId);
+            CurrentUserContext.setDeptName(deptName);
             SecurityContextHolder.getContext().setAuthentication(authentication);
         } catch (Exception e) {
+            CurrentUserContext.clear();
+            SecurityContextHolder.clearContext();
             log.warn("Dev bypass filter error for {}: {}", request.getRequestURI(), e.getMessage());
         }
         try {

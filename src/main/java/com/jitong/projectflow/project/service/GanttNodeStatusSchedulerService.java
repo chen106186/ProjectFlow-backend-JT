@@ -46,10 +46,21 @@ public class GanttNodeStatusSchedulerService {
                     node.getPlannedStartDate(), node.getPlannedEndDate(),
                     node.getActualStartDate(), node.getActualEndDate(), today);
             if (!calculated.name().equals(node.getStatus())) {
-                projectNodeMapper.update(null, new LambdaUpdateWrapper<ProjectNodeEntity>()
+                int affected = projectNodeMapper.update(null, new LambdaUpdateWrapper<ProjectNodeEntity>()
                         .eq(ProjectNodeEntity::getId, node.getId())
+                        .eq(ProjectNodeEntity::getStatus, node.getStatus())
+                        .eq(node.getUpdatedAt() != null, ProjectNodeEntity::getUpdatedAt, node.getUpdatedAt())
+                        .isNull(node.getUpdatedAt() == null, ProjectNodeEntity::getUpdatedAt)
+                        .eq(node.getPlannedStartDate() != null, ProjectNodeEntity::getPlannedStartDate, node.getPlannedStartDate())
+                        .isNull(node.getPlannedStartDate() == null, ProjectNodeEntity::getPlannedStartDate)
+                        .eq(node.getPlannedEndDate() != null, ProjectNodeEntity::getPlannedEndDate, node.getPlannedEndDate())
+                        .isNull(node.getPlannedEndDate() == null, ProjectNodeEntity::getPlannedEndDate)
+                        .eq(node.getActualStartDate() != null, ProjectNodeEntity::getActualStartDate, node.getActualStartDate())
+                        .isNull(node.getActualStartDate() == null, ProjectNodeEntity::getActualStartDate)
+                        .eq(node.getActualEndDate() != null, ProjectNodeEntity::getActualEndDate, node.getActualEndDate())
+                        .isNull(node.getActualEndDate() == null, ProjectNodeEntity::getActualEndDate)
                         .set(ProjectNodeEntity::getStatus, calculated.name()));
-                updated++;
+                updated += affected;
             }
         }
         return updated;

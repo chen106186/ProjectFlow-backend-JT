@@ -17,4 +17,6 @@ public class RequirementQueryRequest extends PageQuery {
     private String priority;
     @Schema(description = "状态，例如 PENDING_REVIEW、ACCEPTED、REJECTED。")
     private String status;
+    @Schema(description = "仅查询本人创建或本人评审的需求，即使有全量查看权限也生效。")
+    private Boolean mineOnly;
 }

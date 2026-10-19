@@ -62,4 +62,18 @@ class TaskStatusCalculatorTest {
         TaskStatus status = calculator.calculate(null, null, LocalDate.of(2026, 7, 1), null, false, LocalDate.of(2026, 7, 6));
         assertThat(status).isEqualTo(TaskStatus.IN_PROGRESS);
     }
+
+    @Test
+    void futureActualStartDoesNotStartTask() {
+        LocalDate today = LocalDate.of(2026, 10, 19);
+        assertThat(calculator.calculate(null, today.plusDays(20), today.plusDays(1), null, false, today))
+                .isEqualTo(TaskStatus.NOT_STARTED);
+    }
+
+    @Test
+    void futureActualEndDoesNotCompleteTask() {
+        LocalDate today = LocalDate.of(2026, 10, 19);
+        assertThat(calculator.calculate(null, today.plusDays(20), today, today.plusDays(1), false, today))
+                .isEqualTo(TaskStatus.IN_PROGRESS);
+    }
 }

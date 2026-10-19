@@ -1,6 +1,8 @@
 package com.jitong.projectflow.taskcalendar.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.jitong.projectflow.auth.security.BusinessAccessService;
+import com.jitong.projectflow.auth.security.CurrentUserContext;
 import com.jitong.projectflow.project.entity.ProjectEntity;
 import com.jitong.projectflow.project.mapper.ProjectMapper;
 import com.jitong.projectflow.system.entity.SystemUser;
@@ -35,6 +37,7 @@ public class TaskCalendarService {
     private final TaskMapper taskMapper;
     private final ProjectMapper projectMapper;
     private final SystemUserMapper systemUserMapper;
+    private final BusinessAccessService businessAccessService;
     private final TaskStatusCalculator statusCalculator = new TaskStatusCalculator();
 
     public TaskCalendarMonthResponse month(YearMonth month) {
@@ -66,6 +69,12 @@ public class TaskCalendarService {
         wrapper.and(q -> q.le(TaskEntity::getPlannedStartDate, end)
                 .or().isNull(TaskEntity::getPlannedStartDate)
                 .or().le(TaskEntity::getPlannedEndDate, end));
+        if (!businessAccessService.canViewAll()) {
+            Long userId = CurrentUserContext.userId();
+            wrapper.and(q -> q.eq(TaskEntity::getAssigneeId, userId)
+                    .or().eq(TaskEntity::getCreatedBy, userId)
+                    .or().inSql(TaskEntity::getProjectId, businessAccessService.readableProjectIdsSql()));
+        }
         return taskMapper.selectList(wrapper);
     }
 
@@ -113,9 +122,6 @@ public class TaskCalendarService {
         }
         LocalDate start = task.getPlannedStartDate() == null ? task.getPlannedEndDate() : task.getPlannedStartDate();
         if (date.isBefore(start)) {
-            return false;
-        }
-        if (date.isAfter(task.getPlannedEndDate())) {
             return false;
         }
         if (task.getActualEndDate() != null) {

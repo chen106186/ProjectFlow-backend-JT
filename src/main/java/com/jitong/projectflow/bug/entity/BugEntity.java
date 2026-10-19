@@ -1,6 +1,7 @@
 package com.jitong.projectflow.bug.entity;
 
 import com.baomidou.mybatisplus.annotation.FieldFill;
+import com.baomidou.mybatisplus.annotation.FieldStrategy;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
@@ -22,6 +23,7 @@ public class BugEntity {
 
     private Long projectId;
 
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private Long taskId;
 
     private String title;
@@ -48,6 +50,7 @@ public class BugEntity {
 
     private String resolveRemark;
 
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private LocalDateTime closedAt;
 
     private Long createdBy;

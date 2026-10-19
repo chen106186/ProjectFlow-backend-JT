@@ -13,6 +13,8 @@ public class TaskQueryRequest extends PageQuery {
     private Long projectId;
     @Schema(description = "负责人用户 ID。")
     private Long assigneeId;
+    @Schema(description = "任务角色精确匹配，例如开发、测试。")
+    private String roleName;
     @Schema(description = "优先级，例如 LOW、MEDIUM、HIGH、URGENT。")
     private String priority;
     @Schema(description = "状态。")

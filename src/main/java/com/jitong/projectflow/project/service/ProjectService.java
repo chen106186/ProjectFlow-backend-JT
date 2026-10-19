@@ -9,6 +9,13 @@ import com.jitong.projectflow.common.api.PageResult;
 import com.jitong.projectflow.common.api.PageUtils;
 import com.jitong.projectflow.common.error.BusinessException;
 import com.jitong.projectflow.common.error.ErrorCode;
+import com.jitong.projectflow.file.service.FileService;
+import com.jitong.projectflow.bug.entity.BugEntity;
+import com.jitong.projectflow.bug.mapper.BugMapper;
+import com.jitong.projectflow.daily.entity.DailyReportEntity;
+import com.jitong.projectflow.daily.mapper.DailyReportMapper;
+import com.jitong.projectflow.report.entity.ProjectReportEntity;
+import com.jitong.projectflow.report.mapper.ProjectReportMapper;
 import com.jitong.projectflow.project.domain.ProjectNodeTemplate;
 import com.jitong.projectflow.project.domain.ProjectStatusCalculator;
 import com.jitong.projectflow.project.dto.ProjectCreateRequest;
@@ -53,9 +60,16 @@ public class ProjectService {
     private final SystemUserMapper systemUserMapper;
     private final TaskMapper taskMapper;
     private final RequirementMapper requirementMapper;
+    private final FileService fileService;
+    private final BugMapper bugMapper;
+    private final DailyReportMapper dailyReportMapper;
+    private final ProjectReportMapper projectReportMapper;
 
     @Transactional
     public ProjectResponse create(ProjectCreateRequest request) {
+        if (request.getManagementProjectId() != null) {
+            requireManagementProjectManage(request.getManagementProjectId());
+        }
         if ("EXECUTION".equals(request.getProjectType()) && request.getManagementProjectId() != null) {
             long existing = projectMapper.selectCount(new LambdaQueryWrapper<ProjectEntity>()
                     .eq(ProjectEntity::getProjectType, "EXECUTION")
@@ -107,7 +121,11 @@ public class ProjectService {
         LambdaQueryWrapper<ProjectEntity> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(StringUtils.hasText(request.getProjectType()), ProjectEntity::getProjectType, request.getProjectType());
         wrapper.eq(StringUtils.hasText(request.getProjectBusinessType()), ProjectEntity::getProjectBusinessType, request.getProjectBusinessType());
-        wrapper.eq(StringUtils.hasText(request.getStatus()), ProjectEntity::getStatus, request.getStatus());
+        if ("COMPLETED_OR_OVERDUE_COMPLETED".equals(request.getStatus())) {
+            wrapper.in(ProjectEntity::getStatus, "COMPLETED", "OVERDUE_COMPLETED");
+        } else {
+            wrapper.eq(StringUtils.hasText(request.getStatus()), ProjectEntity::getStatus, request.getStatus());
+        }
         wrapper.eq(StringUtils.hasText(request.getContractStatus()), ProjectEntity::getContractStatus, request.getContractStatus());
         wrapper.eq(request.getManagerId() != null, ProjectEntity::getManagerId, request.getManagerId());
         wrapper.like(StringUtils.hasText(request.getKeyword()), ProjectEntity::getName, request.getKeyword());
@@ -119,7 +137,9 @@ public class ProjectService {
     }
 
     public ProjectResponse getById(Long id) {
-        return toResponse(requireProject(id));
+        ProjectEntity project = requireProject(id);
+        businessAccessService.requireProjectRead(project);
+        return toResponse(project);
     }
 
     @Transactional
@@ -143,7 +163,13 @@ public class ProjectService {
         } else if (request.getManagerId() != null) {
             entity.setManagerId(request.getManagerId());
         }
-        if (request.getManagementProjectId() != null) entity.setManagementProjectId(request.getManagementProjectId());
+        if (request.getManagementProjectId() != null) {
+            if (id.equals(request.getManagementProjectId())) {
+                throw new BusinessException(ErrorCode.BAD_REQUEST, "项目不能关联自身");
+            }
+            requireManagementProjectManage(request.getManagementProjectId());
+            entity.setManagementProjectId(request.getManagementProjectId());
+        }
         if (request.getDescription() != null) entity.setDescription(request.getDescription());
         if (request.getPlannedStartDate() != null) entity.setPlannedStartDate(request.getPlannedStartDate());
         if (request.getPlannedEndDate() != null) entity.setPlannedEndDate(request.getPlannedEndDate());
@@ -159,11 +185,14 @@ public class ProjectService {
         }
         if (request.getNodeCodes() != null) {
             syncNodesByCodes(id, request.getNodeCodes(), entity.getProjectBusinessType());
+            entity.setStatus(calculateProjectStatus(entity, request.getStatus()));
+            projectMapper.updateById(entity);
         }
         operationLogService.record("project", "Project", id, "UPDATE", "编辑项目：" + entity.getName());
         return toResponse(entity);
     }
 
+    @Transactional
     public void delete(Long id) {
         ProjectEntity entity = requireProject(id);
         businessAccessService.requireProjectManage(entity);
@@ -189,7 +218,13 @@ public class ProjectService {
         if (reqCount > 0) {
             throw new BusinessException(ErrorCode.CONFLICT, "项目下存在 " + reqCount + " 个需求，无法删除");
         }
+        if (bugMapper.selectCount(new LambdaQueryWrapper<BugEntity>().eq(BugEntity::getProjectId, id)) > 0
+                || dailyReportMapper.selectCount(new LambdaQueryWrapper<DailyReportEntity>().eq(DailyReportEntity::getProjectId, id)) > 0
+                || projectReportMapper.selectCount(new LambdaQueryWrapper<ProjectReportEntity>().eq(ProjectReportEntity::getProjectId, id)) > 0) {
+            throw new BusinessException(ErrorCode.CONFLICT, "项目下仍有 Bug、日报或项目汇报，无法删除");
+        }
 
+        fileService.purgeForBusiness("PROJECT", id);
         projectMapper.deleteById(id);
         operationLogService.record("project", "Project", id, "DELETE", "删除项目：" + entity.getName());
     }
@@ -200,6 +235,14 @@ public class ProjectService {
             throw new BusinessException(ErrorCode.NOT_FOUND, "项目不存在");
         }
         return entity;
+    }
+
+    private void requireManagementProjectManage(Long projectId) {
+        ProjectEntity parent = requireProject(projectId);
+        businessAccessService.requireProjectManage(parent);
+        if (!"MANAGEMENT".equals(parent.getProjectType())) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "关联项目必须为管理类项目");
+        }
     }
 
     /** 计算项目状态。只有"已暂停"可由用户手动传入；其余状态由甘特节点数据自动判定。 */
@@ -213,10 +256,13 @@ public class ProjectService {
         List<ProjectNodeEntity> nodes = projectNodeMapper.selectList(
                 new LambdaQueryWrapper<ProjectNodeEntity>()
                         .eq(ProjectNodeEntity::getProjectId, entity.getId()));
-        return projectStatusCalculator.computeFromNodes(nodes);
+        return projectStatusCalculator.computeFromNodes(nodes, entity.getPlannedEndDate());
     }
 
     private void applyReadScope(LambdaQueryWrapper<ProjectEntity> wrapper) {
+        if (!businessAccessService.canViewAll()) {
+            wrapper.inSql(ProjectEntity::getId, businessAccessService.readableProjectIdsSql());
+        }
     }
 
     private ProjectResponse toResponse(ProjectEntity entity) {

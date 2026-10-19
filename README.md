@@ -16,6 +16,8 @@
 
 完整覆盖矩阵见 [docs/requirements-coverage.md](docs/requirements-coverage.md)。
 
+数据库迁移 `V33` 会为需求和 Bug 编号建立唯一约束及事务性计数器。若历史数据存在空编号或重复编号，会保留重复组中最早记录的编号，并为其余记录分配新编号；上线前应在隔离的 MySQL 8 数据库中演练迁移并核对受影响的历史编号。
+
 ## 本地运行
 
 ```powershell
@@ -26,8 +28,8 @@ mvn "-Dmaven.repo.local=.m2/repository" spring-boot:run
 
 默认配置：
 
-- 服务地址：`http://localhost:8080`
-- Swagger UI：`http://localhost:8080/swagger-ui/index.html`
+- 服务地址：`http://localhost:8088`
+- Swagger UI：`http://localhost:8088/swagger-ui/index.html`
 - MySQL：`jdbc:mysql://localhost:3306/projectflow`
 - Redis：`localhost:6379`
 - 本地文件目录：`./data/uploads`
@@ -64,3 +66,11 @@ $env:PATH="$env:JAVA_HOME\bin;$env:PATH"
 mvn "-Dmaven.repo.local=.m2/repository" test
 mvn "-Dmaven.repo.local=.m2/repository" package
 ```
+
+## 项目工作台与交付协作
+
+升级数据库时执行 `src/main/resources/db/migration/V34__work_delivery_and_collaboration.sql`。当前 `application.yml` 关闭了 Flyway，因此目标环境需要按数据库发布流程手工执行；若准备启用 Flyway，应先核对历史迁移记录。新表保存需求与任务的关联、需求验收、任务阻塞、评论、交付版本及个人常用筛选；已有工作项不会自动关联。
+
+使用流程：在需求详情关联本项目或关联管理／执行项目的任务；在任务详情登记阻塞并查看关联需求，通过评论提及项目成员；需求审核人在任务完成、关联 Bug 关闭后记录验收；项目负责人在工作台选择交付范围，满足需求验收通过、任务完成且无阻塞、关联 Bug 关闭等条件后标记版本就绪，填写发布验收说明后发布。关联任务删除或缺失也会阻断就绪。需求关联范围变化会重置原验收结论，已发布版本不可编辑。
+
+工作台可查看可见关联项目的需求、任务、Bug、附件数量和动态；任务、需求和 Bug 列表支持保存个人常用筛选，工作台支持标题及编号快速搜索。相关操作沿用项目、需求和任务的权限规则，个人筛选仅创建者可见。

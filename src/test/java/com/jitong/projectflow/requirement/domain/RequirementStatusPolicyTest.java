@@ -35,4 +35,13 @@ class RequirementStatusPolicyTest {
     void sameStatusTransitionIsAllowed() {
         assertThat(policy.canTransition(RequirementStatus.PENDING_REVIEW, RequirementStatus.PENDING_REVIEW)).isTrue();
     }
+
+    @Test
+    void pendingReviewCanBeShelvedAndRestoredButDecisionsRemainTerminal() {
+        assertThat(policy.canTransition(RequirementStatus.PENDING_REVIEW, RequirementStatus.SHELVED)).isTrue();
+        assertThat(policy.canTransition(RequirementStatus.SHELVED, RequirementStatus.PENDING_REVIEW)).isTrue();
+        assertThat(policy.canTransition(RequirementStatus.SHELVED, RequirementStatus.ACCEPTED)).isFalse();
+        assertThat(policy.canTransition(RequirementStatus.ACCEPTED, RequirementStatus.SHELVED)).isFalse();
+        assertThat(policy.canTransition(RequirementStatus.REJECTED, RequirementStatus.SHELVED)).isFalse();
+    }
 }

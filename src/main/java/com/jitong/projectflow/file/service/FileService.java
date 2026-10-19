@@ -1,11 +1,13 @@
 package com.jitong.projectflow.file.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.jitong.projectflow.auth.security.BusinessAccessService;
 import com.jitong.projectflow.auth.security.CurrentUserContext;
 import com.jitong.projectflow.common.error.BusinessException;
 import com.jitong.projectflow.common.error.ErrorCode;
 import com.jitong.projectflow.file.domain.FileStorageService;
+import com.jitong.projectflow.file.domain.FileBusinessType;
 import com.jitong.projectflow.file.domain.FileUploadCommand;
 import com.jitong.projectflow.file.domain.StoredFile;
 import com.jitong.projectflow.file.dto.FileFolderCreateRequest;
@@ -19,6 +21,9 @@ import com.jitong.projectflow.system.entity.SystemUser;
 import com.jitong.projectflow.system.mapper.SystemUserMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -26,6 +31,7 @@ import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -36,14 +42,19 @@ public class FileService {
     private static final String DEFAULT_VERSION = "v1";
     private static final String DEFAULT_STORAGE_LOCATION = "BUSINESS";
     private static final long MAX_FILE_SIZE = 50L * 1024 * 1024;
+    private static final long MAX_SCREEN_RECORDING_SIZE = 100L * 1024 * 1024;
     private static final Pattern NUMERIC_VERSION = Pattern.compile("^v(\\d+)$");
     private static final Set<String> ALLOWED_EXTENSIONS = Set.of("docx", "xlsx", "pdf", "png", "jpg", "jpeg", "drawio");
+    private static final Map<String, String> SCREEN_RECORDING_TYPES = Map.of(
+            "mp4", "video/mp4", "webm", "video/webm", "mov", "video/quicktime");
+    private static final Set<String> PUBLIC_IMAGE_TYPES = Set.of("image/png", "image/jpeg", "image/gif", "image/webp", "image/avif", "image/bmp", "image/heic", "image/heif");
 
     private final FileMetadataMapper fileMetadataMapper;
     private final FileStorageService fileStorageService;
     private final BusinessAccessService businessAccessService;
     private final FileFolderMapper fileFolderMapper;
     private final SystemUserMapper systemUserMapper;
+    private final FileBusinessAccessService fileBusinessAccessService;
 
     public FileResponse upload(String businessType, Long businessId, String versionNo, MultipartFile file) {
         return upload(businessType, businessId, versionNo, DEFAULT_STORAGE_LOCATION, null, file);
@@ -56,14 +67,17 @@ public class FileService {
 
     public FileResponse upload(String businessType, Long businessId, String versionNo,
                                String storageLocation, String fileCategory, Long folderId, MultipartFile file) {
-        validateUpload(businessType, businessId, file);
+        validateUpload(businessType, businessId, fileCategory, file);
+        businessType = FileBusinessType.from(businessType).name();
+        fileBusinessAccessService.requireRead(businessType, businessId);
         validateFolder(businessType, businessId, folderId);
         String originalName = file.getOriginalFilename();
+        String contentType = SCREEN_RECORDING_TYPES.getOrDefault(extensionOf(originalName), file.getContentType());
         String resolvedVersionNo = StringUtils.hasText(versionNo) ? versionNo : nextVersionNo(businessType, businessId, originalName);
         try {
             StoredFile storedFile = fileStorageService.upload(new FileUploadCommand(
                     originalName,
-                    file.getContentType(),
+                    contentType,
                     file.getSize(),
                     file.getInputStream()
             ));
@@ -71,7 +85,7 @@ public class FileService {
             metadata.setBusinessType(businessType);
             metadata.setBusinessId(businessId);
             metadata.setOriginalName(originalName);
-            metadata.setContentType(file.getContentType());
+            metadata.setContentType(contentType);
             metadata.setFileSize(storedFile.fileSize());
             metadata.setVersionNo(resolvedVersionNo);
             metadata.setStorageLocation(StringUtils.hasText(storageLocation) ? storageLocation : DEFAULT_STORAGE_LOCATION);
@@ -100,9 +114,15 @@ public class FileService {
         if (!StringUtils.hasText(businessType) || businessId == null) {
             throw new BusinessException(ErrorCode.BAD_REQUEST, "查询文件需要指定业务类型和业务ID");
         }
+        fileBusinessAccessService.requireRead(businessType, businessId);
+        validateFolder(businessType, businessId, folderId);
         LambdaQueryWrapper<FileMetadata> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(FileMetadata::getBusinessType, businessType);
+        wrapper.in(FileMetadata::getBusinessType, FileBusinessType.from(businessType).aliases());
         wrapper.eq(FileMetadata::getBusinessId, businessId);
+        if (FileBusinessType.from(businessType) == FileBusinessType.RICH_TEXT
+                && !businessAccessService.isSystemAdmin()) {
+            wrapper.eq(FileMetadata::getUploaderId, CurrentUserContext.userId());
+        }
         wrapper.eq(StringUtils.hasText(fileCategory), FileMetadata::getFileCategory, fileCategory);
         wrapper.like(org.springframework.util.StringUtils.hasText(keyword), FileMetadata::getOriginalName, keyword);
         wrapper.eq(folderId != null, FileMetadata::getFolderId, folderId);
@@ -112,46 +132,127 @@ public class FileService {
 
     public FileDownloadResult download(Long id) {
         FileMetadata metadata = requireFile(id);
+        fileBusinessAccessService.requireRead(metadata.getBusinessType(), metadata.getBusinessId());
+        return new FileDownloadResult(toResponse(metadata), fileStorageService.download(metadata.getStorageKey()));
+    }
+
+    public FileDownloadResult inline(Long id) {
+        FileMetadata metadata = requireFile(id);
+        boolean publicEditorImage = FileBusinessType.from(metadata.getBusinessType()) == FileBusinessType.RICH_TEXT
+                && metadata.getContentType() != null
+                && PUBLIC_IMAGE_TYPES.contains(metadata.getContentType().toLowerCase(Locale.ROOT));
+        if (!publicEditorImage) {
+            fileBusinessAccessService.requireRead(metadata.getBusinessType(), metadata.getBusinessId());
+        }
         return new FileDownloadResult(toResponse(metadata), fileStorageService.download(metadata.getStorageKey()));
     }
 
     public FileDownloadResult downloadRichTextImageByStorageKey(String storageKey) {
+        CurrentUserContext.userId();
         if (!StringUtils.hasText(storageKey) || !storageKey.startsWith("projectflow/")) {
             throw new BusinessException(ErrorCode.BAD_REQUEST, "图片地址不合法");
         }
         FileMetadata metadata = fileMetadataMapper.selectOne(new LambdaQueryWrapper<FileMetadata>()
-                .eq(FileMetadata::getBusinessType, "RICH_TEXT")
+                .in(FileMetadata::getBusinessType, FileBusinessType.RICH_TEXT.aliases())
                 .eq(FileMetadata::getStorageKey, storageKey)
                 .last("LIMIT 1"));
         if (metadata == null) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "图片不存在");
         }
-        if (!StringUtils.hasText(metadata.getContentType()) || !metadata.getContentType().startsWith("image/")) {
+        if (metadata.getContentType() == null
+                || !PUBLIC_IMAGE_TYPES.contains(metadata.getContentType().toLowerCase(Locale.ROOT))) {
             throw new BusinessException(ErrorCode.BAD_REQUEST, "仅支持预览图片");
         }
         return new FileDownloadResult(toResponse(metadata), fileStorageService.download(metadata.getStorageKey()));
     }
 
+    @Transactional
     public void delete(Long id) {
         FileMetadata metadata = requireFile(id);
+        requireReadableOrDeletedOwner(metadata);
         businessAccessService.requireFileDelete(metadata);
-        fileMetadataMapper.deleteById(id);
-        fileStorageService.delete(metadata.getStorageKey());
+        deleteMetadataAndMaybeObject(metadata);
     }
 
+    /** Called after the owning service has authorized deletion, within its transaction. */
+    @Transactional
+    public void purgeForBusiness(String businessType, Long businessId) {
+        List<String> aliases = FileBusinessType.from(businessType).aliases();
+        List<FileMetadata> files = fileMetadataMapper.selectList(new LambdaQueryWrapper<FileMetadata>()
+                .in(FileMetadata::getBusinessType, aliases).eq(FileMetadata::getBusinessId, businessId));
+        files.forEach(this::deleteMetadataAndMaybeObject);
+        fileFolderMapper.selectList(new LambdaQueryWrapper<FileFolderEntity>()
+                .in(FileFolderEntity::getBusinessType, aliases).eq(FileFolderEntity::getBusinessId, businessId))
+                .forEach(folder -> fileFolderMapper.deleteById(folder.getId()));
+    }
+
+    private void requireReadableOrDeletedOwner(FileMetadata metadata) {
+        try {
+            fileBusinessAccessService.requireRead(metadata.getBusinessType(), metadata.getBusinessId());
+        } catch (BusinessException exception) {
+            if (exception.errorCode() != ErrorCode.NOT_FOUND) throw exception;
+            // Historical deletes may have left attachment rows behind. Their uploader or an admin may remove them.
+        }
+    }
+
+    private void deleteMetadataAndMaybeObject(FileMetadata metadata) {
+        // A locking read sees references committed while this transaction was waiting, unlike a snapshot count.
+        List<FileMetadata> references = fileMetadataMapper.selectList(new LambdaQueryWrapper<FileMetadata>()
+                .eq(FileMetadata::getStorageKey, metadata.getStorageKey())
+                .orderByAsc(FileMetadata::getId).last("FOR UPDATE"));
+        if (fileMetadataMapper.deleteById(metadata.getId()) == 0) return;
+        if (references.stream().noneMatch(file -> !metadata.getId().equals(file.getId()))) {
+            Runnable removeObject = () -> fileStorageService.delete(metadata.getStorageKey());
+            if (TransactionSynchronizationManager.isSynchronizationActive()) {
+                TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                    @Override public void afterCommit() { removeObject.run(); }
+                });
+            } else {
+                removeObject.run();
+            }
+        }
+    }
+
+    @Transactional
     public void deleteBatch(List<Long> ids) {
         if (ids == null || ids.isEmpty()) {
             throw new BusinessException(ErrorCode.BAD_REQUEST, "文件ID列表不能为空");
         }
-        ids.forEach(this::delete);
+        ids.forEach(id -> {
+            FileMetadata metadata = requireFile(id);
+            requireReadableOrDeletedOwner(metadata);
+            businessAccessService.requireFileDelete(metadata);
+        });
+        ids.stream().distinct().forEach(this::delete);
     }
 
-    private void validateUpload(String businessType, Long businessId, MultipartFile file) {
+    private void validateUpload(String businessType, Long businessId, String fileCategory, MultipartFile file) {
         if (!StringUtils.hasText(businessType) || businessId == null || file == null || file.isEmpty()) {
             throw new BusinessException(ErrorCode.BAD_REQUEST, "无效的文件上传请求");
         }
         if (!StringUtils.hasText(file.getOriginalFilename())) {
             throw new BusinessException(ErrorCode.BAD_REQUEST, "文件名不能为空");
+        }
+        String extension = extensionOf(file.getOriginalFilename());
+        String videoContentType = SCREEN_RECORDING_TYPES.get(extension);
+        if ("SCREEN_RECORDING".equals(fileCategory) && videoContentType == null) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "录屏仅支持 MP4、WebM、MOV 格式");
+        }
+        if (videoContentType != null) {
+            if (FileBusinessType.from(businessType) != FileBusinessType.BUG
+                    || !"SCREEN_RECORDING".equals(fileCategory)) {
+                throw new BusinessException(ErrorCode.BAD_REQUEST, "录屏仅支持作为 Bug 附件上传");
+            }
+            String submittedType = file.getContentType();
+            if (submittedType != null && !submittedType.isBlank()
+                    && !videoContentType.equalsIgnoreCase(submittedType)
+                    && !"application/octet-stream".equalsIgnoreCase(submittedType)) {
+                throw new BusinessException(ErrorCode.BAD_REQUEST, "录屏文件类型与扩展名不匹配");
+            }
+            if (file.getSize() > MAX_SCREEN_RECORDING_SIZE) {
+                throw new BusinessException(ErrorCode.BAD_REQUEST, "录屏大小不能超过100MB");
+            }
+            return;
         }
         if (file.getSize() > MAX_FILE_SIZE) {
             throw new BusinessException(ErrorCode.BAD_REQUEST, "文件大小不能超过50MB");
@@ -161,7 +262,6 @@ public class FileService {
         if (contentType != null && contentType.startsWith("image/")) {
             return;
         }
-        String extension = extensionOf(file.getOriginalFilename());
         if (!ALLOWED_EXTENSIONS.contains(extension)) {
             throw new BusinessException(ErrorCode.BAD_REQUEST, "不支持的文件类型");
         }
@@ -169,7 +269,7 @@ public class FileService {
 
     private String nextVersionNo(String businessType, Long businessId, String originalName) {
         LambdaQueryWrapper<FileMetadata> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(FileMetadata::getBusinessType, businessType);
+        wrapper.in(FileMetadata::getBusinessType, FileBusinessType.from(businessType).aliases());
         wrapper.eq(FileMetadata::getBusinessId, businessId);
         wrapper.eq(FileMetadata::getOriginalName, originalName);
         int maxVersion = fileMetadataMapper.selectList(wrapper).stream()
@@ -203,24 +303,25 @@ public class FileService {
         return metadata;
     }
 
+    @Transactional
     public void deleteFolder(Long id) {
         FileFolderEntity folder = fileFolderMapper.selectById(id);
         if (folder == null) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "文件夹不存在");
         }
-        LambdaQueryWrapper<FileMetadata> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(FileMetadata::getFolderId, id);
-        List<FileMetadata> filesInFolder = fileMetadataMapper.selectList(wrapper);
-        filesInFolder.forEach(file -> {
-            file.setFolderId(null);
-            fileMetadataMapper.updateById(file);
-        });
+        fileBusinessAccessService.requireRead(folder.getBusinessType(), folder.getBusinessId());
+        if (!businessAccessService.isSystemAdmin() && !CurrentUserContext.userId().equals(folder.getCreatedBy())) {
+            throw new BusinessException(ErrorCode.FORBIDDEN, "无权操作该数据");
+        }
+        fileMetadataMapper.update(null, new LambdaUpdateWrapper<FileMetadata>()
+                .eq(FileMetadata::getFolderId, id).set(FileMetadata::getFolderId, null));
         fileFolderMapper.deleteById(id);
     }
 
     public FileFolderResponse createFolder(FileFolderCreateRequest request) {
+        fileBusinessAccessService.requireRead(request.getBusinessType(), request.getBusinessId());
         FileFolderEntity entity = new FileFolderEntity();
-        entity.setBusinessType(request.getBusinessType());
+        entity.setBusinessType(FileBusinessType.from(request.getBusinessType()).name());
         entity.setBusinessId(request.getBusinessId());
         entity.setName(request.getName());
         entity.setCreatedBy(com.jitong.projectflow.auth.security.CurrentUserContext.userIdOrNull());
@@ -229,11 +330,16 @@ public class FileService {
     }
 
     public List<FileFolderResponse> listFolders(String businessType, Long businessId) {
-        return fileFolderMapper.selectList(
-                new LambdaQueryWrapper<FileFolderEntity>()
-                        .eq(org.springframework.util.StringUtils.hasText(businessType), FileFolderEntity::getBusinessType, businessType)
-                        .eq(businessId != null, FileFolderEntity::getBusinessId, businessId)
-                        .orderByAsc(FileFolderEntity::getCreatedAt))
+        fileBusinessAccessService.requireRead(businessType, businessId);
+        LambdaQueryWrapper<FileFolderEntity> wrapper = new LambdaQueryWrapper<FileFolderEntity>()
+                        .in(FileFolderEntity::getBusinessType, FileBusinessType.from(businessType).aliases())
+                        .eq(FileFolderEntity::getBusinessId, businessId)
+                        .orderByAsc(FileFolderEntity::getCreatedAt);
+        if (FileBusinessType.from(businessType) == FileBusinessType.RICH_TEXT
+                && !businessAccessService.isSystemAdmin()) {
+            wrapper.eq(FileFolderEntity::getCreatedBy, CurrentUserContext.userId());
+        }
+        return fileFolderMapper.selectList(wrapper)
                 .stream().map(this::toFolderResponse).toList();
     }
 
@@ -241,7 +347,30 @@ public class FileService {
         batchDownload(ids, null, out);
     }
 
+    /** Validate the full selection on the request thread, before the controller commits a ZIP response. */
+    public void requireBatchDownloadAccess(List<Long> fileIds, List<Long> folderIds) {
+        List<Long> selectedFileIds = fileIds == null ? List.of() : fileIds;
+        List<Long> selectedFolderIds = folderIds == null ? List.of() : folderIds;
+        List<FileMetadata> files = selectedFileIds.isEmpty() ? List.of() : fileMetadataMapper.selectBatchIds(selectedFileIds);
+        List<FileFolderEntity> folders = selectedFolderIds.isEmpty() ? List.of() : fileFolderMapper.selectBatchIds(selectedFolderIds);
+        if (files.size() != selectedFileIds.stream().distinct().count()
+                || folders.size() != selectedFolderIds.stream().distinct().count()) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "文件或文件夹不存在");
+        }
+        files.forEach(file -> fileBusinessAccessService.requireRead(file.getBusinessType(), file.getBusinessId()));
+        folders.forEach(folder -> fileBusinessAccessService.requireRead(folder.getBusinessType(), folder.getBusinessId()));
+        if (!selectedFolderIds.isEmpty()) {
+            fileMetadataMapper.selectList(new LambdaQueryWrapper<FileMetadata>()
+                    .in(FileMetadata::getFolderId, selectedFolderIds))
+                    .forEach(file -> fileBusinessAccessService.requireRead(file.getBusinessType(), file.getBusinessId()));
+        }
+        if (files.isEmpty() && folders.isEmpty()) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "未找到可下载的文件");
+        }
+    }
+
     public void batchDownload(List<Long> fileIds, List<Long> folderIds, java.io.OutputStream out) {
+        requireBatchDownloadAccess(fileIds, folderIds);
         List<Long> selectedFileIds = fileIds == null ? List.of() : fileIds;
         List<Long> selectedFolderIds = folderIds == null ? List.of() : folderIds;
         List<FileMetadata> rootFiles = selectedFileIds.isEmpty() ? List.of() : fileMetadataMapper.selectBatchIds(selectedFileIds);
@@ -255,6 +384,10 @@ public class FileService {
         List<FileMetadata> folderFiles = selectedFolderIds.isEmpty()
                 ? List.of()
                 : fileMetadataMapper.selectList(new LambdaQueryWrapper<FileMetadata>().in(FileMetadata::getFolderId, selectedFolderIds));
+        // Check every selected object before emitting even the first byte of a ZIP response.
+        rootFiles.forEach(file -> fileBusinessAccessService.requireRead(file.getBusinessType(), file.getBusinessId()));
+        selectedFolders.forEach(folder -> fileBusinessAccessService.requireRead(folder.getBusinessType(), folder.getBusinessId()));
+        folderFiles.forEach(file -> fileBusinessAccessService.requireRead(file.getBusinessType(), file.getBusinessId()));
         if (rootFiles.isEmpty() && selectedFolders.isEmpty()) {
             throw new com.jitong.projectflow.common.error.BusinessException(
                     com.jitong.projectflow.common.error.ErrorCode.BAD_REQUEST, "未找到可下载的文件");
@@ -301,7 +434,9 @@ public class FileService {
         String fileName = meta.getOriginalName() != null ? meta.getOriginalName() : meta.getId().toString();
         String entryName = uniqueEntryName(usedEntryNames, prefix + sanitizeZipName(fileName));
         zip.putNextEntry(new java.util.zip.ZipEntry(entryName));
-        result.inputStream().transferTo(zip);
+        try (var input = result.inputStream()) {
+            input.transferTo(zip);
+        }
         zip.closeEntry();
     }
 
@@ -374,7 +509,7 @@ public class FileService {
         }
         FileFolderEntity folder = fileFolderMapper.selectById(folderId);
         if (folder == null
-                || !businessType.equals(folder.getBusinessType())
+                || FileBusinessType.from(businessType) != FileBusinessType.from(folder.getBusinessType())
                 || !businessId.equals(folder.getBusinessId())) {
             throw new BusinessException(ErrorCode.BAD_REQUEST, "文件夹不存在或不属于当前业务");
         }

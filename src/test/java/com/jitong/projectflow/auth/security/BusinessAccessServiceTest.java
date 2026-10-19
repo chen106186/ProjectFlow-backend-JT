@@ -35,7 +35,7 @@ class BusinessAccessServiceTest {
 
     @Test
     void systemAdminCanManageAnyProject() {
-        authenticate(9001L, "system:user:update");
+        authenticate(9001L, "ROLE_ADMIN");
         ProjectEntity project = new ProjectEntity();
         project.setManagerId(1001L);
         project.setCreatedBy(1002L);
@@ -124,6 +124,54 @@ class BusinessAccessServiceTest {
 
         assertThatCode(() -> new BusinessAccessService(projectMapper).requireRequirementManage(requirement))
                 .doesNotThrowAnyException();
+    }
+
+    @Test
+    void userMaintenancePermissionDoesNotMakeSystemAdministrator() {
+        authenticate(3001L, "system:user:update");
+        ProjectEntity project = new ProjectEntity();
+        project.setManagerId(1001L);
+        assertThatThrownBy(() -> new BusinessAccessService(projectMapper).requireProjectManage(project))
+                .isInstanceOf(BusinessException.class);
+    }
+
+    @Test
+    void assignedReviewerCanReviewButCreatorCannotReviewSomeoneElsesAssignment() {
+        RequirementEntity requirement = new RequirementEntity();
+        requirement.setCreatedBy(1001L);
+        requirement.setReviewerId(2001L);
+        BusinessAccessService access = new BusinessAccessService(projectMapper);
+        authenticate(2001L);
+        assertThatCode(() -> access.requireRequirementReview(requirement)).doesNotThrowAnyException();
+        authenticate(1001L);
+        assertThatThrownBy(() -> access.requireRequirementReview(requirement)).isInstanceOf(BusinessException.class);
+    }
+
+    @Test
+    void unrelatedUserCannotReadProjectTaskOrRequirement() {
+        authenticate(3001L);
+        TaskEntity task = new TaskEntity();
+        task.setProjectId(10L);
+        task.setAssigneeId(2001L);
+        RequirementEntity requirement = new RequirementEntity();
+        requirement.setProjectId(10L);
+        requirement.setCreatedBy(1001L);
+        BusinessAccessService access = new BusinessAccessService(projectMapper);
+        assertThatThrownBy(() -> access.requireTaskRead(task)).isInstanceOf(BusinessException.class);
+        assertThatThrownBy(() -> access.requireRequirementRead(requirement)).isInstanceOf(BusinessException.class);
+    }
+
+    @Test
+    void projectMemberCanReadTaskAndRequirement() {
+        authenticate(3001L);
+        when(projectMapper.selectCount(org.mockito.ArgumentMatchers.any())).thenReturn(1L);
+        TaskEntity task = new TaskEntity();
+        task.setProjectId(10L);
+        RequirementEntity requirement = new RequirementEntity();
+        requirement.setProjectId(10L);
+        BusinessAccessService access = new BusinessAccessService(projectMapper);
+        assertThatCode(() -> access.requireTaskRead(task)).doesNotThrowAnyException();
+        assertThatCode(() -> access.requireRequirementRead(requirement)).doesNotThrowAnyException();
     }
 
     private void authenticate(Long userId, String... authorities) {

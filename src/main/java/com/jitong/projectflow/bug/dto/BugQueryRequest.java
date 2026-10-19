@@ -4,6 +4,9 @@ import io.swagger.v3.oas.annotations.media.Schema;
 
 import com.jitong.projectflow.common.api.PageQuery;
 import lombok.Data;
+import org.springframework.format.annotation.DateTimeFormat;
+
+import java.time.LocalDate;
 
 @Data
 public class BugQueryRequest extends PageQuery {
@@ -21,4 +24,12 @@ public class BugQueryRequest extends PageQuery {
     private Long assigneeId;
     @Schema(description = "创建人用户 ID。")
     private Long creatorId;
+    @Schema(description = "仅查询本人创建或本人负责的 Bug，即使有全量查看权限也生效。")
+    private Boolean mineOnly;
+    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+    @Schema(description = "创建日期开始，含当天，格式 yyyy-MM-dd。")
+    private LocalDate createdFrom;
+    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+    @Schema(description = "创建日期结束，含当天，格式 yyyy-MM-dd。")
+    private LocalDate createdTo;
 }

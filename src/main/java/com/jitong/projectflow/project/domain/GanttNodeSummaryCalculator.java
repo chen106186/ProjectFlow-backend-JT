@@ -37,18 +37,21 @@ public class GanttNodeSummaryCalculator {
 
             progressSum += progress;
 
-            // completed: 节点状态为已完成或逾期完成（已含实际结束时间 <= 今天的判断）
-            if ("COMPLETED".equals(status) || "OVERDUE_COMPLETED".equals(status)) {
+            // Dates take precedence over stale persisted status; retain status-only legacy completions.
+            boolean isCompleted = actualEnd != null ? !actualEnd.isAfter(today)
+                    : "COMPLETED".equals(status) || "OVERDUE_COMPLETED".equals(status);
+            if (isCompleted) {
                 completed++;
+                continue;
             }
 
             // overdue: actualEndDate == null AND plannedEndDate != null AND today is after plannedEndDate
-            if (actualEnd == null && plannedEnd != null && today.isAfter(plannedEnd)) {
+            if (plannedEnd != null && today.isAfter(plannedEnd)) {
                 overdue++;
             }
 
             // dueSoon: actualEndDate == null AND plannedEndDate != null AND !today.isAfter(plannedEnd) AND plannedEnd <= today + 7
-            if (actualEnd == null && plannedEnd != null && !today.isAfter(plannedEnd)
+            if (plannedEnd != null && !today.isAfter(plannedEnd)
                     && !plannedEnd.isAfter(today.plusDays(7))) {
                 dueSoon++;
             }

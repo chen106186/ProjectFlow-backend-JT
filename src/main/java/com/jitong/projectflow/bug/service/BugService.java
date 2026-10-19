@@ -3,6 +3,7 @@ package com.jitong.projectflow.bug.service;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.jitong.projectflow.auth.security.BusinessAccessService;
+import com.jitong.projectflow.file.service.FileService;
 import com.jitong.projectflow.auth.security.CurrentUserContext;
 import com.jitong.projectflow.bug.domain.BugStatus;
 import com.jitong.projectflow.bug.dto.BugAssignRequest;
@@ -25,6 +26,7 @@ import com.jitong.projectflow.common.api.PageResult;
 import com.jitong.projectflow.common.api.PageUtils;
 import com.jitong.projectflow.common.error.BusinessException;
 import com.jitong.projectflow.common.error.ErrorCode;
+import com.jitong.projectflow.common.service.BusinessNumberService;
 import com.jitong.projectflow.notice.domain.NoticeType;
 import com.jitong.projectflow.notice.service.NoticeService;
 import com.jitong.projectflow.project.entity.ProjectEntity;
@@ -39,6 +41,7 @@ import com.jitong.projectflow.task.entity.TaskEntity;
 import com.jitong.projectflow.task.mapper.TaskMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
@@ -63,9 +66,14 @@ public class BugService {
     private final OperationLogMapper operationLogMapper;
     private final BugTaskMapper bugTaskMapper;
     private final TaskMapper taskMapper;
+    private final FileService fileService;
+    private final BusinessNumberService businessNumberService;
 
+    @Transactional
     public BugResponse create(BugCreateRequest request) {
+        requireProjectRead(request.getProjectId());
         List<Long> relatedTaskIds = normalizeRelatedTaskIds(request.getTaskId(), request.getRelatedTaskIds());
+        validateRelatedTasks(request.getProjectId(), relatedTaskIds);
         BugEntity entity = new BugEntity();
         entity.setProjectId(request.getProjectId());
         entity.setTaskId(primaryTaskId(relatedTaskIds));
@@ -77,7 +85,7 @@ public class BugService {
         entity.setDescription(request.getDescription());
         entity.setReproduceSteps(request.getReproduceSteps());
         entity.setCreatedBy(CurrentUserContext.userIdOrNull());
-        entity.setBugNo(bugMapper.selectMaxBugNo() + 1L);
+        entity.setBugNo(businessNumberService.nextBugNo());
         bugMapper.insert(entity);
         syncRelatedTasks(entity.getId(), relatedTaskIds);
         operationLogService.record("bug", "Bug", entity.getId(), "CREATE", "新建Bug：" + entity.getTitle());
@@ -93,6 +101,7 @@ public class BugService {
     }
 
     public PageResult<BugResponse> list(BugQueryRequest request) {
+        validateCreatedRange(request);
         LambdaQueryWrapper<BugEntity> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(StringUtils.hasText(request.getStatus()), BugEntity::getStatus, request.getStatus());
         wrapper.eq(StringUtils.hasText(request.getPriority()), BugEntity::getPriority, request.getPriority());
@@ -101,6 +110,12 @@ public class BugService {
         wrapper.eq(request.getAssigneeId() != null, BugEntity::getAssigneeId, request.getAssigneeId());
         wrapper.eq(request.getCreatorId() != null, BugEntity::getCreatorId, request.getCreatorId());
         wrapper.like(StringUtils.hasText(request.getKeyword()), BugEntity::getTitle, request.getKeyword());
+        applyCreatedRange(wrapper, request);
+        if (Boolean.TRUE.equals(request.getMineOnly())) {
+            Long userId = CurrentUserContext.userId();
+            wrapper.and(w -> w.eq(BugEntity::getCreatorId, userId).or().eq(BugEntity::getAssigneeId, userId));
+        }
+        applyReadScope(wrapper);
         wrapper.orderByDesc(BugEntity::getCreatedAt);
         Page<BugEntity> page = bugMapper.selectPage(PageUtils.toPage(request), wrapper);
         List<BugEntity> records = page.getRecords();
@@ -115,11 +130,28 @@ public class BugService {
     public BugSummaryResponse summary(Long projectId) {
         LambdaQueryWrapper<BugEntity> baseWrapper = new LambdaQueryWrapper<>();
         applyProjectScope(baseWrapper, projectId);
+        applyReadScope(baseWrapper);
         List<BugEntity> bugs = safeList(bugMapper.selectList(baseWrapper));
         return new BugSummaryResponse(
                 bugs.size(),
                 countBy(bugs, BugEntity::getStatus),
                 countBy(bugs, BugEntity::getPriority));
+    }
+
+    private void validateCreatedRange(BugQueryRequest request) {
+        if (request.getCreatedFrom() != null && request.getCreatedTo() != null
+                && request.getCreatedFrom().isAfter(request.getCreatedTo())) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "创建时间的开始日期不能晚于结束日期");
+        }
+    }
+
+    private void applyCreatedRange(LambdaQueryWrapper<BugEntity> wrapper, BugQueryRequest request) {
+        if (request.getCreatedFrom() != null) {
+            wrapper.ge(BugEntity::getCreatedAt, request.getCreatedFrom().atStartOfDay());
+        }
+        if (request.getCreatedTo() != null) {
+            wrapper.lt(BugEntity::getCreatedAt, request.getCreatedTo().plusDays(1).atStartOfDay());
+        }
     }
 
     private void applyProjectScope(LambdaQueryWrapper<BugEntity> wrapper, Long projectId) {
@@ -144,22 +176,12 @@ public class BugService {
     }
 
     public List<BugResponse> listMine(BugQueryRequest request) {
+        if (request != null) validateCreatedRange(request);
         Long userId = CurrentUserContext.userId();
-        List<Long> managedProjectIds = projectMapper.selectList(
-                        new LambdaQueryWrapper<ProjectEntity>()
-                                .and(w -> w.eq(ProjectEntity::getManagerId, userId)
-                                        .or().apply("FIND_IN_SET({0}, co_manager_ids) > 0", String.valueOf(userId)))
-                                .select(ProjectEntity::getId))
-                .stream().map(ProjectEntity::getId).toList();
         LambdaQueryWrapper<BugEntity> wrapper = new LambdaQueryWrapper<>();
-        if (!managedProjectIds.isEmpty()) {
-            wrapper.and(w -> w.eq(BugEntity::getCreatorId, userId)
-                    .or().eq(BugEntity::getAssigneeId, userId)
-                    .or().in(BugEntity::getProjectId, managedProjectIds));
-        } else {
-            wrapper.and(w -> w.eq(BugEntity::getCreatorId, userId).or().eq(BugEntity::getAssigneeId, userId));
-        }
+        wrapper.and(w -> w.eq(BugEntity::getCreatorId, userId).or().eq(BugEntity::getAssigneeId, userId));
         if (request != null) {
+            applyCreatedRange(wrapper, request);
             wrapper.eq(request.getProjectId() != null, BugEntity::getProjectId, request.getProjectId());
             applyTaskScope(wrapper, request.getTaskId());
             wrapper.eq(StringUtils.hasText(request.getPriority()), BugEntity::getPriority, request.getPriority());
@@ -179,6 +201,7 @@ public class BugService {
 
     public BugResponse getById(Long id) {
         BugEntity entity = requireBug(id);
+        businessAccessService.requireBugRead(entity);
         Map<Long, String> userNames = batchUserNames(Stream.of(entity.getCreatorId(), entity.getAssigneeId())
                 .filter(Objects::nonNull).collect(Collectors.toSet()));
         Map<Long, String> projectNames = entity.getProjectId() != null
@@ -203,18 +226,25 @@ public class BugService {
         return response;
     }
 
+    @Transactional
     public BugResponse update(Long id, BugUpdateRequest request) {
         BugEntity entity = requireBug(id);
-        ensureMutable(entity);
+        if (!BugStatus.PENDING_FIX.name().equals(request.getStatus())) ensureMutable(entity);
         businessAccessService.requireBugEdit(entity);
-        if (request.getProjectId() != null) entity.setProjectId(request.getProjectId());
+        if (request.getProjectId() != null) {
+            requireProjectRead(request.getProjectId());
+            entity.setProjectId(request.getProjectId());
+        }
+        if (request.getStatus() != null) transition(entity, request.getStatus());
         if (request.getRelatedTaskIds() != null || request.getTaskId() != null) {
             List<Long> relatedTaskIds = normalizeRelatedTaskIds(request.getTaskId(), request.getRelatedTaskIds());
+            validateRelatedTasks(entity.getProjectId(), relatedTaskIds);
             entity.setTaskId(primaryTaskId(relatedTaskIds));
             syncRelatedTasks(id, relatedTaskIds);
+        } else if (request.getProjectId() != null) {
+            validateRelatedTasks(entity.getProjectId(), loadRelatedTaskIds(entity));
         }
         if (request.getTitle() != null) entity.setTitle(request.getTitle());
-        if (request.getStatus() != null) entity.setStatus(request.getStatus());
         if (request.getPriority() != null) entity.setPriority(request.getPriority());
         if (request.getAssigneeId() != null) entity.setAssigneeId(request.getAssigneeId());
         if (request.getDescription() != null) entity.setDescription(request.getDescription());
@@ -225,6 +255,7 @@ public class BugService {
         return getById(id);
     }
 
+    @Transactional
     public BugResponse assign(Long id, BugAssignRequest request) {
         BugEntity entity = requireBug(id);
         ensureMutable(entity);
@@ -251,13 +282,12 @@ public class BugService {
         return getById(id);
     }
 
+    @Transactional
     public BugResponse close(Long id) {
         BugEntity entity = requireBug(id);
         ensureMutable(entity);
-        businessAccessService.requireBugClose(entity);
         String oldStatus = entity.getStatus();
-        entity.setStatus(BugStatus.CLOSED.name());
-        entity.setClosedAt(LocalDateTime.now());
+        transition(entity, BugStatus.CLOSED.name());
         entity.setUpdatedBy(CurrentUserContext.userIdOrNull());
         bugMapper.updateById(entity);
         operationLogService.record("bug", "Bug", id, "CLOSE",
@@ -265,14 +295,13 @@ public class BugService {
         return getById(id);
     }
 
+    @Transactional
     public BugResponse reopen(Long id) {
         BugEntity entity = requireBug(id);
         if (!BugStatus.CLOSED.name().equals(entity.getStatus())) {
             throw new BusinessException(ErrorCode.CONFLICT, "仅已关闭的 Bug 可以重新打开");
         }
-        businessAccessService.requireBugClose(entity);
-        entity.setStatus(BugStatus.PENDING_FIX.name());
-        entity.setClosedAt(null);
+        transition(entity, BugStatus.PENDING_FIX.name());
         entity.setUpdatedBy(CurrentUserContext.userIdOrNull());
         bugMapper.updateById(entity);
         operationLogService.record("bug", "Bug", id, "UPDATE_STATUS",
@@ -280,14 +309,17 @@ public class BugService {
         return getById(id);
     }
 
+    @Transactional
     public void delete(Long id) {
         BugEntity entity = requireBug(id);
         ensureMutable(entity);
         businessAccessService.requireBugDelete(entity);
+        fileService.purgeForBusiness("BUG", id);
         bugMapper.deleteById(id);
         operationLogService.record("bug", "Bug", id, "DELETE", "删除Bug：" + entity.getTitle());
     }
 
+    @Transactional
     public BugResponse fix(Long id, BugFixRequest request) {
         BugEntity entity = requireBug(id);
         ensureMutable(entity);
@@ -295,22 +327,15 @@ public class BugService {
         String oldStatus = entity.getStatus();
         if (request.getFixAnalysis() != null) entity.setFixAnalysis(request.getFixAnalysis());
         if (request.getFixDetail() != null) entity.setFixDetail(request.getFixDetail());
-        entity.setStatus(BugStatus.PENDING_VERIFY.name());
+        transition(entity, BugStatus.PENDING_VERIFY.name());
         entity.setUpdatedBy(CurrentUserContext.userIdOrNull());
         bugMapper.updateById(entity);
         operationLogService.record("bug", "Bug", id, "FIX",
                 "Bug状态由" + bugStatusLabel(oldStatus) + "变为待验证（已提交修复）：" + entity.getTitle());
-        if (entity.getCreatorId() != null && !entity.getCreatorId().equals(CurrentUserContext.userId())) {
-            String fixer = resolveUserName(CurrentUserContext.userIdOrNull());
-            String projectName = resolveProjectName(entity.getProjectId());
-            noticeService.create(entity.getCreatorId(), NoticeType.BUG_ASSIGNED,
-                    "缺陷「" + entity.getTitle() + "」已修复，待您验证",
-                    "所属项目：" + projectName + "　｜　修复人：" + fixer,
-                    "Bug", id);
-        }
         return getById(id);
     }
 
+    @Transactional
     public BugResponse resolve(Long id, BugResolveRequest request) {
         BugEntity entity = requireBug(id);
         ensureMutable(entity);
@@ -322,22 +347,15 @@ public class BugService {
         if (request.getAssigneeId() != null) {
             entity.setAssigneeId(request.getAssigneeId());
         }
-        entity.setStatus(BugStatus.PENDING_VERIFY.name());
+        transition(entity, BugStatus.PENDING_VERIFY.name());
         entity.setUpdatedBy(CurrentUserContext.userIdOrNull());
         bugMapper.updateById(entity);
         operationLogService.record("bug", "Bug", id, "UPDATE_STATUS",
                 "Bug状态由" + bugStatusLabel(oldStatus) + "变为待验证（已解决）：" + entity.getTitle());
-        if (entity.getCreatorId() != null && !entity.getCreatorId().equals(CurrentUserContext.userId())) {
-            String resolver = resolveUserName(CurrentUserContext.userIdOrNull());
-            String projectName = resolveProjectName(entity.getProjectId());
-            noticeService.create(entity.getCreatorId(), NoticeType.BUG_ASSIGNED,
-                    "缺陷「" + entity.getTitle() + "」已解决，待您验证",
-                    "所属项目：" + projectName + "　｜　解决人：" + resolver,
-                    "Bug", id);
-        }
         return getById(id);
     }
 
+    @Transactional
     public BugCommentResponse addComment(Long bugId, BugCommentCreateRequest request) {
         BugEntity bug = requireBug(bugId);
         ensureMutable(bug);
@@ -365,7 +383,7 @@ public class BugService {
     }
 
     public List<BugCommentResponse> listComments(Long bugId) {
-        requireBug(bugId);
+        businessAccessService.requireBugRead(requireBug(bugId));
         LambdaQueryWrapper<BugCommentEntity> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(BugCommentEntity::getBugId, bugId).orderByDesc(BugCommentEntity::getCreatedAt);
         return bugCommentMapper.selectList(wrapper).stream().map(this::toCommentResponse).toList();
@@ -385,14 +403,68 @@ public class BugService {
         }
     }
 
+    private void transition(BugEntity entity, String requestedStatus) {
+        BugStatus target;
+        try {
+            target = BugStatus.valueOf(requestedStatus);
+        } catch (IllegalArgumentException exception) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "无效的缺陷状态");
+        }
+        BugStatus source = BugStatus.valueOf(entity.getStatus());
+        if (source == target) return;
+        if (source == BugStatus.CLOSED) {
+            if (target != BugStatus.PENDING_FIX) {
+                throw new BusinessException(ErrorCode.CONFLICT, "已关闭的 Bug 只能重新打开为待修复");
+            }
+            businessAccessService.requireBugClose(entity);
+            entity.setClosedAt(null);
+        } else if (target == BugStatus.CLOSED) {
+            businessAccessService.requireBugClose(entity);
+            entity.setClosedAt(LocalDateTime.now());
+        } else {
+            businessAccessService.requireBugEdit(entity);
+        }
+        entity.setStatus(target.name());
+        if (target == BugStatus.PENDING_VERIFY && entity.getCreatorId() != null
+                && !entity.getCreatorId().equals(CurrentUserContext.userId())) {
+            noticeService.create(entity.getCreatorId(), NoticeType.BUG_ASSIGNED,
+                    "缺陷「" + entity.getTitle() + "」已提交处理，待您验证",
+                    "所属项目：" + resolveProjectName(entity.getProjectId()) + "　｜　处理人："
+                            + resolveUserName(CurrentUserContext.userIdOrNull()), "Bug", entity.getId());
+        }
+    }
+
+    private void requireProjectRead(Long projectId) {
+        ProjectEntity project = projectMapper.selectById(projectId);
+        if (project == null) throw new BusinessException(ErrorCode.NOT_FOUND, "项目不存在");
+        businessAccessService.requireProjectRead(project);
+    }
+
+    private void validateRelatedTasks(Long projectId, List<Long> taskIds) {
+        ProjectEntity project = projectMapper.selectById(projectId);
+        for (Long taskId : taskIds) {
+            TaskEntity task = taskMapper.selectById(taskId);
+            if (task == null) throw new BusinessException(ErrorCode.NOT_FOUND, "关联任务不存在");
+            businessAccessService.requireTaskRead(task);
+            boolean sameProject = Objects.equals(projectId, task.getProjectId());
+            boolean parentProject = project != null && Objects.equals(project.getManagementProjectId(), task.getProjectId());
+            ProjectEntity taskProject = sameProject || parentProject ? null : projectMapper.selectById(task.getProjectId());
+            boolean executionProject = taskProject != null && Objects.equals(projectId, taskProject.getManagementProjectId());
+            if (!sameProject && !parentProject && !executionProject) {
+                throw new BusinessException(ErrorCode.BAD_REQUEST, "关联任务必须属于当前项目或其关联的管理/执行项目");
+            }
+        }
+    }
+
     private void applyReadScope(LambdaQueryWrapper<BugEntity> wrapper) {
-        if (businessAccessService.isSystemAdmin() || businessAccessService.canViewAll()) {
+        if (businessAccessService.canViewAll()) {
             return;
         }
         Long userId = CurrentUserContext.userId();
         wrapper.and(scope -> scope.eq(BugEntity::getCreatorId, userId)
                 .or()
-                .eq(BugEntity::getAssigneeId, userId));
+                .eq(BugEntity::getAssigneeId, userId)
+                .or().inSql(BugEntity::getProjectId, businessAccessService.readableProjectIdsSql()));
     }
 
     private List<Long> normalizeRelatedTaskIds(Long taskId, List<Long> relatedTaskIds) {

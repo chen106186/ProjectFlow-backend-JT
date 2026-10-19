@@ -34,7 +34,7 @@ class AuthControllerTest {
         when(userMapper.selectOne(any())).thenReturn(user);
         when(passwordEncoder.matches("wrong-password", "encoded")).thenReturn(false);
 
-        assertThatThrownBy(() -> controller.login(new LoginRequest("admin", "wrong-password")))
+        assertThatThrownBy(() -> controller.login(new LoginRequest("admin", "wrong-password", false)))
                 .isInstanceOf(BusinessException.class)
                 .satisfies(ex -> {
                     BusinessException businessException = (BusinessException) ex;

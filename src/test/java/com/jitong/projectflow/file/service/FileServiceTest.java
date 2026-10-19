@@ -3,6 +3,7 @@ package com.jitong.projectflow.file.service;
 import com.jitong.projectflow.auth.security.BusinessAccessService;
 import com.jitong.projectflow.auth.security.CurrentUserContext;
 import com.jitong.projectflow.common.error.BusinessException;
+import com.jitong.projectflow.common.error.ErrorCode;
 import com.jitong.projectflow.file.domain.FileStorageService;
 import com.jitong.projectflow.file.domain.StoredFile;
 import com.jitong.projectflow.file.entity.FileMetadata;
@@ -25,6 +26,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.doThrow;
 
 @ExtendWith(MockitoExtension.class)
 class FileServiceTest {
@@ -38,9 +40,11 @@ class FileServiceTest {
     FileFolderMapper fileFolderMapper;
     @Mock
     SystemUserMapper systemUserMapper;
+    @Mock
+    FileBusinessAccessService fileBusinessAccessService;
 
     private FileService service() {
-        return new FileService(fileMetadataMapper, fileStorageService, businessAccessService, fileFolderMapper, systemUserMapper);
+        return new FileService(fileMetadataMapper, fileStorageService, businessAccessService, fileFolderMapper, systemUserMapper, fileBusinessAccessService);
     }
 
     @AfterEach
@@ -91,6 +95,41 @@ class FileServiceTest {
         assertThatThrownBy(() -> service().upload("TASK", 10L, null, file))
                 .isInstanceOf(BusinessException.class)
                 .hasMessage("不支持的文件类型");
+    }
+
+    @Test
+    void bugScreenRecordingAcceptsWebmAndNormalizesContentType() {
+        when(fileStorageService.upload(any())).thenReturn(new StoredFile("LOCAL", "recording.webm", 3));
+        MockMultipartFile file = new MockMultipartFile("file", "steps.webm", "application/octet-stream", "abc".getBytes());
+
+        service().upload("BUG", 10L, "v1", "BUSINESS", "SCREEN_RECORDING", file);
+
+        ArgumentCaptor<FileMetadata> metadata = ArgumentCaptor.forClass(FileMetadata.class);
+        verify(fileMetadataMapper).insert(metadata.capture());
+        assertThat(metadata.getValue().getContentType()).isEqualTo("video/webm");
+        assertThat(metadata.getValue().getFileCategory()).isEqualTo("SCREEN_RECORDING");
+    }
+
+    @Test
+    void videoCannotBeUploadedOutsideBugRecordingCategory() {
+        MockMultipartFile file = new MockMultipartFile("file", "steps.mp4", "video/mp4", "abc".getBytes());
+        assertThatThrownBy(() -> service().upload("PROJECT", 10L, null, file))
+                .isInstanceOf(BusinessException.class).hasMessage("录屏仅支持作为 Bug 附件上传");
+        assertThatThrownBy(() -> service().upload("BUG", 10L, null, file))
+                .isInstanceOf(BusinessException.class).hasMessage("录屏仅支持作为 Bug 附件上传");
+    }
+
+    @Test
+    void bugRecordingRejectsSpoofedTypeAndOversizedFile() {
+        MockMultipartFile wrongType = new MockMultipartFile("file", "steps.mp4", "text/html", "abc".getBytes());
+        assertThatThrownBy(() -> service().upload("BUG", 10L, null, "BUSINESS", "SCREEN_RECORDING", wrongType))
+                .isInstanceOf(BusinessException.class).hasMessage("录屏文件类型与扩展名不匹配");
+        MockMultipartFile tooLarge = new MockMultipartFile("file", "steps.mp4", "video/mp4", new byte[0]) {
+            @Override public long getSize() { return 100L * 1024 * 1024 + 1; }
+            @Override public boolean isEmpty() { return false; }
+        };
+        assertThatThrownBy(() -> service().upload("BUG", 10L, null, "BUSINESS", "SCREEN_RECORDING", tooLarge))
+                .isInstanceOf(BusinessException.class).hasMessage("录屏大小不能超过100MB");
     }
 
     @Test
@@ -208,13 +247,65 @@ class FileServiceTest {
         second.setStorageKey("b.pdf");
         when(fileMetadataMapper.selectById(1L)).thenReturn(first);
         when(fileMetadataMapper.selectById(2L)).thenReturn(second);
+        when(fileMetadataMapper.deleteById(1L)).thenReturn(1);
+        when(fileMetadataMapper.deleteById(2L)).thenReturn(1);
 
         service().deleteBatch(List.of(1L, 2L));
 
-        verify(businessAccessService).requireFileDelete(first);
-        verify(businessAccessService).requireFileDelete(second);
+        verify(businessAccessService, times(2)).requireFileDelete(first);
+        verify(businessAccessService, times(2)).requireFileDelete(second);
         verify(fileMetadataMapper).deleteById(1L);
         verify(fileMetadataMapper).deleteById(2L);
         verify(fileStorageService, times(2)).delete(any());
+    }
+
+    @Test
+    void uploaderCanRemoveHistoricalOrphanAfterOwnerWasDeleted() {
+        CurrentUserContext.set(1001L);
+        FileMetadata orphan = new FileMetadata();
+        orphan.setId(1L);
+        orphan.setBusinessType("DAILY_REPORT");
+        orphan.setBusinessId(10L);
+        orphan.setUploaderId(1001L);
+        orphan.setStorageKey("orphan.pdf");
+        when(fileMetadataMapper.selectById(1L)).thenReturn(orphan);
+        when(fileMetadataMapper.selectList(any())).thenReturn(List.of(orphan));
+        when(fileMetadataMapper.deleteById(1L)).thenReturn(1);
+        doThrow(new BusinessException(ErrorCode.NOT_FOUND, "关联业务不存在"))
+                .when(fileBusinessAccessService).requireRead("DAILY_REPORT", 10L);
+
+        service().delete(1L);
+
+        verify(businessAccessService).requireFileDelete(orphan);
+        verify(fileStorageService).delete("orphan.pdf");
+    }
+
+    @Test
+    void deletingSharedMetadataDoesNotDeleteReferencedStorageObject() {
+        FileMetadata source = new FileMetadata();
+        source.setId(1L);
+        source.setStorageKey("shared.pdf");
+        FileMetadata mirror = new FileMetadata();
+        mirror.setId(2L);
+        mirror.setStorageKey("shared.pdf");
+        when(fileMetadataMapper.selectById(1L)).thenReturn(source);
+        when(fileMetadataMapper.selectList(any())).thenReturn(List.of(source, mirror));
+        when(fileMetadataMapper.deleteById(1L)).thenReturn(1);
+
+        service().delete(1L);
+
+        verify(fileMetadataMapper).deleteById(1L);
+        verify(fileStorageService, org.mockito.Mockito.never()).delete(any());
+    }
+
+    @Test
+    void legacyDailyReportTypeIsNormalizedForNewUploads() {
+        when(fileStorageService.upload(any())).thenReturn(new StoredFile("LOCAL", "report.pdf", 3));
+        MockMultipartFile file = new MockMultipartFile("file", "report.pdf", "application/pdf", "abc".getBytes());
+        service().upload("daily-report", 10L, "v1", file);
+        ArgumentCaptor<FileMetadata> captor = ArgumentCaptor.forClass(FileMetadata.class);
+        verify(fileMetadataMapper).insert(captor.capture());
+        assertThat(captor.getValue().getBusinessType()).isEqualTo("DAILY_REPORT");
+        verify(fileBusinessAccessService).requireRead("DAILY_REPORT", 10L);
     }
 }

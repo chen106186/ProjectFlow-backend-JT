@@ -16,12 +16,15 @@ import com.jitong.projectflow.daily.entity.DailyReportEntity;
 import com.jitong.projectflow.daily.mapper.DailyReportMapper;
 import com.jitong.projectflow.daily.mapper.DailyReportTaskMapper;
 import com.jitong.projectflow.file.entity.FileMetadata;
+import com.jitong.projectflow.file.domain.FileBusinessType;
 import com.jitong.projectflow.file.mapper.FileMetadataMapper;
+import com.jitong.projectflow.file.service.FileService;
 import com.jitong.projectflow.system.audit.OperationLogService;
 import com.jitong.projectflow.system.entity.SystemUser;
 import com.jitong.projectflow.system.mapper.SystemUserMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.util.List;
@@ -39,8 +42,11 @@ public class DailyReportService {
     private final FileMetadataMapper fileMetadataMapper;
     private final DailyReportTaskMapper dailyReportTaskMapper;
     private final SystemUserMapper systemUserMapper;
+    private final FileService fileService;
 
+    @Transactional
     public DailyReportResponse create(DailyReportCreateRequest request) {
+        if (request.getProjectId() != null) businessAccessService.requireProjectRead(request.getProjectId());
         DailyReportEntity entity = new DailyReportEntity();
         entity.setProjectId(request.getProjectId());
         entity.setReporterId(CurrentUserContext.userId());
@@ -59,7 +65,7 @@ public class DailyReportService {
     }
 
     public PageResult<DailyReportResponse> list(DailyReportQueryRequest request) {
-        if (request.getReporterId() == null && !businessAccessService.isSystemAdmin() && !businessAccessService.canViewAll()) {
+        if (!businessAccessService.canViewAll()) {
             request.setReporterId(CurrentUserContext.userId());
         }
         Page<DailyReportEntity> page = dailyReportMapper.selectPage(PageUtils.toPage(request), buildQuery(request));
@@ -94,13 +100,19 @@ public class DailyReportService {
     }
 
     public DailyReportResponse getById(Long id) {
-        return toResponse(requireReport(id), null);
+        DailyReportEntity entity = requireReport(id);
+        businessAccessService.requireDailyReportRead(entity);
+        return toResponse(entity, null);
     }
 
+    @Transactional
     public DailyReportResponse update(Long id, DailyReportUpdateRequest request) {
         DailyReportEntity entity = requireReport(id);
         businessAccessService.requireDailyReportManage(entity);
-        if (request.getProjectId() != null) entity.setProjectId(request.getProjectId());
+        if (request.getProjectId() != null) {
+            businessAccessService.requireProjectRead(request.getProjectId());
+            entity.setProjectId(request.getProjectId());
+        }
         if (request.getReportDate() != null) entity.setReportDate(request.getReportDate());
         if (request.getContent() != null) entity.setContent(request.getContent());
         entity.setUpdatedBy(CurrentUserContext.userIdOrNull());
@@ -116,30 +128,37 @@ public class DailyReportService {
         return toResponse(entity, null);
     }
 
+    @Transactional
     public void delete(Long id) {
         DailyReportEntity entity = requireReport(id);
         businessAccessService.requireDailyReportManage(entity);
+        fileService.purgeForBusiness("DAILY_REPORT", id);
         dailyReportMapper.deleteById(id);
         operationLogService.record("daily-report", "DailyReport", id, "DELETE",
                 "删除日报：" + entity.getReportDate());
     }
 
+    @Transactional
     public int syncFilesToProject(Long reportId) {
         DailyReportEntity report = requireReport(reportId);
+        businessAccessService.requireDailyReportManage(report);
         Long projectId = report.getProjectId();
+        if (projectId == null) throw new BusinessException(ErrorCode.BAD_REQUEST, "请先为日报选择项目");
+        businessAccessService.requireProjectRead(projectId);
 
         List<FileMetadata> reportFiles = fileMetadataMapper.selectList(
                 new LambdaQueryWrapper<FileMetadata>()
-                        .eq(FileMetadata::getBusinessType, "DAILY_REPORT")
-                        .eq(FileMetadata::getBusinessId, reportId));
+                        .in(FileMetadata::getBusinessType, FileBusinessType.DAILY_REPORT.aliases())
+                        .eq(FileMetadata::getBusinessId, reportId)
+                        .orderByAsc(FileMetadata::getId).last("FOR UPDATE"));
         if (reportFiles.isEmpty()) {
             return 0;
         }
 
         List<FileMetadata> existingProjectFiles = fileMetadataMapper.selectList(
                 new LambdaQueryWrapper<FileMetadata>()
-                        .eq(FileMetadata::getBusinessType, "PROJECT")
-                        .eq(FileMetadata::getBusinessId, projectId));
+                        .in(FileMetadata::getBusinessType, FileBusinessType.PROJECT.aliases())
+                        .eq(FileMetadata::getBusinessId, projectId).last("FOR UPDATE"));
         Set<String> existingKeys = existingProjectFiles.stream()
                 .map(FileMetadata::getStorageKey)
                 .filter(Objects::nonNull)

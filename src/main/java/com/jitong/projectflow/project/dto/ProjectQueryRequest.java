@@ -12,7 +12,7 @@ public class ProjectQueryRequest extends PageQuery {
     @Schema(description = "项目业务类型，例如数字化项目、信息化项目或科研项目。")
     private String projectBusinessType;
 
-    @Schema(description = "状态。")
+    @Schema(description = "状态；COMPLETED_OR_OVERDUE_COMPLETED 表示已完成及逾期完成。")
     private String status;
 
     @Schema(description = "合同状态。")

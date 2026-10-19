@@ -2,6 +2,7 @@ package com.jitong.projectflow.daily.service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.jitong.projectflow.auth.security.BusinessAccessService;
+import com.jitong.projectflow.file.service.FileService;
 import com.jitong.projectflow.auth.security.CurrentUserContext;
 import com.jitong.projectflow.daily.dto.DailyReportCreateRequest;
 import com.jitong.projectflow.daily.dto.DailyReportQueryRequest;
@@ -11,6 +12,7 @@ import com.jitong.projectflow.daily.mapper.DailyReportMapper;
 import com.jitong.projectflow.daily.mapper.DailyReportTaskMapper;
 import com.jitong.projectflow.file.mapper.FileMetadataMapper;
 import com.jitong.projectflow.system.audit.OperationLogService;
+import com.jitong.projectflow.system.mapper.SystemUserMapper;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -38,9 +40,13 @@ class DailyReportServiceTest {
 
     @Mock
     FileMetadataMapper fileMetadataMapper;
+    @Mock
+    FileService fileService;
 
     @Mock
     DailyReportTaskMapper dailyReportTaskMapper;
+    @Mock
+    SystemUserMapper systemUserMapper;
 
     @AfterEach
     void clearCurrentUser() {
@@ -55,7 +61,7 @@ class DailyReportServiceTest {
         request.setReportDate(LocalDate.of(2026, 7, 7));
         request.setContent("Completed API design");
 
-        DailyReportService service = new DailyReportService(dailyReportMapper, operationLogService, businessAccessService, fileMetadataMapper, dailyReportTaskMapper);
+        DailyReportService service = service();
         service.create(request);
 
         ArgumentCaptor<DailyReportEntity> captor = ArgumentCaptor.forClass(DailyReportEntity.class);
@@ -64,11 +70,12 @@ class DailyReportServiceTest {
         assertThat(inserted.getReporterId()).isEqualTo(1001L);
         assertThat(inserted.getCreatedBy()).isEqualTo(1001L);
         assertThat(inserted.getProjectId()).isEqualTo(20L);
-        verify(operationLogService).record("daily-report", "DailyReport", inserted.getId(), "CREATE", "Completed API design");
+        verify(operationLogService).record("daily-report", "DailyReport", inserted.getId(), "CREATE", "提交日报：2026-07-07");
     }
 
     @Test
     void listReturnsPagedReports() {
+        CurrentUserContext.set(1001L);
         DailyReportEntity report = new DailyReportEntity();
         report.setId(1L);
         report.setProjectId(20L);
@@ -79,7 +86,7 @@ class DailyReportServiceTest {
         page.setRecords(java.util.List.of(report));
         when(dailyReportMapper.selectPage(any(), any())).thenReturn(page);
 
-        var result = new DailyReportService(dailyReportMapper, operationLogService, businessAccessService, fileMetadataMapper, dailyReportTaskMapper).list(new DailyReportQueryRequest());
+        var result = service().list(new DailyReportQueryRequest());
 
         assertThat(result.total()).isEqualTo(1);
         assertThat(result.records()).extracting("content").containsExactly("Daily note");
@@ -99,13 +106,18 @@ class DailyReportServiceTest {
         DailyReportUpdateRequest request = new DailyReportUpdateRequest();
         request.setContent("New content");
 
-        new DailyReportService(dailyReportMapper, operationLogService, businessAccessService, fileMetadataMapper, dailyReportTaskMapper).update(10L, request);
+        service().update(10L, request);
 
         ArgumentCaptor<DailyReportEntity> captor = ArgumentCaptor.forClass(DailyReportEntity.class);
         verify(businessAccessService).requireDailyReportManage(report);
         verify(dailyReportMapper).updateById(captor.capture());
         assertThat(captor.getValue().getContent()).isEqualTo("New content");
         assertThat(captor.getValue().getUpdatedBy()).isEqualTo(1001L);
-        verify(operationLogService).record("daily-report", "DailyReport", 10L, "UPDATE", "New content");
+        verify(operationLogService).record("daily-report", "DailyReport", 10L, "UPDATE", "编辑日报：2026-07-07");
+    }
+
+    private DailyReportService service() {
+        return new DailyReportService(dailyReportMapper, operationLogService, businessAccessService,
+                fileMetadataMapper, dailyReportTaskMapper, systemUserMapper, fileService);
     }
 }

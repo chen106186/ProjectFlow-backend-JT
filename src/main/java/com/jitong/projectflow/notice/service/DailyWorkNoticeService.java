@@ -28,6 +28,7 @@ public class DailyWorkNoticeService {
     private final NoticeService noticeService;
     private final SystemUserMapper systemUserMapper;
 
+    @Scheduled(cron = "${projectflow.notice.daily-work-cron:0 0 8 * * ?}", zone = "Asia/Shanghai")
     public void sendDailyWorkNotice() {
         int sent = sendDailyWorkNotice(LocalDate.now());
         log.info("[定时] 每日工作提醒发送完成，共发送 {} 条", sent);
@@ -41,6 +42,9 @@ public class DailyWorkNoticeService {
 
         int sent = 0;
         for (SystemUser user : allUsers) {
+            String noticeTitle = "今日工作提醒（" + today + "）";
+            if (noticeService.existsBusinessNotice(user.getId(), NoticeType.SYSTEM,
+                    noticeTitle, "DailyWorkSummary", today.toEpochDay())) continue;
             long overdueCount = taskMapper.selectCount(new LambdaQueryWrapper<TaskEntity>()
                     .eq(TaskEntity::getAssigneeId, user.getId())
                     .eq(TaskEntity::getStatus, TaskStatus.OVERDUE.name()));
@@ -64,7 +68,7 @@ public class DailyWorkNoticeService {
             long total = overdueCount + dueSoonCount + inProgressCount + bugPendingCount;
             if (total == 0) continue;
 
-            title = "早安，" + userName + "！今日共有 " + total + " 项工作待处理";
+            title = noticeTitle;
             StringBuilder sb = new StringBuilder();
             if (overdueCount > 0) sb.append("逾期任务 ").append(overdueCount).append(" 个");
             if (dueSoonCount > 0) {
@@ -79,9 +83,9 @@ public class DailyWorkNoticeService {
                 if (sb.length() > 0) sb.append("　｜　");
                 sb.append("待处理缺陷 ").append(bugPendingCount).append(" 个");
             }
-            content = sb.toString();
+            content = "早安，" + userName + "！今日共有 " + total + " 项工作待处理。　" + sb;
 
-            noticeService.create(user.getId(), NoticeType.SYSTEM, title, content, null, null);
+            noticeService.create(user.getId(), NoticeType.SYSTEM, title, content, "DailyWorkSummary", today.toEpochDay());
             sent++;
         }
         return sent;

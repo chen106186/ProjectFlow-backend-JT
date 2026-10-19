@@ -11,15 +11,15 @@ import java.util.Map;
 @Builder
 @Schema(description = "我的工作台统计响应。")
 public class MyStatisticsResponse {
-    @Schema(description = "我的任务总数。")
+    @Schema(description = "所选期间创建的任务数；全部期间为任务总数。")
     private long myTaskTotal;
-    @Schema(description = "我的已完成任务数量。")
+    @Schema(description = "所选期间按实际完成日期统计的已完成任务数。")
     private long myTaskCompleted;
-    @Schema(description = "我的逾期任务数量。")
+    @Schema(description = "当前未完成且已逾期的任务数，不受期间筛选影响。")
     private long myTaskOverdue;
-    @Schema(description = "我的Bug总数。")
+    @Schema(description = "所选期间创建的 Bug 数；全部期间为 Bug 总数。")
     private long myBugTotal;
-    @Schema(description = "我的未关闭Bug数量。")
+    @Schema(description = "当前未关闭的 Bug 数，不受期间筛选影响。")
     private long myBugOpen;
     @Schema(description = "我的需求总数。")
     private long myRequirementTotal;

@@ -4,6 +4,7 @@ import com.alibaba.excel.EasyExcel;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.jitong.projectflow.auth.security.BusinessAccessService;
+import com.jitong.projectflow.file.service.FileService;
 import com.jitong.projectflow.auth.security.CurrentUserContext;
 import com.jitong.projectflow.common.api.DateRangeValidator;
 import com.jitong.projectflow.common.api.PageResult;
@@ -22,6 +23,7 @@ import com.jitong.projectflow.system.mapper.OperationLogMapper;
 import com.jitong.projectflow.system.mapper.SystemUserMapper;
 import com.jitong.projectflow.task.domain.TaskStatus;
 import com.jitong.projectflow.task.domain.TaskStatusCalculator;
+import com.jitong.projectflow.task.domain.TaskStatusQuery;
 import com.jitong.projectflow.task.dto.TaskActualTimeUpdateRequest;
 import com.jitong.projectflow.task.dto.TaskBatchCreateRequest;
 import com.jitong.projectflow.task.dto.TaskCreateRequest;
@@ -34,6 +36,7 @@ import com.jitong.projectflow.task.entity.TaskEntity;
 import com.jitong.projectflow.task.mapper.TaskMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -52,11 +55,19 @@ public class TaskService {
     private final SystemUserMapper systemUserMapper;
     private final ProjectMapper projectMapper;
     private final OperationLogMapper operationLogMapper;
+    private final FileService fileService;
     private final TaskStatusCalculator statusCalculator = new TaskStatusCalculator();
 
+    @Transactional
     public TaskResponse create(TaskCreateRequest request) {
+        requireProjectRead(request.getProjectId());
         if (request.getParentId() != null) {
-            if (computeDepth(request.getParentId()) >= 3) {
+            TaskEntity parent = requireTask(request.getParentId());
+            businessAccessService.requireTaskRead(parent);
+            if (!request.getProjectId().equals(parent.getProjectId())) {
+                throw new BusinessException(ErrorCode.BAD_REQUEST, "父任务必须属于同一项目");
+            }
+            if (computeDepth(request.getParentId()) >= 2) {
                 throw new BusinessException(ErrorCode.BAD_REQUEST, "子任务最多支持三级");
             }
         }
@@ -67,10 +78,12 @@ public class TaskService {
         return toResponse(entity);
     }
 
+    @Transactional
     public List<TaskResponse> batchCreate(TaskBatchCreateRequest request) {
         return request.getTasks().stream().map(this::create).toList();
     }
 
+    @Transactional
     public List<TaskResponse> importTasks(MultipartFile file) {
         if (file == null || file.isEmpty()) {
             throw new BusinessException(ErrorCode.BAD_REQUEST, "导入文件不能为空");
@@ -170,25 +183,15 @@ public class TaskService {
 
     public List<TaskResponse> listMine() {
         Long userId = CurrentUserContext.userId();
-        List<Long> managedProjectIds = projectMapper.selectList(
-                        new LambdaQueryWrapper<ProjectEntity>()
-                                .and(w -> w.eq(ProjectEntity::getManagerId, userId)
-                                        .or().apply("FIND_IN_SET({0}, co_manager_ids) > 0", String.valueOf(userId)))
-                                .select(ProjectEntity::getId))
-                .stream().map(ProjectEntity::getId).toList();
-        LambdaQueryWrapper<TaskEntity> wrapper = new LambdaQueryWrapper<>();
-        if (!managedProjectIds.isEmpty()) {
-            wrapper.and(w -> w.eq(TaskEntity::getAssigneeId, userId)
-                    .or().in(TaskEntity::getProjectId, managedProjectIds));
-        } else {
-            wrapper.eq(TaskEntity::getAssigneeId, userId);
-        }
+        LambdaQueryWrapper<TaskEntity> wrapper = new LambdaQueryWrapper<TaskEntity>()
+                .eq(TaskEntity::getAssigneeId, userId);
         wrapper.orderByDesc(TaskEntity::getCreatedAt);
         return taskMapper.selectList(wrapper).stream().map(this::toResponse).toList();
     }
 
     public TaskResponse getById(Long id) {
         TaskEntity entity = requireTask(id);
+        businessAccessService.requireTaskRead(entity);
         TaskResponse response = toResponse(entity);
 
         if (entity.getAssigneeId() != null) {
@@ -211,11 +214,19 @@ public class TaskService {
         return response;
     }
 
+    @Transactional
     public TaskResponse update(Long id, TaskUpdateRequest request) {
         TaskEntity entity = requireTask(id);
         businessAccessService.requireTaskManage(entity);
         Long oldAssigneeId = entity.getAssigneeId();
-        if (request.getProjectId() != null) entity.setProjectId(request.getProjectId());
+        if (request.getProjectId() != null && !request.getProjectId().equals(entity.getProjectId())) {
+            requireProjectRead(request.getProjectId());
+            if (entity.getParentId() != null || taskMapper.selectCount(new LambdaQueryWrapper<TaskEntity>()
+                    .eq(TaskEntity::getParentId, id)) > 0) {
+                throw new BusinessException(ErrorCode.CONFLICT, "包含父子关联的任务不能直接更换项目");
+            }
+            entity.setProjectId(request.getProjectId());
+        }
         if (request.getName() != null) entity.setName(request.getName());
         if (request.getRoleName() != null) entity.setRoleName(request.getRoleName());
         if (request.getPriority() != null) entity.setPriority(request.getPriority());
@@ -223,10 +234,11 @@ public class TaskService {
         if (request.getAssigneeId() != null) entity.setAssigneeId(request.getAssigneeId());
         if (request.getPlannedStartDate() != null) entity.setPlannedStartDate(request.getPlannedStartDate());
         if (request.getPlannedEndDate() != null) entity.setPlannedEndDate(request.getPlannedEndDate());
-        if (request.getActualStartDate() != null) entity.setActualStartDate(request.getActualStartDate());
-        if (request.getActualEndDate() != null) entity.setActualEndDate(request.getActualEndDate());
+        if (request.isActualStartDatePresent()) entity.setActualStartDate(request.getActualStartDate());
+        if (request.isActualEndDatePresent()) entity.setActualEndDate(request.getActualEndDate());
         DateRangeValidator.validate(entity.getPlannedStartDate(), entity.getPlannedEndDate(), "计划");
         DateRangeValidator.validate(entity.getActualStartDate(), entity.getActualEndDate(), "实际");
+        validateActualDates(entity);
         if (request.getDescription() != null) entity.setDescription(request.getDescription());
         if (request.getTags() != null) entity.setTags(request.getTags());
         if (request.getRemark() != null) entity.setRemark(request.getRemark());
@@ -244,12 +256,14 @@ public class TaskService {
         return toResponse(entity);
     }
 
+    @Transactional
     public TaskResponse updateActualTime(Long id, TaskActualTimeUpdateRequest request) {
         TaskEntity entity = requireTask(id);
         businessAccessService.requireTaskActualTimeManage(entity);
-        if (request.getActualStartDate() != null) entity.setActualStartDate(request.getActualStartDate());
-        if (request.getActualEndDate() != null) entity.setActualEndDate(request.getActualEndDate());
+        if (request.isActualStartDatePresent()) entity.setActualStartDate(request.getActualStartDate());
+        if (request.isActualEndDatePresent()) entity.setActualEndDate(request.getActualEndDate());
         DateRangeValidator.validate(entity.getActualStartDate(), entity.getActualEndDate(), "实际");
+        validateActualDates(entity);
         if (request.getRemark() != null) entity.setRemark(request.getRemark());
         entity.setStatus(calculateStatus(entity).name());
         entity.setUpdatedBy(CurrentUserContext.userIdOrNull());
@@ -258,6 +272,7 @@ public class TaskService {
         return toResponse(entity);
     }
 
+    @Transactional
     public void delete(Long id) {
         TaskEntity entity = requireTask(id);
         businessAccessService.requireTaskManage(entity);
@@ -266,16 +281,22 @@ public class TaskService {
     }
 
     public List<TaskResponse> listSubtasks(Long id) {
-        requireTask(id);
-        return taskMapper.selectList(new LambdaQueryWrapper<TaskEntity>()
+        businessAccessService.requireTaskRead(requireTask(id));
+        LambdaQueryWrapper<TaskEntity> query = new LambdaQueryWrapper<TaskEntity>()
                 .eq(TaskEntity::getParentId, id)
-                .orderByAsc(TaskEntity::getSortOrder))
+                .orderByAsc(TaskEntity::getSortOrder);
+        applyReadScope(query);
+        return taskMapper.selectList(query)
                 .stream().map(this::toResponse).toList();
     }
 
     private void deleteWithDescendants(Long id) {
         taskMapper.selectList(new LambdaQueryWrapper<TaskEntity>().eq(TaskEntity::getParentId, id))
-                .forEach(child -> deleteWithDescendants(child.getId()));
+                .forEach(child -> {
+                    businessAccessService.requireTaskManage(child);
+                    deleteWithDescendants(child.getId());
+                });
+        fileService.purgeForBusiness("TASK", id);
         taskMapper.deleteById(id);
     }
 
@@ -302,22 +323,25 @@ public class TaskService {
             }
         }
         wrapper.eq(request.getAssigneeId() != null, TaskEntity::getAssigneeId, request.getAssigneeId());
+        wrapper.eq(StringUtils.hasText(request.getRoleName()), TaskEntity::getRoleName, request.getRoleName());
         wrapper.eq(StringUtils.hasText(request.getPriority()), TaskEntity::getPriority, request.getPriority());
         applyStatusQuery(wrapper, request.getStatus());
         wrapper.eq(request.getPlannedEndDate() != null, TaskEntity::getPlannedEndDate, request.getPlannedEndDate());
         wrapper.like(StringUtils.hasText(request.getKeyword()), TaskEntity::getName, request.getKeyword());
+        applyReadScope(wrapper);
         wrapper.orderByDesc(TaskEntity::getCreatedAt);
         return wrapper;
     }
 
     private void applyReadScope(LambdaQueryWrapper<TaskEntity> wrapper) {
-        if (businessAccessService.isSystemAdmin() || businessAccessService.canViewAll()) {
+        if (businessAccessService.canViewAll()) {
             return;
         }
         Long userId = CurrentUserContext.userId();
         wrapper.and(scope -> scope.eq(TaskEntity::getAssigneeId, userId)
                 .or()
-                .eq(TaskEntity::getCreatedBy, userId));
+                .eq(TaskEntity::getCreatedBy, userId)
+                .or().inSql(TaskEntity::getProjectId, businessAccessService.readableProjectIdsSql()));
     }
 
     private TaskStatus calculateStatus(TaskEntity entity) {
@@ -334,34 +358,27 @@ public class TaskService {
         if (!StringUtils.hasText(status)) {
             return;
         }
+        try {
+            TaskStatusQuery.apply(wrapper, TaskStatus.valueOf(status), LocalDate.now());
+        } catch (IllegalArgumentException exception) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "无效的任务状态");
+        }
+    }
+
+    private void requireProjectRead(Long projectId) {
+        ProjectEntity project = projectMapper.selectById(projectId);
+        if (project == null) throw new BusinessException(ErrorCode.NOT_FOUND, "项目不存在");
+        businessAccessService.requireProjectRead(project);
+    }
+
+    private void validateActualDates(TaskEntity task) {
         LocalDate today = LocalDate.now();
-        LocalDate dueSoonEnd = today.plusDays(3);
-        switch (status) {
-            case "COMPLETED" -> wrapper.isNotNull(TaskEntity::getActualEndDate);
-            case "PAUSED" -> wrapper.eq(TaskEntity::getStatus, TaskStatus.PAUSED.name());
-            case "OVERDUE" -> wrapper
-                    .isNull(TaskEntity::getActualEndDate)
-                    .ne(TaskEntity::getStatus, TaskStatus.PAUSED.name())
-                    .isNotNull(TaskEntity::getActualStartDate)
-                    .isNotNull(TaskEntity::getPlannedEndDate)
-                    .lt(TaskEntity::getPlannedEndDate, today);
-            case "DUE_SOON" -> wrapper
-                    .isNull(TaskEntity::getActualEndDate)
-                    .ne(TaskEntity::getStatus, TaskStatus.PAUSED.name())
-                    .isNotNull(TaskEntity::getActualStartDate)
-                    .isNotNull(TaskEntity::getPlannedEndDate)
-                    .ge(TaskEntity::getPlannedEndDate, today)
-                    .le(TaskEntity::getPlannedEndDate, dueSoonEnd);
-            case "IN_PROGRESS" -> wrapper
-                    .isNull(TaskEntity::getActualEndDate)
-                    .ne(TaskEntity::getStatus, TaskStatus.PAUSED.name())
-                    .isNotNull(TaskEntity::getActualStartDate)
-                    .and(q -> q.isNull(TaskEntity::getPlannedEndDate).or().gt(TaskEntity::getPlannedEndDate, dueSoonEnd));
-            case "NOT_STARTED" -> wrapper
-                    .isNull(TaskEntity::getActualEndDate)
-                    .ne(TaskEntity::getStatus, TaskStatus.PAUSED.name())
-                    .isNull(TaskEntity::getActualStartDate);
-            default -> wrapper.eq(TaskEntity::getStatus, status);
+        if ((task.getActualStartDate() != null && task.getActualStartDate().isAfter(today))
+                || (task.getActualEndDate() != null && task.getActualEndDate().isAfter(today))) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "实际日期不能晚于今天");
+        }
+        if (task.getActualEndDate() != null && task.getActualStartDate() == null) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "填写实际结束日期前须填写实际开始日期");
         }
     }
 
@@ -411,14 +428,14 @@ public class TaskService {
     }
 
     public TaskRiskStatisticsResponse getRiskStatistics(Long projectId) {
-        List<Long> projectIds = resolveStatsProjectIds(projectId);
+        List<Long> projectIds = resolveProjectIds(projectId);
         long total           = taskMapper.selectCount(projectScopeQuery(projectIds));
-        long overdueCount    = taskMapper.selectCount(projectScopeQuery(projectIds).eq(TaskEntity::getStatus, TaskStatus.OVERDUE.name()));
-        long dueSoonCount    = taskMapper.selectCount(projectScopeQuery(projectIds).eq(TaskEntity::getStatus, TaskStatus.DUE_SOON.name()));
-        long inProgressCount = taskMapper.selectCount(projectScopeQuery(projectIds).eq(TaskEntity::getStatus, TaskStatus.IN_PROGRESS.name()));
-        long notStartedCount = taskMapper.selectCount(projectScopeQuery(projectIds).eq(TaskEntity::getStatus, TaskStatus.NOT_STARTED.name()));
-        long pausedCount     = taskMapper.selectCount(projectScopeQuery(projectIds).eq(TaskEntity::getStatus, TaskStatus.PAUSED.name()));
-        long completedCount  = taskMapper.selectCount(projectScopeQuery(projectIds).eq(TaskEntity::getStatus, TaskStatus.COMPLETED.name()));
+        long overdueCount    = countStatus(projectIds, TaskStatus.OVERDUE);
+        long dueSoonCount    = countStatus(projectIds, TaskStatus.DUE_SOON);
+        long inProgressCount = countStatus(projectIds, TaskStatus.IN_PROGRESS);
+        long notStartedCount = countStatus(projectIds, TaskStatus.NOT_STARTED);
+        long pausedCount     = countStatus(projectIds, TaskStatus.PAUSED);
+        long completedCount  = countStatus(projectIds, TaskStatus.COMPLETED);
 
         return TaskRiskStatisticsResponse.builder()
                 .total(total)
@@ -451,14 +468,10 @@ public class TaskService {
         return List.of(projectId);
     }
 
-    /** 风险统计范围：执行类 → 仅父管理类（与管理类统计口径一致）；其他 → 本项目 */
-    private List<Long> resolveStatsProjectIds(Long projectId) {
-        if (projectId == null) return List.of();
-        ProjectEntity proj = projectMapper.selectById(projectId);
-        if (proj != null && "EXECUTION".equals(proj.getProjectType()) && proj.getManagementProjectId() != null) {
-            return List.of(proj.getManagementProjectId());
-        }
-        return List.of(projectId);
+    private long countStatus(List<Long> projectIds, TaskStatus status) {
+        LambdaQueryWrapper<TaskEntity> query = projectScopeQuery(projectIds);
+        TaskStatusQuery.apply(query, status, LocalDate.now());
+        return taskMapper.selectCount(query);
     }
 
     private LambdaQueryWrapper<TaskEntity> projectScopeQuery(List<Long> projectIds) {
@@ -468,6 +481,7 @@ public class TaskService {
         } else if (!projectIds.isEmpty()) {
             q.eq(TaskEntity::getProjectId, projectIds.get(0));
         }
+        applyReadScope(q);
         return q;
     }
 }

@@ -93,4 +93,21 @@ class GanttNodeSummaryCalculatorTest {
         assertThat(result.total()).isEqualTo(0);
         assertThat(result.overallProgress()).isEqualTo(0);
     }
+
+    @Test
+    void futureActualEndDoesNotCompleteStaleCompletedStatus() {
+        GanttSummaryData result = calculator.calculate(List.of("COMPLETED"), List.of(TODAY.plusDays(1)),
+                List.of(TODAY.minusDays(1)), List.of(50), TODAY);
+        assertThat(result.completed()).isZero();
+        assertThat(result.overdue()).isEqualTo(1);
+    }
+
+    @Test
+    void legacyCompletedNodeIsNotAlsoCountedAsDueSoonOrOverdue() {
+        GanttSummaryData result = calculator.calculate(List.of("COMPLETED"), Arrays.asList((LocalDate) null),
+                List.of(TODAY.minusDays(1)), List.of(100), TODAY);
+        assertThat(result.completed()).isEqualTo(1);
+        assertThat(result.overdue()).isZero();
+        assertThat(result.dueSoon()).isZero();
+    }
 }

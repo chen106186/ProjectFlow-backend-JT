@@ -45,10 +45,17 @@ public class TaskStatusSchedulerService {
                     false,
                     today);
             if (!calculated.name().equals(task.getStatus())) {
-                taskMapper.update(null, new LambdaUpdateWrapper<TaskEntity>()
+                updated += taskMapper.update(null, new LambdaUpdateWrapper<TaskEntity>()
                         .eq(TaskEntity::getId, task.getId())
+                        .eq(TaskEntity::getStatus, task.getStatus())
+                        .eq(task.getUpdatedAt() != null, TaskEntity::getUpdatedAt, task.getUpdatedAt())
+                        .eq(task.getPlannedEndDate() != null, TaskEntity::getPlannedEndDate, task.getPlannedEndDate())
+                        .isNull(task.getPlannedEndDate() == null, TaskEntity::getPlannedEndDate)
+                        .eq(task.getActualStartDate() != null, TaskEntity::getActualStartDate, task.getActualStartDate())
+                        .isNull(task.getActualStartDate() == null, TaskEntity::getActualStartDate)
+                        .eq(task.getActualEndDate() != null, TaskEntity::getActualEndDate, task.getActualEndDate())
+                        .isNull(task.getActualEndDate() == null, TaskEntity::getActualEndDate)
                         .set(TaskEntity::getStatus, calculated.name()));
-                updated++;
             }
         }
         return updated;

@@ -3,6 +3,7 @@ package com.jitong.projectflow.report.service;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.jitong.projectflow.auth.security.BusinessAccessService;
 import com.jitong.projectflow.auth.security.CurrentUserContext;
+import com.jitong.projectflow.file.service.FileService;
 import com.jitong.projectflow.report.dto.ProjectReportCreateRequest;
 import com.jitong.projectflow.report.dto.ProjectReportItemCreateRequest;
 import com.jitong.projectflow.report.dto.ProjectReportQueryRequest;
@@ -39,6 +40,8 @@ class ProjectReportServiceTest {
 
     @Mock
     BusinessAccessService businessAccessService;
+    @Mock
+    FileService fileService;
 
     @AfterEach
     void clearCurrentUser() {
@@ -57,7 +60,7 @@ class ProjectReportServiceTest {
         request.setLocationMethod("Meeting room");
         request.setDescription("Prepare Q2 report");
 
-        ProjectReportService service = new ProjectReportService(projectReportMapper, projectReportItemMapper, operationLogService, businessAccessService);
+        ProjectReportService service = new ProjectReportService(projectReportMapper, projectReportItemMapper, operationLogService, businessAccessService, fileService);
         service.create(request);
 
         ArgumentCaptor<ProjectReportEntity> captor = ArgumentCaptor.forClass(ProjectReportEntity.class);
@@ -65,11 +68,12 @@ class ProjectReportServiceTest {
         ProjectReportEntity inserted = captor.getValue();
         assertThat(inserted.getStatus()).isEqualTo("PREPARING");
         assertThat(inserted.getCreatedBy()).isEqualTo(1001L);
-        verify(operationLogService).record("project-report", "ProjectReport", inserted.getId(), "CREATE", "Q2 progress");
+        verify(operationLogService).record("project-report", "ProjectReport", inserted.getId(), "CREATE", "新建汇报：Q2 progress");
     }
 
     @Test
     void listReturnsPagedReports() {
+        CurrentUserContext.set(1001L);
         ProjectReportEntity report = new ProjectReportEntity();
         report.setId(1L);
         report.setProjectId(20L);
@@ -79,7 +83,7 @@ class ProjectReportServiceTest {
         page.setRecords(java.util.List.of(report));
         when(projectReportMapper.selectPage(any(), any())).thenReturn(page);
 
-        var result = new ProjectReportService(projectReportMapper, projectReportItemMapper, operationLogService, businessAccessService).list(new ProjectReportQueryRequest());
+        var result = new ProjectReportService(projectReportMapper, projectReportItemMapper, operationLogService, businessAccessService, fileService).list(new ProjectReportQueryRequest());
 
         assertThat(result.total()).isEqualTo(1);
         assertThat(result.records()).extracting("title").containsExactly("Q2 progress");
@@ -98,14 +102,14 @@ class ProjectReportServiceTest {
         ProjectReportStatusUpdateRequest request = new ProjectReportStatusUpdateRequest();
         request.setStatus("COMPLETED");
 
-        new ProjectReportService(projectReportMapper, projectReportItemMapper, operationLogService, businessAccessService).updateStatus(10L, request);
+        new ProjectReportService(projectReportMapper, projectReportItemMapper, operationLogService, businessAccessService, fileService).updateStatus(10L, request);
 
         ArgumentCaptor<ProjectReportEntity> captor = ArgumentCaptor.forClass(ProjectReportEntity.class);
         verify(businessAccessService).requireProjectReportManage(report);
         verify(projectReportMapper).updateById(captor.capture());
         assertThat(captor.getValue().getStatus()).isEqualTo("COMPLETED");
         assertThat(captor.getValue().getUpdatedBy()).isEqualTo(1001L);
-        verify(operationLogService).record("project-report", "ProjectReport", 10L, "UPDATE_STATUS", "COMPLETED");
+        verify(operationLogService).record("project-report", "ProjectReport", 10L, "UPDATE_STATUS", "汇报状态由准备中变为已完成：Q2 progress");
     }
 
     @Test
@@ -121,13 +125,13 @@ class ProjectReportServiceTest {
         request.setPriority("HIGH");
         request.setStatus("NOT_STARTED");
 
-        new ProjectReportService(projectReportMapper, projectReportItemMapper, operationLogService, businessAccessService).createItem(10L, request);
+        new ProjectReportService(projectReportMapper, projectReportItemMapper, operationLogService, businessAccessService, fileService).createItem(10L, request);
 
         ArgumentCaptor<ProjectReportItemEntity> captor = ArgumentCaptor.forClass(ProjectReportItemEntity.class);
         verify(businessAccessService).requireProjectReportManage(report);
         verify(projectReportItemMapper).insert(captor.capture());
         assertThat(captor.getValue().getReportId()).isEqualTo(10L);
         assertThat(captor.getValue().getContent()).isEqualTo("Prepare slides");
-        verify(operationLogService).record("project-report", "ProjectReport", 10L, "CREATE_ITEM", "Prepare slides");
+        verify(operationLogService).record("project-report", "ProjectReport", 10L, "CREATE_ITEM", "新增准备项：Prepare slides");
     }
 }

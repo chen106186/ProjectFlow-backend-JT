@@ -1,6 +1,7 @@
 package com.jitong.projectflow.file.controller;
 
 import com.jitong.projectflow.common.api.ApiResponse;
+import com.jitong.projectflow.auth.security.CurrentUserContext;
 import com.jitong.projectflow.file.dto.FileBatchDownloadRequest;
 import com.jitong.projectflow.file.dto.FileBatchDeleteRequest;
 import com.jitong.projectflow.file.dto.FileFolderCreateRequest;
@@ -13,10 +14,14 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.MDC;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -39,6 +44,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 @Tag(name = "附件管理", description = "业务附件与文档中心文件的上传、查询、下载和删除接口。")
 public class FileController {
+    private static final Logger log = LoggerFactory.getLogger(FileController.class);
     private final FileService fileService;
 
     @Operation(summary = "上传附件或文档中心文件",
@@ -138,10 +144,10 @@ public class FileController {
     }
 
     @Operation(summary = "内联预览文件",
-            description = "以内联方式返回文件内容，供富文本嵌入图片使用，无需鉴权。")
+            description = "富文本栅格图片可直接嵌入，其他附件必须登录并有权读取所属业务。")
     @GetMapping("/{id}/inline")
     public ResponseEntity<InputStreamResource> inline(@PathVariable Long id) {
-        FileDownloadResult result = fileService.download(id);
+        FileDownloadResult result = fileService.inline(id);
         FileResponse metadata = result.metadata();
         String encodedName = URLEncoder.encode(metadata.getOriginalName(), StandardCharsets.UTF_8).replace("+", "%20");
         MediaType mediaType = StringUtils.hasText(metadata.getContentType())
@@ -150,6 +156,8 @@ public class FileController {
         // 不设置 Content-Length，由 Spring 使用分块传输，避免 DB 存储的大小与 OSS 实际大小不一致导致图片截断
         return ResponseEntity.ok()
                 .contentType(mediaType)
+                .header("X-Content-Type-Options", "nosniff")
+                .header("Content-Security-Policy", "sandbox")
                 .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename*=UTF-8''" + encodedName)
                 .body(new InputStreamResource(result.inputStream()));
     }
@@ -166,6 +174,8 @@ public class FileController {
                 : MediaType.APPLICATION_OCTET_STREAM;
         return ResponseEntity.ok()
                 .contentType(mediaType)
+                .header("X-Content-Type-Options", "nosniff")
+                .header("Content-Security-Policy", "sandbox")
                 .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename*=UTF-8''" + encodedName)
                 .body(new InputStreamResource(result.inputStream()));
     }
@@ -173,17 +183,28 @@ public class FileController {
     @Operation(summary = "批量下载文件", description = "按文件ID列表批量打包下载，以 ZIP 格式返回。")
     @PostMapping("/batch-download")
     public ResponseEntity<InputStreamResource> batchDownload(@RequestBody FileBatchDownloadRequest request) {
+        fileService.requireBatchDownloadAccess(request.getFileIds(), request.getFolderIds());
+        Long userId = CurrentUserContext.userId();
+        String deptName = CurrentUserContext.getDeptName();
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         java.io.PipedInputStream pipedIn = new java.io.PipedInputStream();
         try {
             java.io.PipedOutputStream pipedOut = new java.io.PipedOutputStream(pipedIn);
-            new Thread(() -> {
+            Thread worker = new Thread(() -> {
+                CurrentUserContext.set(userId);
+                CurrentUserContext.setDeptName(deptName);
+                SecurityContextHolder.getContext().setAuthentication(authentication);
                 try {
                     fileService.batchDownload(request.getFileIds(), request.getFolderIds(), pipedOut);
-                } catch (Exception ignored) {
+                } catch (Exception e) {
+                    log.warn("批量下载流写入失败", e);
                 } finally {
                     try { pipedOut.close(); } catch (java.io.IOException ignored2) {}
+                    CurrentUserContext.clear();
+                    SecurityContextHolder.clearContext();
                 }
-            }).start();
+            }, "file-batch-download");
+            worker.start();
         } catch (java.io.IOException e) {
             throw new com.jitong.projectflow.common.error.BusinessException(
                     com.jitong.projectflow.common.error.ErrorCode.BAD_REQUEST, "批量下载失败");
