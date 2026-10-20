@@ -46,8 +46,11 @@ public class WorkHubController {
 
     @GetMapping("/projects/{id}/overview")
     @Operation(summary = "项目工作台，汇总需求、任务、Bug、文件、交付版本和最近动态")
-    public ApiResponse<Map<String, Object>> overview(@PathVariable Long id) {
-        return ok(workHub.projectOverview(id));
+    public ApiResponse<Map<String, Object>> overview(@PathVariable Long id,
+            @RequestParam(defaultValue = "1") int bugPage,
+            @RequestParam(defaultValue = "1") int filePage,
+            @RequestParam(defaultValue = "1") int activityPage) {
+        return ok(workHub.projectOverview(id, bugPage, filePage, activityPage));
     }
 
     @GetMapping("/projects/{id}/releases")

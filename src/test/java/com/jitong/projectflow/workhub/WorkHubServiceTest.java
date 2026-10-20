@@ -69,7 +69,7 @@ class WorkHubServiceTest {
         jdbc.execute("CREATE TABLE sys_user(id BIGINT,real_name VARCHAR(80),enabled INT,deleted INT)");
         jdbc.execute("CREATE TABLE pf_project(id BIGINT,manager_id BIGINT,created_by BIGINT,co_manager_ids VARCHAR(200),management_project_id BIGINT,deleted INT)");
         jdbc.execute("CREATE TABLE pf_project_participant(project_id BIGINT,user_id BIGINT)");
-        jdbc.execute("CREATE TABLE pf_file(id BIGINT,business_type VARCHAR(40),business_id BIGINT,deleted INT)");
+        jdbc.execute("CREATE TABLE pf_file(id BIGINT,business_type VARCHAR(40),business_id BIGINT,original_name VARCHAR(255),uploaded_at TIMESTAMP,deleted INT)");
         jdbc.execute("CREATE TABLE sys_operation_log(id BIGINT,business_type VARCHAR(40),business_id BIGINT,operation_type VARCHAR(40),operator_name VARCHAR(80),content VARCHAR(1000),created_at TIMESTAMP)");
         CurrentUserContext.set(1L);
         access = mock(BusinessAccessService.class);
@@ -228,6 +228,31 @@ class WorkHubServiceTest {
     }
 
     @Test
+    void overviewPaginatesRecentBugsAndActivityWithinTheSelectedProject() {
+        when(access.canReadProject(100L)).thenReturn(true);
+        for (int index = 1; index <= 10; index++) {
+            jdbc.update("INSERT INTO pf_bug(id,project_id,bug_no,title,status,created_at,deleted) VALUES (?,?,?,?,?,DATEADD('MINUTE', ?, CURRENT_TIMESTAMP),0)",
+                    1000L + index, 100L, index, "问题" + index, "PENDING_FIX", index);
+            jdbc.update("INSERT INTO sys_operation_log(id,business_type,business_id,content,created_at) VALUES (?,'Bug',?,?,DATEADD('MINUTE', ?, CURRENT_TIMESTAMP))",
+                    2000L + index, 1000L + index, "更新问题" + index, index);
+            jdbc.update("INSERT INTO pf_file(id,business_type,business_id,original_name,uploaded_at,deleted) VALUES (?,'PROJECT',100,?,DATEADD('MINUTE', ?, CURRENT_TIMESTAMP),0)",
+                    4000L + index, "附件" + index + ".pdf", index);
+        }
+        jdbc.update("INSERT INTO pf_bug(id,project_id,bug_no,title,status,created_at,deleted) VALUES (3000,200,99,'其他项目','CLOSED',CURRENT_TIMESTAMP,0)");
+
+        Map<String, Object> first = service.projectOverview(100L, 1, 1, 1);
+        Map<String, Object> second = service.projectOverview(100L, 2, 2, 2);
+        assertEquals(10L, ((Map<?, ?>) first.get("counts")).get("bugs"));
+        assertEquals(10L, ((Map<?, ?>) first.get("counts")).get("files"));
+        assertEquals(10L, first.get("activityTotal"));
+        assertEquals(8, ((List<?>) first.get("bugs")).size());
+        assertEquals(2, ((List<?>) second.get("bugs")).size());
+        assertEquals(2, ((List<?>) second.get("files")).size());
+        assertEquals(2, ((List<?>) second.get("activity")).size());
+        assertEquals(10L, ((Number) ((Map<?, ?>) ((List<?>) first.get("bugs")).get(0)).get("bugNo")).longValue());
+    }
+
+    @Test
     void quickSearchDoesNotExposeAnotherProjectsWork() {
         CurrentUserContext.set(3L);
         when(access.readableProjectIdsSql()).thenReturn("SELECT id FROM pf_project WHERE id=200");
@@ -243,6 +268,7 @@ class WorkHubServiceTest {
         jdbc.update("INSERT INTO pf_project(id,manager_id,created_by,deleted) VALUES (100,1,1,0)");
         jdbc.update("INSERT INTO pf_project(id,manager_id,created_by,management_project_id,deleted) VALUES (200,1,1,100,0)");
         jdbc.update("INSERT INTO pf_task(id,project_id,name,status,deleted,created_at) VALUES (21,200,'执行开发','IN_PROGRESS',0,CURRENT_TIMESTAMP)");
+        jdbc.update("INSERT INTO pf_delivery_release(id,project_id,name,target_date,status,created_at) VALUES ('child-release',200,'子项目版本',DATE '2026-10-30','PLANNED',CURRENT_TIMESTAMP)");
         when(access.canReadProject(100L)).thenReturn(true);
         when(access.canReadProject(200L)).thenReturn(true);
         Map<String, Object> overview = service.projectOverview(100L);
@@ -250,5 +276,8 @@ class WorkHubServiceTest {
         assertEquals(2L, counts.get("tasks"));
         assertEquals(1L, counts.get("requirements"));
         assertEquals(2, ((List<?>) overview.get("tasks")).size());
+        List<?> releases = (List<?>) overview.get("releases");
+        assertEquals(1, releases.size());
+        assertEquals(200L, ((Map<?, ?>) releases.get(0)).get("projectId"));
     }
 }

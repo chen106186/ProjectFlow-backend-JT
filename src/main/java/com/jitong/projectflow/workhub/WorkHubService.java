@@ -136,6 +136,18 @@ public class WorkHubService {
     }
 
     public Map<String, Object> projectOverview(Long projectId) {
+        return projectOverview(projectId, 1, 1, 1);
+    }
+
+    public Map<String, Object> projectOverview(Long projectId, int bugPage, int activityPage) {
+        return projectOverview(projectId, bugPage, 1, activityPage);
+    }
+
+    public Map<String, Object> projectOverview(Long projectId, int bugPage, int filePage, int activityPage) {
+        if (bugPage < 1 || filePage < 1 || activityPage < 1
+                || bugPage > 10000 || filePage > 10000 || activityPage > 10000) {
+            bad("页码必须在 1 到 10000 之间");
+        }
         access.requireProjectRead(projectId);
         List<Long> projectIds = overviewProjectIds(projectId);
         NamedParameterJdbcTemplate scoped = new NamedParameterJdbcTemplate(jdbc);
@@ -145,6 +157,12 @@ public class WorkHubService {
         counts.put("tasks", scopedCount(scoped, "SELECT COUNT(*) FROM pf_task WHERE project_id IN (:ids) AND deleted=0", parameters));
         counts.put("bugs", scopedCount(scoped, "SELECT COUNT(*) FROM pf_bug WHERE project_id IN (:ids) AND deleted=0", parameters));
         counts.put("openBugs", scopedCount(scoped, "SELECT COUNT(*) FROM pf_bug WHERE project_id IN (:ids) AND deleted=0 AND status<>'CLOSED'", parameters));
+        long activityTotal = scopedCount(scoped, """
+                SELECT COUNT(*) FROM sys_operation_log WHERE (business_type='Project' AND business_id IN (:ids))
+                  OR (business_type='Task' AND business_id IN (SELECT id FROM pf_task WHERE project_id IN (:ids)))
+                  OR (business_type='Requirement' AND business_id IN (SELECT id FROM pf_requirement WHERE project_id IN (:ids)))
+                  OR (business_type='Bug' AND business_id IN (SELECT id FROM pf_bug WHERE project_id IN (:ids)))
+                """, parameters);
         counts.put("blockedTasks", scopedCount(scoped, """
                 SELECT COUNT(*) FROM pf_task t JOIN pf_task_blocker b ON b.task_id=t.id
                 WHERE t.project_id IN (:ids) AND t.deleted=0 AND NULLIF(TRIM(b.reason),'') IS NOT NULL
@@ -159,6 +177,7 @@ public class WorkHubService {
                 """, parameters));
         Map<String, Object> overview = new LinkedHashMap<>();
         overview.put("counts", counts);
+        overview.put("activityTotal", activityTotal);
         overview.put("requirements", scoped.queryForList("""
                 SELECT id, requirement_no AS requirementNo, title, status, priority, reviewer_id AS reviewerId
                 FROM pf_requirement WHERE project_id IN (:ids) AND deleted=0 ORDER BY created_at DESC LIMIT 20
@@ -171,8 +190,14 @@ public class WorkHubService {
                 """, parameters));
         overview.put("bugs", scoped.queryForList("""
                 SELECT id, bug_no AS bugNo, title, status, priority, assignee_id AS assigneeId, solution
-                FROM pf_bug WHERE project_id IN (:ids) AND deleted=0 ORDER BY created_at DESC LIMIT 20
-                """, parameters));
+                FROM pf_bug WHERE project_id IN (:ids) AND deleted=0 ORDER BY created_at DESC, id DESC LIMIT :limit OFFSET :offset
+                """, Map.of("ids", projectIds, "limit", 8, "offset", (bugPage - 1) * 8)));
+        overview.put("files", scoped.queryForList("""
+                SELECT id, original_name AS originalName, uploaded_at AS uploadedAt, business_id AS projectId
+                FROM pf_file WHERE business_id IN (:ids) AND deleted=0
+                  AND business_type IN ('PROJECT','Project','ManagementProject','ExecutionProject','management-project','execution-project')
+                ORDER BY uploaded_at DESC, id DESC LIMIT :limit OFFSET :offset
+                """, Map.of("ids", projectIds, "limit", 8, "offset", (filePage - 1) * 8)));
         overview.put("releases", releases(projectId));
         overview.put("activity", scoped.queryForList("""
                 SELECT id, business_type AS businessType, business_id AS businessId,
@@ -182,8 +207,8 @@ public class WorkHubService {
                   OR (business_type='Task' AND business_id IN (SELECT id FROM pf_task WHERE project_id IN (:ids)))
                   OR (business_type='Requirement' AND business_id IN (SELECT id FROM pf_requirement WHERE project_id IN (:ids)))
                   OR (business_type='Bug' AND business_id IN (SELECT id FROM pf_bug WHERE project_id IN (:ids)))
-                ORDER BY created_at DESC LIMIT 15
-                """, parameters));
+                ORDER BY created_at DESC, id DESC LIMIT :limit OFFSET :offset
+                """, Map.of("ids", projectIds, "limit", 8, "offset", (activityPage - 1) * 8)));
         return overview;
     }
 
@@ -197,7 +222,8 @@ public class WorkHubService {
             candidates.addAll(jdbc.queryForList(
                     "SELECT id FROM pf_project WHERE management_project_id=? AND deleted=0", Long.class, projectId));
         }
-        return candidates.stream().distinct().filter(access::canReadProject).toList();
+        return candidates.stream().distinct()
+                .filter(id -> id.equals(projectId) || access.canReadProject(id)).toList();
     }
 
     private long scopedCount(NamedParameterJdbcTemplate scoped, String sql, Map<String, Object> parameters) {
@@ -300,12 +326,12 @@ public class WorkHubService {
 
     public List<Map<String, Object>> releases(Long projectId) {
         access.requireProjectRead(projectId);
-        List<Map<String, Object>> rows = jdbc.queryForList("""
+        List<Map<String, Object>> rows = new NamedParameterJdbcTemplate(jdbc).queryForList("""
                 SELECT id, project_id AS projectId, name, target_date AS targetDate, status,
                        acceptance_note AS acceptanceNote, released_at AS releasedAt,
                        created_at AS createdAt FROM pf_delivery_release
-                WHERE project_id=? ORDER BY target_date DESC, created_at DESC
-                """, projectId);
+                WHERE project_id IN (:ids) ORDER BY target_date DESC, created_at DESC
+                """, Map.of("ids", overviewProjectIds(projectId)));
         rows.forEach(row -> row.putAll(releaseProgress((String) row.get("id"))));
         return rows;
     }
