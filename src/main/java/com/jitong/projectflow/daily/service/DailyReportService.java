@@ -9,6 +9,7 @@ import com.jitong.projectflow.common.api.PageUtils;
 import com.jitong.projectflow.common.error.BusinessException;
 import com.jitong.projectflow.common.error.ErrorCode;
 import com.jitong.projectflow.daily.dto.DailyReportCreateRequest;
+import com.jitong.projectflow.daily.domain.DailyReportEditPolicy;
 import com.jitong.projectflow.daily.dto.DailyReportQueryRequest;
 import com.jitong.projectflow.daily.dto.DailyReportResponse;
 import com.jitong.projectflow.daily.dto.DailyReportUpdateRequest;
@@ -46,6 +47,7 @@ public class DailyReportService {
 
     @Transactional
     public DailyReportResponse create(DailyReportCreateRequest request) {
+        DailyReportEditPolicy.requireEditable(request.getReportDate());
         if (request.getProjectId() != null) businessAccessService.requireProjectRead(request.getProjectId());
         DailyReportEntity entity = new DailyReportEntity();
         entity.setProjectId(request.getProjectId());
@@ -109,6 +111,8 @@ public class DailyReportService {
     public DailyReportResponse update(Long id, DailyReportUpdateRequest request) {
         DailyReportEntity entity = requireReport(id);
         businessAccessService.requireDailyReportManage(entity);
+        DailyReportEditPolicy.requireEditable(entity.getReportDate());
+        if (request.getReportDate() != null) DailyReportEditPolicy.requireEditable(request.getReportDate());
         if (request.getProjectId() != null) {
             businessAccessService.requireProjectRead(request.getProjectId());
             entity.setProjectId(request.getProjectId());
@@ -132,6 +136,7 @@ public class DailyReportService {
     public void delete(Long id) {
         DailyReportEntity entity = requireReport(id);
         businessAccessService.requireDailyReportManage(entity);
+        DailyReportEditPolicy.requireEditable(entity.getReportDate());
         fileService.purgeForBusiness("DAILY_REPORT", id);
         dailyReportMapper.deleteById(id);
         operationLogService.record("daily-report", "DailyReport", id, "DELETE",
@@ -142,6 +147,7 @@ public class DailyReportService {
     public int syncFilesToProject(Long reportId) {
         DailyReportEntity report = requireReport(reportId);
         businessAccessService.requireDailyReportManage(report);
+        DailyReportEditPolicy.requireEditable(report.getReportDate());
         Long projectId = report.getProjectId();
         if (projectId == null) throw new BusinessException(ErrorCode.BAD_REQUEST, "请先为日报选择项目");
         businessAccessService.requireProjectRead(projectId);

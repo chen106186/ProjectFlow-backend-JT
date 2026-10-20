@@ -99,28 +99,22 @@ public class BusinessAccessService {
         throwForbidden();
     }
 
-    /** Only the authenticated numeric user ID is embedded; no request text is accepted by this query. */
+    /** Company projects are readable by every signed-in employee; management remains role/owner controlled. */
     public String readableProjectIdsSql() {
-        long userId = currentUserId();
-        return "SELECT p.id FROM pf_project p WHERE p.deleted = 0 AND (p.manager_id = " + userId
-                + " OR p.created_by = " + userId
-                + " OR CONCAT(',', REPLACE(COALESCE(p.co_manager_ids, ''), ' ', ''), ',') LIKE '%," + userId + ",%'"
-                + " OR EXISTS (SELECT 1 FROM pf_project_participant pp WHERE pp.project_id = p.id AND pp.user_id = " + userId + "))";
+        currentUserId();
+        return "SELECT p.id FROM pf_project p WHERE p.deleted = 0";
     }
 
     public boolean canReadProject(Long projectId) {
         if (projectId == null) return false;
-        if (canViewAll()) return true;
+        currentUserId();
         return projectMapper.selectCount(new LambdaQueryWrapper<ProjectEntity>()
-                .eq(ProjectEntity::getId, projectId)
-                .inSql(ProjectEntity::getId, readableProjectIdsSql())) > 0;
+                .eq(ProjectEntity::getId, projectId)) > 0;
     }
 
     public void requireProjectRead(ProjectEntity project) {
-        Long userId = currentUserId();
-        if (canViewAll() || same(userId, project.getCreatedBy()) || same(userId, project.getManagerId())
-                || isCoManager(userId, project.getCoManagerIds()) || canReadProject(project.getId())) return;
-        throwForbidden();
+        currentUserId();
+        if (project == null) throw new BusinessException(ErrorCode.NOT_FOUND, "项目不存在");
     }
 
     public void requireTaskRead(TaskEntity task) {

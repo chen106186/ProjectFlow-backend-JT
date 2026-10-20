@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.jitong.projectflow.auth.security.BusinessAccessService;
 import com.jitong.projectflow.file.service.FileService;
 import com.jitong.projectflow.auth.security.CurrentUserContext;
+import com.jitong.projectflow.common.error.BusinessException;
 import com.jitong.projectflow.daily.dto.DailyReportCreateRequest;
 import com.jitong.projectflow.daily.dto.DailyReportQueryRequest;
 import com.jitong.projectflow.daily.dto.DailyReportUpdateRequest;
@@ -21,14 +22,17 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDate;
+import java.time.ZoneId;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class DailyReportServiceTest {
+    private static final LocalDate TODAY = LocalDate.now(ZoneId.of("Asia/Shanghai"));
     @Mock
     DailyReportMapper dailyReportMapper;
 
@@ -58,7 +62,7 @@ class DailyReportServiceTest {
         CurrentUserContext.set(1001L);
         DailyReportCreateRequest request = new DailyReportCreateRequest();
         request.setProjectId(20L);
-        request.setReportDate(LocalDate.of(2026, 7, 7));
+        request.setReportDate(TODAY);
         request.setContent("Completed API design");
 
         DailyReportService service = service();
@@ -70,7 +74,7 @@ class DailyReportServiceTest {
         assertThat(inserted.getReporterId()).isEqualTo(1001L);
         assertThat(inserted.getCreatedBy()).isEqualTo(1001L);
         assertThat(inserted.getProjectId()).isEqualTo(20L);
-        verify(operationLogService).record("daily-report", "DailyReport", inserted.getId(), "CREATE", "提交日报：2026-07-07");
+        verify(operationLogService).record("daily-report", "DailyReport", inserted.getId(), "CREATE", "提交日报：" + TODAY);
     }
 
     @Test
@@ -80,7 +84,7 @@ class DailyReportServiceTest {
         report.setId(1L);
         report.setProjectId(20L);
         report.setReporterId(1001L);
-        report.setReportDate(LocalDate.of(2026, 7, 7));
+        report.setReportDate(TODAY);
         report.setContent("Daily note");
         Page<DailyReportEntity> page = new Page<>(1, 20, 1);
         page.setRecords(java.util.List.of(report));
@@ -99,7 +103,7 @@ class DailyReportServiceTest {
         report.setId(10L);
         report.setProjectId(20L);
         report.setReporterId(1001L);
-        report.setReportDate(LocalDate.of(2026, 7, 7));
+        report.setReportDate(TODAY.minusDays(1));
         report.setContent("Old content");
         when(dailyReportMapper.selectById(10L)).thenReturn(report);
 
@@ -113,7 +117,41 @@ class DailyReportServiceTest {
         verify(dailyReportMapper).updateById(captor.capture());
         assertThat(captor.getValue().getContent()).isEqualTo("New content");
         assertThat(captor.getValue().getUpdatedBy()).isEqualTo(1001L);
-        verify(operationLogService).record("daily-report", "DailyReport", 10L, "UPDATE", "编辑日报：2026-07-07");
+        verify(operationLogService).record("daily-report", "DailyReport", 10L, "UPDATE", "编辑日报：" + TODAY.minusDays(1));
+    }
+
+    @Test
+    void olderReportCanBeReadButCannotBeChanged() {
+        CurrentUserContext.set(1001L);
+        DailyReportEntity report = new DailyReportEntity();
+        report.setId(10L);
+        report.setReporterId(1001L);
+        report.setReportDate(TODAY.minusDays(2));
+        when(dailyReportMapper.selectById(10L)).thenReturn(report);
+
+        assertThat(service().getById(10L).getReportDate()).isEqualTo(TODAY.minusDays(2));
+        assertThatThrownBy(() -> service().update(10L, new DailyReportUpdateRequest()))
+                .isInstanceOf(BusinessException.class).hasMessageContaining("仅今天和昨天");
+        assertThatThrownBy(() -> service().delete(10L))
+                .isInstanceOf(BusinessException.class).hasMessageContaining("仅今天和昨天");
+    }
+
+    @Test
+    void cannotCreateHistoricalReportOrMoveRecentReportToOldDate() {
+        CurrentUserContext.set(1001L);
+        DailyReportCreateRequest create = new DailyReportCreateRequest();
+        create.setReportDate(TODAY.minusDays(2));
+        assertThatThrownBy(() -> service().create(create))
+                .isInstanceOf(BusinessException.class).hasMessageContaining("仅今天和昨天");
+
+        DailyReportEntity report = new DailyReportEntity();
+        report.setId(10L);
+        report.setReportDate(TODAY);
+        when(dailyReportMapper.selectById(10L)).thenReturn(report);
+        DailyReportUpdateRequest update = new DailyReportUpdateRequest();
+        update.setReportDate(TODAY.minusDays(2));
+        assertThatThrownBy(() -> service().update(10L, update))
+                .isInstanceOf(BusinessException.class).hasMessageContaining("仅今天和昨天");
     }
 
     private DailyReportService service() {

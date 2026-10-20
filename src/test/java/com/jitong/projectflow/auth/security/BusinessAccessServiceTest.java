@@ -19,6 +19,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
 
@@ -64,6 +65,23 @@ class BusinessAccessServiceTest {
         assertThatThrownBy(() -> new BusinessAccessService(projectMapper).requireProjectManage(project))
                 .isInstanceOf(BusinessException.class)
                 .hasMessage("无权操作该数据");
+    }
+
+    @Test
+    void signedInEmployeeCanReadEveryExistingProjectButNotManageIt() {
+        authenticate(3001L);
+        ProjectEntity project = new ProjectEntity();
+        project.setId(10L);
+        project.setManagerId(1001L);
+        project.setCreatedBy(1002L);
+        when(projectMapper.selectCount(org.mockito.ArgumentMatchers.any())).thenReturn(1L);
+
+        BusinessAccessService access = new BusinessAccessService(projectMapper);
+        assertThat(access.readableProjectIdsSql()).isEqualTo("SELECT p.id FROM pf_project p WHERE p.deleted = 0");
+        assertThat(access.canReadProject(10L)).isTrue();
+        assertThatCode(() -> access.requireProjectRead(project)).doesNotThrowAnyException();
+        assertThatThrownBy(() -> access.requireProjectManage(project))
+                .isInstanceOf(BusinessException.class);
     }
 
     @Test

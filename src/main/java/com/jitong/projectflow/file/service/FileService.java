@@ -74,7 +74,7 @@ public class FileService {
                                String storageLocation, String fileCategory, Long folderId, MultipartFile file) {
         validateUpload(businessType, businessId, fileCategory, file);
         businessType = FileBusinessType.from(businessType).name();
-        fileBusinessAccessService.requireRead(businessType, businessId);
+        fileBusinessAccessService.requireWrite(businessType, businessId);
         validateFolder(businessType, businessId, folderId);
         String originalName = file.getOriginalFilename();
         String contentType = SCREEN_RECORDING_TYPES.getOrDefault(extensionOf(originalName), file.getContentType());
@@ -174,7 +174,10 @@ public class FileService {
     @Transactional
     public void delete(Long id) {
         FileMetadata metadata = requireFile(id);
-        requireReadableOrDeletedOwner(metadata);
+        boolean ownerExists = requireReadableOrDeletedOwner(metadata);
+        if (ownerExists && FileBusinessType.from(metadata.getBusinessType()) == FileBusinessType.DAILY_REPORT) {
+            fileBusinessAccessService.requireWrite(metadata.getBusinessType(), metadata.getBusinessId());
+        }
         businessAccessService.requireFileDelete(metadata);
         requireNotIterationEvidence(metadata);
         deleteMetadataAndMaybeObject(metadata);
@@ -193,12 +196,14 @@ public class FileService {
                 .forEach(folder -> fileFolderMapper.deleteById(folder.getId()));
     }
 
-    private void requireReadableOrDeletedOwner(FileMetadata metadata) {
+    private boolean requireReadableOrDeletedOwner(FileMetadata metadata) {
         try {
             fileBusinessAccessService.requireRead(metadata.getBusinessType(), metadata.getBusinessId());
+            return true;
         } catch (BusinessException exception) {
             if (exception.errorCode() != ErrorCode.NOT_FOUND) throw exception;
             // Historical deletes may have left attachment rows behind. Their uploader or an admin may remove them.
+            return false;
         }
     }
 
@@ -323,7 +328,7 @@ public class FileService {
         if (folder == null) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "文件夹不存在");
         }
-        fileBusinessAccessService.requireRead(folder.getBusinessType(), folder.getBusinessId());
+        fileBusinessAccessService.requireWrite(folder.getBusinessType(), folder.getBusinessId());
         if (!businessAccessService.isSystemAdmin() && !CurrentUserContext.userId().equals(folder.getCreatedBy())) {
             throw new BusinessException(ErrorCode.FORBIDDEN, "无权操作该数据");
         }
@@ -333,7 +338,7 @@ public class FileService {
     }
 
     public FileFolderResponse createFolder(FileFolderCreateRequest request) {
-        fileBusinessAccessService.requireRead(request.getBusinessType(), request.getBusinessId());
+        fileBusinessAccessService.requireWrite(request.getBusinessType(), request.getBusinessId());
         FileFolderEntity entity = new FileFolderEntity();
         entity.setBusinessType(FileBusinessType.from(request.getBusinessType()).name());
         entity.setBusinessId(request.getBusinessId());

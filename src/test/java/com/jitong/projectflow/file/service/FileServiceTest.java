@@ -279,9 +279,11 @@ class FileServiceTest {
     void deleteBatchDeletesEveryFile() {
         FileMetadata first = new FileMetadata();
         first.setId(1L);
+        first.setBusinessType("PROJECT");
         first.setStorageKey("a.pdf");
         FileMetadata second = new FileMetadata();
         second.setId(2L);
+        second.setBusinessType("PROJECT");
         second.setStorageKey("b.pdf");
         when(fileMetadataMapper.selectById(1L)).thenReturn(first);
         when(fileMetadataMapper.selectById(2L)).thenReturn(second);
@@ -322,6 +324,7 @@ class FileServiceTest {
     void deletingSharedMetadataDoesNotDeleteReferencedStorageObject() {
         FileMetadata source = new FileMetadata();
         source.setId(1L);
+        source.setBusinessType("PROJECT");
         source.setStorageKey("shared.pdf");
         FileMetadata mirror = new FileMetadata();
         mirror.setId(2L);
@@ -344,6 +347,6 @@ class FileServiceTest {
         ArgumentCaptor<FileMetadata> captor = ArgumentCaptor.forClass(FileMetadata.class);
         verify(fileMetadataMapper).insert(captor.capture());
         assertThat(captor.getValue().getBusinessType()).isEqualTo("DAILY_REPORT");
-        verify(fileBusinessAccessService).requireRead("DAILY_REPORT", 10L);
+        verify(fileBusinessAccessService).requireWrite("DAILY_REPORT", 10L);
     }
 }

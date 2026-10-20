@@ -5,6 +5,7 @@ import com.jitong.projectflow.auth.security.CurrentUserContext;
 import com.jitong.projectflow.common.error.BusinessException;
 import com.jitong.projectflow.common.error.ErrorCode;
 import com.jitong.projectflow.daily.mapper.DailyReportMapper;
+import com.jitong.projectflow.daily.domain.DailyReportEditPolicy;
 import com.jitong.projectflow.file.domain.FileBusinessType;
 import com.jitong.projectflow.project.mapper.ProjectMapper;
 import com.jitong.projectflow.task.mapper.TaskMapper;
@@ -25,6 +26,15 @@ public class FileBusinessAccessService {
     private final RequirementMapper requirements;
     private final DailyReportMapper dailyReports;
     private final ProjectReportMapper projectReports;
+
+    public void requireWrite(String businessType, Long businessId) {
+        requireRead(businessType, businessId);
+        if (FileBusinessType.from(businessType) == FileBusinessType.DAILY_REPORT) {
+            var report = require(dailyReports.selectById(businessId));
+            access.requireDailyReportManage(report);
+            DailyReportEditPolicy.requireEditable(report.getReportDate());
+        }
+    }
 
     public void requireRead(String businessType, Long businessId) {
         Long userId = CurrentUserContext.userId();
