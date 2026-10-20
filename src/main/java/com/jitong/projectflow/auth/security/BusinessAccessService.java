@@ -149,10 +149,8 @@ public class BusinessAccessService {
     }
 
     public void requireBugRead(BugEntity bug) {
-        Long userId = currentUserId();
-        if (canViewAll() || same(userId, bug.getCreatorId()) || same(userId, bug.getAssigneeId())
-                || canReadProject(bug.getProjectId())) return;
-        throwForbidden();
+        // The company-wide Bug list is shared with every signed-in employee.
+        currentUserId();
     }
 
     public void requireRequirementRead(RequirementEntity requirement) {

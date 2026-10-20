@@ -61,6 +61,9 @@ class WorkHubServiceTest {
         jdbc.execute("CREATE TABLE pf_task(id BIGINT,project_id BIGINT,name VARCHAR(160),status VARCHAR(30),priority VARCHAR(20),assignee_id BIGINT,created_by BIGINT,planned_end_date DATE,sort_order INT,created_at TIMESTAMP,deleted INT)");
         jdbc.execute("CREATE TABLE pf_delivery_release(id VARCHAR(36) PRIMARY KEY,project_id BIGINT,name VARCHAR(160),target_date DATE,status VARCHAR(16),acceptance_note CLOB,released_at TIMESTAMP,created_by BIGINT,created_at TIMESTAMP,updated_at TIMESTAMP)");
         jdbc.execute("CREATE TABLE pf_delivery_release_item(release_id VARCHAR(36),business_type VARCHAR(16),business_id BIGINT,PRIMARY KEY(release_id,business_type,business_id))");
+        jdbc.execute("CREATE TABLE pf_release_stage(release_id VARCHAR(36),stage_code VARCHAR(32),owner_id BIGINT,actual_start DATE,actual_end DATE,status VARCHAR(16),conclusion CLOB,completed_by BIGINT,completed_at TIMESTAMP,updated_by BIGINT,updated_at TIMESTAMP)");
+        jdbc.execute("CREATE TABLE pf_release_record(id VARCHAR(36),release_id VARCHAR(36),stage_code VARCHAR(32),record_type VARCHAR(24),title VARCHAR(160),content CLOB,before_json CLOB,after_json CLOB,actor_id BIGINT,created_at TIMESTAMP)");
+        jdbc.execute("CREATE TABLE pf_release_application(release_id VARCHAR(36),status VARCHAR(16))");
         jdbc.execute("CREATE TABLE pf_work_comment(id VARCHAR(36),business_type VARCHAR(16),business_id BIGINT,author_id BIGINT,content CLOB,created_at TIMESTAMP)");
         jdbc.execute("CREATE TABLE pf_saved_work_view(id VARCHAR(36),user_id BIGINT,name VARCHAR(80),scope VARCHAR(20),filters_json CLOB,created_at TIMESTAMP,updated_at TIMESTAMP)");
         jdbc.execute("CREATE TABLE sys_user(id BIGINT,real_name VARCHAR(80),enabled INT,deleted INT)");
@@ -158,9 +161,21 @@ class WorkHubServiceTest {
         assertTrue((Boolean) updated.get("ready"));
         assertThrows(BusinessException.class, () -> service.saveRelease(id,
                 new WorkHubRequests.Release(100L, "十月交付", planned.targetDate(), "RELEASED", "", List.of(10L), List.of())));
+        assertThrows(BusinessException.class, () -> transactions.execute(status -> service.saveRelease(id,
+                new WorkHubRequests.Release(100L, "十月交付", planned.targetDate(), "RELEASED", "上线验收通过", List.of(10L), List.of()))));
+        jdbc.update("INSERT INTO pf_release_application(release_id,status) VALUES (?,'APPROVED')", id);
+        for (String stage : List.of("REQUIREMENT_SUBMISSION", "REQUIREMENT_REVIEW", "UI_DESIGN", "DEVELOPMENT",
+                "TEST_HANDOFF", "TEST_VERIFICATION", "PRODUCT_ACCEPTANCE", "PRE_RELEASE")) {
+            jdbc.update("INSERT INTO pf_release_stage(release_id,stage_code,status) VALUES (?,?,'COMPLETED')", id, stage);
+        }
+        assertThrows(BusinessException.class, () -> service.saveRelease(id,
+                new WorkHubRequests.Release(100L, "更换上线范围", planned.targetDate(), "RELEASED",
+                        "上线验收通过", List.of(10L), List.of())));
         Map<String, Object> released = service.saveRelease(id,
                 new WorkHubRequests.Release(100L, "十月交付", planned.targetDate(), "RELEASED", "上线验收通过", List.of(10L), List.of()));
         assertEquals("RELEASED", released.get("status"));
+        assertEquals(3L, jdbc.queryForObject("SELECT COUNT(*) FROM pf_release_record WHERE release_id=? AND record_type='RELEASE_CHANGE'", Long.class, id));
+        assertTrue(jdbc.queryForObject("SELECT after_json FROM pf_release_record WHERE release_id=? AND record_type='RELEASE_CHANGE' ORDER BY created_at DESC LIMIT 1", String.class, id).contains("requirementIds"));
     }
 
     @Test

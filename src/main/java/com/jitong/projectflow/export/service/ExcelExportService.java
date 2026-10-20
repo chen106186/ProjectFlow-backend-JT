@@ -99,9 +99,9 @@ public class ExcelExportService {
             row.setId(e.getId());
             row.setProjectId(e.getProjectId());
             row.setTitle(e.getTitle());
-            row.setStatus(e.getStatus());
+            row.setStatus(bugStatusLabel(e.getStatus()));
             row.setSolution(bugSolutionLabel(e.getSolution()));
-            row.setPriority(e.getPriority());
+            row.setPriority(bugPriorityLabel(e.getPriority()));
             row.setCreatorId(e.getCreatorId());
             row.setAssigneeId(e.getAssigneeId());
             row.setCreatedAt(e.getCreatedAt());
@@ -123,6 +123,28 @@ public class ExcelExportService {
             case "DEFERRED" -> "延期处理";
             case "WONT_FIX" -> "不予解决";
             default -> solution;
+        };
+    }
+
+    private String bugPriorityLabel(String priority) {
+        if (priority == null) return null;
+        return switch (priority) {
+            case "LOW" -> "轻微";
+            case "MEDIUM" -> "一般";
+            case "HIGH" -> "严重";
+            case "URGENT" -> "致命";
+            default -> priority;
+        };
+    }
+
+    private String bugStatusLabel(String status) {
+        if (status == null) return null;
+        return switch (status) {
+            case "PENDING_FIX" -> "待修复";
+            case "FIXING" -> "修复中";
+            case "PENDING_VERIFY" -> "待验证";
+            case "CLOSED" -> "已关闭";
+            default -> status;
         };
     }
 

@@ -29,6 +29,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
@@ -329,10 +330,24 @@ public class WorkHubService {
         }
         String releaseId = id == null ? UUID.randomUUID().toString() : id;
         Map<String, Object> existing = id == null ? null : release(id);
+        Map<String, Object> previousScope = existing == null ? null : releaseProgress(releaseId);
         if (existing != null) {
             if (!request.projectId().equals(((Number) existing.get("projectId")).longValue())) bad("版本不属于当前项目");
             if ("RELEASED".equals(existing.get("status"))) bad("已发布的版本不能修改");
             if ("RELEASED".equals(request.status()) && !"READY".equals(existing.get("status"))) bad("请先确认版本就绪");
+            List<String> applicationStatuses = jdbc.queryForList(
+                    "SELECT status FROM pf_release_application WHERE release_id=?", String.class, releaseId);
+            if (!applicationStatuses.isEmpty() && ("SUBMITTED".equals(applicationStatuses.get(0))
+                    || "APPROVED".equals(applicationStatuses.get(0)))) {
+                if (!"RELEASED".equals(request.status())) bad("上线申请审批中或已通过，版本范围不可修改");
+                Map<String, Object> selected = releaseProgress(releaseId);
+                if (!Objects.equals(existing.get("name"), request.name().trim())
+                        || !Objects.equals(String.valueOf(existing.get("targetDate")), request.targetDate().toString())
+                        || !new LinkedHashSet<>((List<Long>) selected.get("selectedRequirementIds")).equals(new LinkedHashSet<>(requirementIds))
+                        || !new LinkedHashSet<>((List<Long>) selected.get("selectedTaskIds")).equals(new LinkedHashSet<>(taskIds))) {
+                    bad("上线申请通过后不能更改版本名称、日期或交付范围");
+                }
+            }
         } else if ("RELEASED".equals(request.status())) {
             bad("请先创建并确认版本就绪");
         }
@@ -362,10 +377,59 @@ public class WorkHubService {
                 && !Boolean.TRUE.equals(progress.get("ready"))) {
             bad("还有未验收需求、未完成任务、阻塞任务或未关闭 Bug，不能标记就绪或发布");
         }
+        if ("RELEASED".equals(request.status())) {
+            long approved = count("SELECT COUNT(*) FROM pf_release_application WHERE release_id=? AND status='APPROVED'", releaseId);
+            long completed = count("SELECT COUNT(*) FROM pf_release_stage WHERE release_id=? AND status='COMPLETED' AND stage_code IN ("
+                    + "'REQUIREMENT_SUBMISSION','REQUIREMENT_REVIEW','UI_DESIGN','DEVELOPMENT','TEST_HANDOFF',"
+                    + "'TEST_VERIFICATION','PRODUCT_ACCEPTANCE','PRE_RELEASE')", releaseId);
+            if (approved != 1 || completed != 8) bad("上线申请需完成审批，且上线前八个阶段必须完成");
+            jdbc.update("""
+                    INSERT INTO pf_release_stage(release_id,stage_code,owner_id,actual_start,actual_end,status,
+                    conclusion,completed_by,completed_at,updated_by,updated_at)
+                    VALUES (?,'PRODUCTION_RELEASE',?,?,?,'COMPLETED',?,?,?,?,?)
+                    """, releaseId, CurrentUserContext.userId(), now.toLocalDate(), now.toLocalDate(),
+                    request.acceptanceNote(), CurrentUserContext.userId(), now, CurrentUserContext.userId(), now);
+            jdbc.update("""
+                    INSERT INTO pf_release_record(id,release_id,stage_code,record_type,title,content,
+                    actor_id,created_at) VALUES (?,?,'PRODUCTION_RELEASE','STAGE_CHANGE','版本上线发布',?,?,?)
+                    """, UUID.randomUUID().toString(), releaseId, request.acceptanceNote(), CurrentUserContext.userId(), now);
+        }
+        Map<String, Object> before = existing == null ? null : releaseAuditSnapshot(
+                String.valueOf(existing.get("name")), String.valueOf(existing.get("targetDate")),
+                String.valueOf(existing.get("status")), (String) existing.get("acceptanceNote"),
+                (List<Long>) previousScope.get("selectedRequirementIds"),
+                (List<Long>) previousScope.get("selectedTaskIds"));
+        Map<String, Object> after = releaseAuditSnapshot(request.name().trim(), request.targetDate().toString(),
+                request.status(), request.acceptanceNote(), requirementIds, taskIds);
+        jdbc.update("""
+                INSERT INTO pf_release_record(id,release_id,stage_code,record_type,title,content,
+                before_json,after_json,actor_id,created_at)
+                VALUES (?,?,'REQUIREMENT_SUBMISSION','RELEASE_CHANGE',?,?,?,?,?,?)
+                """, UUID.randomUUID().toString(), releaseId, existing == null ? "创建交付版本" : "变更交付版本",
+                "版本范围、日期与状态变更", releaseAuditJson(before), releaseAuditJson(after),
+                CurrentUserContext.userId(), now);
         logs.record("project", "Project", request.projectId(), "RELEASE", "更新交付版本「" + request.name().trim() + "」：" + request.status());
         Map<String, Object> result = release(releaseId);
         result.putAll(progress);
         return result;
+    }
+
+    private Map<String, Object> releaseAuditSnapshot(String name, String targetDate, String status,
+                                                      String note, List<Long> requirements, List<Long> tasks) {
+        Map<String, Object> snapshot = new LinkedHashMap<>();
+        snapshot.put("name", name);
+        snapshot.put("targetDate", targetDate);
+        snapshot.put("status", status);
+        snapshot.put("acceptanceNote", note);
+        snapshot.put("requirementIds", requirements);
+        snapshot.put("taskIds", tasks);
+        return snapshot;
+    }
+
+    private String releaseAuditJson(Map<String, Object> snapshot) {
+        if (snapshot == null) return null;
+        try { return json.writeValueAsString(snapshot); }
+        catch (JsonProcessingException exception) { throw new BusinessException(ErrorCode.BAD_REQUEST, "版本记录序列化失败"); }
     }
 
     private Map<String, Object> releaseProgress(String releaseId) {

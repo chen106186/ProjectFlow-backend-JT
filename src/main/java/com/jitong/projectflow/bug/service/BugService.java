@@ -71,7 +71,7 @@ public class BugService {
 
     @Transactional
     public BugResponse create(BugCreateRequest request) {
-        requireProjectRead(request.getProjectId());
+        requireExistingProject(request.getProjectId());
         List<Long> relatedTaskIds = normalizeRelatedTaskIds(request.getTaskId(), request.getRelatedTaskIds());
         validateRelatedTasks(request.getProjectId(), relatedTaskIds);
         BugEntity entity = new BugEntity();
@@ -115,7 +115,6 @@ public class BugService {
             Long userId = CurrentUserContext.userId();
             wrapper.and(w -> w.eq(BugEntity::getCreatorId, userId).or().eq(BugEntity::getAssigneeId, userId));
         }
-        applyReadScope(wrapper);
         wrapper.orderByDesc(BugEntity::getCreatedAt);
         Page<BugEntity> page = bugMapper.selectPage(PageUtils.toPage(request), wrapper);
         List<BugEntity> records = page.getRecords();
@@ -130,7 +129,6 @@ public class BugService {
     public BugSummaryResponse summary(Long projectId) {
         LambdaQueryWrapper<BugEntity> baseWrapper = new LambdaQueryWrapper<>();
         applyProjectScope(baseWrapper, projectId);
-        applyReadScope(baseWrapper);
         List<BugEntity> bugs = safeList(bugMapper.selectList(baseWrapper));
         return new BugSummaryResponse(
                 bugs.size(),
@@ -440,6 +438,20 @@ public class BugService {
         businessAccessService.requireProjectRead(project);
     }
 
+    private void requireExistingProject(Long projectId) {
+        if (projectId == null || projectMapper.selectById(projectId) == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "项目不存在");
+        }
+    }
+
+    public List<Map<String, Object>> projectOptions() {
+        return safeList(projectMapper.selectList(new LambdaQueryWrapper<ProjectEntity>()
+                .select(ProjectEntity::getId, ProjectEntity::getName)
+                .orderByAsc(ProjectEntity::getName)))
+                .stream().map(project -> Map.<String, Object>of("id", project.getId(), "name", project.getName()))
+                .toList();
+    }
+
     private void validateRelatedTasks(Long projectId, List<Long> taskIds) {
         ProjectEntity project = projectMapper.selectById(projectId);
         for (Long taskId : taskIds) {
@@ -454,17 +466,6 @@ public class BugService {
                 throw new BusinessException(ErrorCode.BAD_REQUEST, "关联任务必须属于当前项目或其关联的管理/执行项目");
             }
         }
-    }
-
-    private void applyReadScope(LambdaQueryWrapper<BugEntity> wrapper) {
-        if (businessAccessService.canViewAll()) {
-            return;
-        }
-        Long userId = CurrentUserContext.userId();
-        wrapper.and(scope -> scope.eq(BugEntity::getCreatorId, userId)
-                .or()
-                .eq(BugEntity::getAssigneeId, userId)
-                .or().inSql(BugEntity::getProjectId, businessAccessService.readableProjectIdsSql()));
     }
 
     private List<Long> normalizeRelatedTaskIds(Long taskId, List<Long> relatedTaskIds) {

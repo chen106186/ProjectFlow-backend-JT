@@ -8,6 +8,7 @@ import com.jitong.projectflow.bug.service.BugService;
 import com.jitong.projectflow.common.api.PageResult;
 import com.jitong.projectflow.common.error.BusinessException;
 import com.jitong.projectflow.export.dto.OperationLogExportRow;
+import com.jitong.projectflow.export.dto.BugExportRow;
 import com.jitong.projectflow.export.dto.TaskExportRow;
 import com.jitong.projectflow.project.mapper.ProjectNodeMapper;
 import com.jitong.projectflow.requirement.dto.RequirementQueryRequest;
@@ -125,6 +126,24 @@ class ExcelExportServiceTest {
         assertThat(requirements.getStatus()).isEqualTo("PENDING_REVIEW");
         assertThat(bugs.getTaskId()).isEqualTo(5L);
         assertThat(bugs.getPriority()).isEqualTo("HIGH");
+    }
+
+    @Test
+    void exportBugsUsesVisibleChineseLabels() {
+        BugQueryRequest request = new BugQueryRequest();
+        BugResponse bug = BugResponse.builder().id(1L).title("支付失败")
+                .status("PENDING_VERIFY").priority("MEDIUM").solution("DEFERRED").build();
+        when(bugService.list(request)).thenReturn(new PageResult<>(1, 1, 200, List.of(bug)));
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+
+        exportService.exportBugs(request, out);
+
+        List<BugExportRow> rows = EasyExcel.read(new ByteArrayInputStream(out.toByteArray()))
+                .head(BugExportRow.class).sheet().doReadSync();
+        assertThat(rows).hasSize(1);
+        assertThat(rows.getFirst().getPriority()).isEqualTo("一般");
+        assertThat(rows.getFirst().getStatus()).isEqualTo("待验证");
+        assertThat(rows.getFirst().getSolution()).isEqualTo("延期处理");
     }
 
     @Test

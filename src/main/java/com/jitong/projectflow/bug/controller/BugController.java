@@ -31,6 +31,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/bugs")
@@ -51,6 +52,12 @@ public class BugController {
     @GetMapping
     public ApiResponse<PageResult<BugResponse>> listBugs(@Valid @ModelAttribute BugQueryRequest request) {
         return ApiResponse.success(bugService.list(request), MDC.get("traceId"));
+    }
+
+    @GetMapping("/project-options")
+    @Operation(summary = "查询可提交 Bug 的项目选项", description = "所有登录员工均可查看项目名称并提交 Bug。")
+    public ApiResponse<List<Map<String, Object>>> projectOptions() {
+        return ApiResponse.success(bugService.projectOptions(), MDC.get("traceId"));
     }
 
 //    @Operation(summary = "查询我的 Bug",

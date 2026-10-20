@@ -7,6 +7,7 @@ import com.jitong.projectflow.bug.dto.BugAssignRequest;
 import com.jitong.projectflow.bug.dto.BugCommentCreateRequest;
 import com.jitong.projectflow.bug.dto.BugUpdateRequest;
 import com.jitong.projectflow.bug.dto.BugQueryRequest;
+import com.jitong.projectflow.bug.dto.BugCreateRequest;
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
@@ -22,6 +23,7 @@ import com.jitong.projectflow.bug.mapper.BugMapper;
 import com.jitong.projectflow.bug.mapper.BugTaskMapper;
 import com.jitong.projectflow.task.mapper.TaskMapper;
 import com.jitong.projectflow.project.mapper.ProjectMapper;
+import com.jitong.projectflow.project.entity.ProjectEntity;
 import com.jitong.projectflow.system.mapper.SystemUserMapper;
 import com.jitong.projectflow.system.mapper.OperationLogMapper;
 import com.jitong.projectflow.notice.domain.NoticeType;
@@ -37,6 +39,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -170,7 +174,6 @@ class BugServiceTest {
     void mineOnlyAddsGroupedOwnerOrAssigneeFilterEvenForViewAllUsers() {
         CurrentUserContext.set(1001L);
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), BugEntity.class);
-        when(businessAccessService.canViewAll()).thenReturn(true);
         when(bugMapper.selectPage(any(), any())).thenAnswer(invocation -> {
             LambdaQueryWrapper<BugEntity> query = invocation.getArgument(1);
             String sql = query.getSqlSegment().replaceAll("#\\{[^}]+}", "?");
@@ -189,7 +192,6 @@ class BugServiceTest {
     @Test
     void listFiltersCreatedTimeByInclusiveCalendarDays() {
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), BugEntity.class);
-        when(businessAccessService.canViewAll()).thenReturn(true);
         when(bugMapper.selectPage(any(), any())).thenAnswer(invocation -> {
             LambdaQueryWrapper<BugEntity> query = invocation.getArgument(1);
             String sql = query.getSqlSegment().replaceAll("#\\{[^}]+}", "?");
@@ -203,6 +205,54 @@ class BugServiceTest {
         request.setCreatedTo(LocalDate.of(2026, 10, 31));
 
         assertThat(bugService.list(request).records()).isEmpty();
+    }
+
+    @Test
+    void companyBugListDoesNotApplyProjectMembershipScope() {
+        CurrentUserContext.set(1001L);
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), BugEntity.class);
+        when(bugMapper.selectPage(any(), any())).thenAnswer(invocation -> {
+            LambdaQueryWrapper<BugEntity> query = invocation.getArgument(1);
+            assertThat(query.getSqlSegment()).doesNotContain("project_id", "creator_id", "assignee_id");
+            return new Page<BugEntity>(1, 20, 0);
+        });
+        bugService.list(new BugQueryRequest());
+        verify(businessAccessService, never()).readableProjectIdsSql();
+    }
+
+    @Test
+    void anyEmployeeCanSelectAProjectAndCreateBug() {
+        CurrentUserContext.set(1001L);
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), ProjectEntity.class);
+        ProjectEntity project = new ProjectEntity();
+        project.setId(20L);
+        project.setName("跨团队项目");
+        when(projectMapper.selectList(any())).thenReturn(List.of(project));
+        when(projectMapper.selectById(20L)).thenReturn(project);
+        assertThat(bugService.projectOptions()).containsExactly(java.util.Map.of("id", 20L, "name", "跨团队项目"));
+
+        when(businessNumberService.nextBugNo()).thenReturn(301L);
+        AtomicReference<BugEntity> insertedBug = new AtomicReference<>();
+        when(bugMapper.insert(any(BugEntity.class))).thenAnswer(invocation -> {
+            BugEntity inserted = invocation.getArgument(0);
+            inserted.setId(10L);
+            insertedBug.set(inserted);
+            return 1;
+        });
+        when(bugMapper.selectById(10L)).thenAnswer(invocation -> insertedBug.get());
+        when(userMapper.selectBatchIds(any())).thenReturn(List.of());
+        when(projectMapper.selectBatchIds(any())).thenReturn(List.of(project));
+        when(operationLogMapper.selectList(any())).thenReturn(List.of());
+        BugCreateRequest request = new BugCreateRequest();
+        request.setProjectId(20L);
+        request.setTitle("普通员工发现的问题");
+        request.setPriority("MEDIUM");
+        request.setAssigneeId(1001L);
+        request.setDescription("现象");
+        request.setReproduceSteps("步骤");
+
+        assertThat(bugService.create(request).getBugNo()).isEqualTo(301L);
+        verify(businessAccessService, never()).requireProjectRead(project);
     }
 
     @Test
