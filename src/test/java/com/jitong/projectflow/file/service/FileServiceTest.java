@@ -27,6 +27,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 
 @ExtendWith(MockitoExtension.class)
 class FileServiceTest {
@@ -86,6 +87,43 @@ class FileServiceTest {
         assertThat(captor.getValue().getFileCategory()).isEqualTo("DESIGN");
         assertThat(response.getStorageLocation()).isEqualTo("DOCUMENT_CENTER");
         assertThat(response.getFileCategory()).isEqualTo("DESIGN");
+    }
+
+    @Test
+    void iterationEvidenceUploadUsesProjectScopeAndReservedCategory() {
+        CurrentUserContext.set(1001L);
+        when(fileMetadataMapper.selectList(any())).thenReturn(List.of());
+        when(fileStorageService.upload(any())).thenReturn(new StoredFile("LOCAL", "evidence.pdf", 3));
+        MockMultipartFile file = new MockMultipartFile("file", "evidence.pdf", "application/pdf", "abc".getBytes());
+
+        service().uploadIterationEvidence(20L, file);
+
+        ArgumentCaptor<FileMetadata> captor = ArgumentCaptor.forClass(FileMetadata.class);
+        verify(fileMetadataMapper).insert(captor.capture());
+        assertThat(captor.getValue().getBusinessType()).isEqualTo("PROJECT");
+        assertThat(captor.getValue().getBusinessId()).isEqualTo(20L);
+        assertThat(captor.getValue().getStorageLocation()).isEqualTo("RELEASE_ITERATION");
+        assertThat(captor.getValue().getFileCategory()).isEqualTo(FileService.ITERATION_EVIDENCE_CATEGORY);
+    }
+
+    @Test
+    void iterationEvidenceCannotBeDeletedOrPurged() {
+        FileMetadata evidence = new FileMetadata();
+        evidence.setId(55L);
+        evidence.setBusinessType("PROJECT");
+        evidence.setBusinessId(20L);
+        evidence.setFileCategory(FileService.ITERATION_EVIDENCE_CATEGORY);
+        when(fileMetadataMapper.selectById(55L)).thenReturn(evidence);
+        when(fileMetadataMapper.selectList(any())).thenReturn(List.of(evidence));
+
+        assertThatThrownBy(() -> service().delete(55L)).isInstanceOf(BusinessException.class)
+                .hasMessageContaining("不能删除");
+        assertThatThrownBy(() -> service().deleteBatch(List.of(55L))).isInstanceOf(BusinessException.class)
+                .hasMessageContaining("不能删除");
+        assertThatThrownBy(() -> service().purgeForBusiness("PROJECT", 20L)).isInstanceOf(BusinessException.class)
+                .hasMessageContaining("不能删除");
+        verify(fileMetadataMapper, never()).deleteById(55L);
+        verify(fileStorageService, never()).delete(any());
     }
 
     @Test

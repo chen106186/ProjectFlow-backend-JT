@@ -9,6 +9,8 @@ import com.jitong.projectflow.file.dto.FileFolderResponse;
 import com.jitong.projectflow.file.dto.FileResponse;
 import com.jitong.projectflow.file.service.FileDownloadResult;
 import com.jitong.projectflow.file.service.FileService;
+import com.jitong.projectflow.common.error.BusinessException;
+import com.jitong.projectflow.common.error.ErrorCode;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -58,6 +60,9 @@ public class FileController {
             @RequestParam(required = false) String fileCategory,
             @RequestParam(required = false) Long folderId,
             @RequestPart("file") MultipartFile file) {
+        if (FileService.ITERATION_EVIDENCE_CATEGORY.equalsIgnoreCase(fileCategory)) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "请在迭代档案中上传凭证");
+        }
         return ApiResponse.success(
                 fileService.upload(businessType, businessId, versionNo, storageLocation, fileCategory, folderId, file),
                 MDC.get("traceId")

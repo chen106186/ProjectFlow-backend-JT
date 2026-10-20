@@ -6,6 +6,8 @@ import com.jitong.projectflow.auth.security.BusinessAccessService;
 import com.jitong.projectflow.auth.security.CurrentUserContext;
 import com.jitong.projectflow.common.error.BusinessException;
 import com.jitong.projectflow.common.error.ErrorCode;
+import com.jitong.projectflow.file.dto.FileResponse;
+import com.jitong.projectflow.file.service.FileService;
 import com.jitong.projectflow.notice.domain.NoticeType;
 import com.jitong.projectflow.notice.service.NoticeService;
 import com.jitong.projectflow.project.entity.ProjectEntity;
@@ -15,6 +17,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -44,6 +47,7 @@ public class IterationService {
     private final ProjectMapper projects;
     private final WorkHubService workHub;
     private final NoticeService notices;
+    private final FileService files;
 
     public Map<String, Object> workflow(String releaseId) {
         Map<String, Object> release = release(releaseId);
@@ -79,7 +83,7 @@ public class IterationService {
         result.put("application", application(releaseId));
         result.put("records", jdbc.queryForList("""
                 SELECT r.id, r.stage_code AS stageCode, r.record_type AS recordType,
-                       r.title, r.content, r.evidence_url AS evidenceUrl,
+                       r.title, r.content, r.evidence_url AS evidenceUrl, r.file_id AS fileId,
                        r.before_json AS beforeJson, r.after_json AS afterJson,
                        r.actor_id AS actorId, u.real_name AS actorName, r.created_at AS createdAt
                 FROM pf_release_record r LEFT JOIN sys_user u ON u.id=r.actor_id
@@ -93,6 +97,7 @@ public class IterationService {
     @Transactional
     public Map<String, Object> updateStage(String releaseId, String code, IterationRequests.StageUpdate request) {
         Map<String, Object> release = release(releaseId);
+        if ("CANCELLED".equals(release.get("status"))) bad("已取消版本不能更新阶段");
         int index = STAGES.indexOf(code);
         if (index < 0 || index == 8) bad("无效或不可手工更新的阶段");
         if ("RELEASED".equals(release.get("status")) && index != 9) bad("已发布版本的历史阶段不可修改");
@@ -167,14 +172,47 @@ public class IterationService {
 
     @Transactional
     public Map<String, Object> addRecord(String releaseId, IterationRequests.Record request) {
-        release(releaseId);
+        Map<String, Object> release = release(releaseId);
         if (!STAGES.contains(request.stageCode()) || !RECORD_TYPES.contains(request.recordType())) bad("记录类型或阶段不合法");
+        requireRecordOpen(releaseId, release, request.stageCode());
         if (StringUtils.hasText(request.evidenceUrl()) && !request.evidenceUrl().matches("(?i)^https?://[^\\s]+$")) {
             bad("凭证链接必须是 http 或 https 地址");
         }
         record(releaseId, request.stageCode(), request.recordType(), request.title().trim(),
                 request.content().trim(), request.evidenceUrl(), null, null);
         return workflow(releaseId);
+    }
+
+    @Transactional
+    public Map<String, Object> uploadEvidence(String releaseId, String code, MultipartFile file) {
+        Map<String, Object> release = release(releaseId);
+        if (!STAGES.contains(code)) bad("无效的迭代阶段");
+        requireRecordOpen(releaseId, release, code);
+        Long projectId = ((Number) release.get("projectId")).longValue();
+        FileResponse uploaded = files.uploadIterationEvidence(projectId, file);
+        if (uploaded.getId() == null) bad("凭证上传后未生成文件编号");
+        String name = uploaded.getOriginalName();
+        String title = name.length() > 160 ? name.substring(0, 160) : name;
+        jdbc.update("""
+                INSERT INTO pf_release_record(id,release_id,stage_code,record_type,title,content,file_id,
+                actor_id,created_at) VALUES (?,?,?,'DOCUMENT',?,?,?,?,?)
+                """, UUID.randomUUID().toString(), releaseId, code, title, "上传凭证：" + name,
+                uploaded.getId(), CurrentUserContext.userId(), LocalDateTime.now());
+        return workflow(releaseId);
+    }
+
+    private void requireRecordOpen(String releaseId, Map<String, Object> release, String code) {
+        if ("CANCELLED".equals(release.get("status"))) bad("已取消版本不能追加记录或凭证");
+        boolean released = "RELEASED".equals(release.get("status"));
+        if ("POST_RELEASE".equals(code) && !released) bad("上线后跟进需在版本发布后登记");
+        if ("PRODUCTION_RELEASE".equals(code) && !released) bad("上线发布记录需在版本发布后登记");
+        if (released && !"POST_RELEASE".equals(code) && !"PRODUCTION_RELEASE".equals(code)) {
+            bad("已发布版本的历史阶段不可补写记录");
+        }
+        String applicationStatus = (String) application(releaseId).get("status");
+        if (!released && ("SUBMITTED".equals(applicationStatus) || "APPROVED".equals(applicationStatus))) {
+            bad("上线申请审批中或已通过，需撤回后补充阶段凭证");
+        }
     }
 
     @Transactional

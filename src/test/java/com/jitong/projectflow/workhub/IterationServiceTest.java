@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jitong.projectflow.auth.security.BusinessAccessService;
 import com.jitong.projectflow.auth.security.CurrentUserContext;
 import com.jitong.projectflow.common.error.BusinessException;
+import com.jitong.projectflow.file.dto.FileResponse;
+import com.jitong.projectflow.file.service.FileService;
 import com.jitong.projectflow.notice.service.NoticeService;
 import com.jitong.projectflow.project.entity.ProjectEntity;
 import com.jitong.projectflow.project.mapper.ProjectMapper;
@@ -12,6 +14,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
+import org.springframework.mock.web.MockMultipartFile;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -24,12 +27,14 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class IterationServiceTest {
     private JdbcTemplate jdbc;
     private IterationService service;
     private WorkHubService workHub;
+    private FileService files;
     private String releaseId;
 
     @BeforeEach
@@ -40,7 +45,7 @@ class IterationServiceTest {
         jdbc = new JdbcTemplate(dataSource);
         jdbc.execute("CREATE TABLE pf_delivery_release(id VARCHAR(36) PRIMARY KEY,project_id BIGINT,name VARCHAR(160),target_date DATE,status VARCHAR(16),acceptance_note CLOB)");
         jdbc.execute("CREATE TABLE pf_release_stage(release_id VARCHAR(36),stage_code VARCHAR(32),owner_id BIGINT,planned_start DATE,planned_end DATE,actual_start DATE,actual_end DATE,status VARCHAR(16),conclusion CLOB,completed_by BIGINT,completed_at TIMESTAMP,updated_by BIGINT,updated_at TIMESTAMP,PRIMARY KEY(release_id,stage_code))");
-        jdbc.execute("CREATE TABLE pf_release_record(id VARCHAR(36),release_id VARCHAR(36),stage_code VARCHAR(32),record_type VARCHAR(24),title VARCHAR(160),content CLOB,evidence_url VARCHAR(1000),before_json CLOB,after_json CLOB,actor_id BIGINT,created_at TIMESTAMP)");
+        jdbc.execute("CREATE TABLE pf_release_record(id VARCHAR(36),release_id VARCHAR(36),stage_code VARCHAR(32),record_type VARCHAR(24),title VARCHAR(160),content CLOB,evidence_url VARCHAR(1000),file_id BIGINT,before_json CLOB,after_json CLOB,actor_id BIGINT,created_at TIMESTAMP)");
         jdbc.execute("CREATE TABLE pf_release_application(release_id VARCHAR(36) PRIMARY KEY,environment VARCHAR(120),window_start TIMESTAMP,window_end TIMESTAMP,change_summary CLOB,impact_scope CLOB,rollback_plan CLOB,monitoring_plan CLOB,support_plan CLOB,applicant_id BIGINT,approver_id BIGINT,status VARCHAR(16),submitted_at TIMESTAMP,decision_at TIMESTAMP,decision_note CLOB,updated_by BIGINT,updated_at TIMESTAMP)");
         jdbc.execute("CREATE TABLE sys_user(id BIGINT,real_name VARCHAR(80),enabled INT,deleted INT)");
         jdbc.execute("CREATE TABLE pf_project(id BIGINT,manager_id BIGINT,created_by BIGINT,co_manager_ids VARCHAR(200),deleted INT)");
@@ -57,10 +62,11 @@ class IterationServiceTest {
         project.setId(100L);
         when(projects.selectById(100L)).thenReturn(project);
         workHub = mock(WorkHubService.class);
+        files = mock(FileService.class);
         when(workHub.releases(100L)).thenReturn(List.of(Map.of("id", releaseId, "ready", true,
                 "selectedRequirementIds", List.of(10L), "selectedTaskIds", List.of(20L))));
         service = new IterationService(jdbc, new ObjectMapper().findAndRegisterModules(), access, projects,
-                workHub, mock(NoticeService.class));
+                workHub, mock(NoticeService.class), files);
     }
 
     @AfterEach
@@ -131,5 +137,34 @@ class IterationServiceTest {
                 new IterationRequests.Record("UI_DESIGN", "DOCUMENT", "设计稿", "初稿待评审", "https://example.com/design"));
         assertFalse(((List<?>) result.get("records")).isEmpty());
         assertEquals(1L, jdbc.queryForObject("SELECT COUNT(*) FROM pf_release_record WHERE release_id=?", Long.class, releaseId));
+    }
+
+    @Test
+    void uploadedEvidenceBelongsToSelectedStageAndIsLockedDuringApproval() {
+        MockMultipartFile file = new MockMultipartFile("file", "评审纪要.pdf", "application/pdf", "minutes".getBytes());
+        when(files.uploadIterationEvidence(100L, file)).thenReturn(
+                FileResponse.builder().id(55L).originalName("评审纪要.pdf").build());
+
+        Map<String, Object> workflow = service.uploadEvidence(releaseId, "REQUIREMENT_REVIEW", file);
+        assertEquals(55L, jdbc.queryForObject("SELECT file_id FROM pf_release_record WHERE release_id=?", Long.class, releaseId));
+        assertEquals("REQUIREMENT_REVIEW", jdbc.queryForObject(
+                "SELECT stage_code FROM pf_release_record WHERE release_id=?", String.class, releaseId));
+        assertEquals(55L, ((Map<?, ?>) ((List<?>) workflow.get("records")).get(0)).get("fileId"));
+        verify(files).uploadIterationEvidence(100L, file);
+
+        jdbc.update("INSERT INTO pf_release_application(release_id,status) VALUES (?,'SUBMITTED')", releaseId);
+        assertThrows(BusinessException.class, () -> service.uploadEvidence(releaseId, "PRE_RELEASE", file));
+        assertThrows(BusinessException.class, () -> service.addRecord(releaseId,
+                new IterationRequests.Record("PRE_RELEASE", "NOTE", "补充", "审批后修改", null)));
+        assertEquals(1L, jdbc.queryForObject("SELECT COUNT(*) FROM pf_release_record WHERE release_id=?", Long.class, releaseId));
+    }
+
+    @Test
+    void cancelledReleaseRejectsNewStageChangesAndEvidence() {
+        jdbc.update("UPDATE pf_delivery_release SET status='CANCELLED' WHERE id=?", releaseId);
+        MockMultipartFile file = new MockMultipartFile("file", "result.pdf", "application/pdf", "x".getBytes());
+        assertThrows(BusinessException.class, () -> service.uploadEvidence(releaseId, "TEST_VERIFICATION", file));
+        assertThrows(BusinessException.class, () -> service.updateStage(releaseId, "TEST_VERIFICATION",
+                new IterationRequests.StageUpdate(1L, null, null, null, null, "IN_PROGRESS", "")));
     }
 }

@@ -11,8 +11,12 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.http.MediaType;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.Map;
 
@@ -41,6 +45,14 @@ public class IterationController {
     public ApiResponse<Map<String, Object>> record(@PathVariable String releaseId,
                                                     @Valid @RequestBody IterationRequests.Record request) {
         return ok(iterations.addRecord(releaseId, request));
+    }
+
+    @PostMapping(value = "/stages/{code}/files", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "上传阶段凭证文件并追加不可覆盖的记录")
+    public ApiResponse<Map<String, Object>> uploadEvidence(@PathVariable String releaseId,
+                                                            @PathVariable String code,
+                                                            @RequestPart("file") MultipartFile file) {
+        return ok(iterations.uploadEvidence(releaseId, code, file));
     }
 
     @PutMapping("/application")

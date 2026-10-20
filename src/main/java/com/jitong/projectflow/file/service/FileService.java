@@ -39,12 +39,13 @@ import java.util.regex.Pattern;
 @Service
 @RequiredArgsConstructor
 public class FileService {
+    public static final String ITERATION_EVIDENCE_CATEGORY = "ITERATION_EVIDENCE";
     private static final String DEFAULT_VERSION = "v1";
     private static final String DEFAULT_STORAGE_LOCATION = "BUSINESS";
     private static final long MAX_FILE_SIZE = 50L * 1024 * 1024;
     private static final long MAX_SCREEN_RECORDING_SIZE = 100L * 1024 * 1024;
     private static final Pattern NUMERIC_VERSION = Pattern.compile("^v(\\d+)$");
-    private static final Set<String> ALLOWED_EXTENSIONS = Set.of("docx", "xlsx", "pdf", "png", "jpg", "jpeg", "drawio");
+    private static final Set<String> ALLOWED_EXTENSIONS = Set.of("docx", "xlsx", "pptx", "pdf", "png", "jpg", "jpeg", "drawio", "md", "txt", "csv");
     private static final Map<String, String> SCREEN_RECORDING_TYPES = Map.of(
             "mp4", "video/mp4", "webm", "video/webm", "mov", "video/quicktime");
     private static final Set<String> PUBLIC_IMAGE_TYPES = Set.of("image/png", "image/jpeg", "image/gif", "image/webp", "image/avif", "image/bmp", "image/heic", "image/heif");
@@ -58,6 +59,10 @@ public class FileService {
 
     public FileResponse upload(String businessType, Long businessId, String versionNo, MultipartFile file) {
         return upload(businessType, businessId, versionNo, DEFAULT_STORAGE_LOCATION, null, file);
+    }
+
+    public FileResponse uploadIterationEvidence(Long projectId, MultipartFile file) {
+        return upload("PROJECT", projectId, null, "RELEASE_ITERATION", ITERATION_EVIDENCE_CATEGORY, null, file);
     }
 
     public FileResponse upload(String businessType, Long businessId, String versionNo,
@@ -171,6 +176,7 @@ public class FileService {
         FileMetadata metadata = requireFile(id);
         requireReadableOrDeletedOwner(metadata);
         businessAccessService.requireFileDelete(metadata);
+        requireNotIterationEvidence(metadata);
         deleteMetadataAndMaybeObject(metadata);
     }
 
@@ -180,6 +186,7 @@ public class FileService {
         List<String> aliases = FileBusinessType.from(businessType).aliases();
         List<FileMetadata> files = fileMetadataMapper.selectList(new LambdaQueryWrapper<FileMetadata>()
                 .in(FileMetadata::getBusinessType, aliases).eq(FileMetadata::getBusinessId, businessId));
+        files.forEach(this::requireNotIterationEvidence);
         files.forEach(this::deleteMetadataAndMaybeObject);
         fileFolderMapper.selectList(new LambdaQueryWrapper<FileFolderEntity>()
                 .in(FileFolderEntity::getBusinessType, aliases).eq(FileFolderEntity::getBusinessId, businessId))
@@ -222,8 +229,15 @@ public class FileService {
             FileMetadata metadata = requireFile(id);
             requireReadableOrDeletedOwner(metadata);
             businessAccessService.requireFileDelete(metadata);
+            requireNotIterationEvidence(metadata);
         });
         ids.stream().distinct().forEach(this::delete);
+    }
+
+    private void requireNotIterationEvidence(FileMetadata metadata) {
+        if (ITERATION_EVIDENCE_CATEGORY.equals(metadata.getFileCategory())) {
+            throw new BusinessException(ErrorCode.CONFLICT, "迭代档案凭证需永久留存，不能删除");
+        }
     }
 
     private void validateUpload(String businessType, Long businessId, String fileCategory, MultipartFile file) {

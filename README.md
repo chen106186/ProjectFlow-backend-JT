@@ -77,7 +77,9 @@ mvn "-Dmaven.repo.local=.m2/repository" package
 
 ### 版本迭代档案与上线申请
 
-在 V34 之后执行 `src/main/resources/db/migration/V35__release_iteration_traceability.sql`。当前 `application.yml` 关闭 Flyway，目标环境需按数据库发布流程手工执行。V35 保存十个阶段的责任人、计划／实际日期与结论，以及不可覆盖的过程记录；过程记录可附评审文档、设计稿、测试报告等凭证链接。
+在 V34 之后依次执行 `src/main/resources/db/migration/V35__release_iteration_traceability.sql` 和 `src/main/resources/db/migration/V36__release_record_files.sql`。当前 `application.yml` 关闭 Flyway，目标环境需按数据库发布流程手工执行。V35 保存十个阶段的责任人、计划／实际日期与结论，以及不可覆盖的过程记录；V36 为过程记录关联直接上传的凭证文件。过程记录仍可填写评审文档、设计稿、测试报告等 http(s) 凭证链接。
+
+迭代档案可在各阶段直接上传不超过 50 MB 的 PDF、Office 文档、图片和文本凭证。每次上传会追加带操作者与时间的记录，并保留可下载文件；迭代凭证不可从通用附件接口删除，含有迭代凭证的项目不能执行物理附件清理。审批中或已批准的申请需先撤回，才能补充上线前的凭证；发布后可继续在上线发布及上线后跟进阶段上传文件。
 
 在工作台的交付版本中打开「迭代档案」，将本期需求和任务纳入版本，依次记录需求提出、需求评审、UI 设计、技术开发、提测、测试验证、产品验收、上线前评估、上线发布和上线后跟进。阶段完成必须填写责任人、实际完成日期与结论；返工需先从后续阶段依次重新打开，所有变更保留前后内容和操作人。
 
