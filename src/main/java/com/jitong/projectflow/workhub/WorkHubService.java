@@ -51,6 +51,7 @@ public class WorkHubService {
     private final TaskMapper tasks;
     private final NoticeService notices;
     private final OperationLogService logs;
+    private final ReleaseExecutionService releaseExecutions;
 
     public Map<String, Object> requirementDelivery(Long id) {
         RequirementEntity requirement = requirement(id);
@@ -353,6 +354,7 @@ public class WorkHubService {
             TaskEntity task = task(taskId);
             access.requireTaskRead(task);
             if (!sameDeliveryScope(request.projectId(), task.getProjectId())) bad("任务不属于当前项目或其关联项目");
+            if ("RELEASE_EXECUTION".equals(task.getWorkType())) bad("上线执行任务请通过版本关联，不纳入交付任务范围");
         }
         String releaseId = id == null ? UUID.randomUUID().toString() : id;
         Map<String, Object> existing = id == null ? null : release(id);
@@ -404,6 +406,7 @@ public class WorkHubService {
             bad("还有未验收需求、未完成任务、阻塞任务或未关闭 Bug，不能标记就绪或发布");
         }
         if ("RELEASED".equals(request.status())) {
+            releaseExecutions.requireMeetingBeforeApplication(releaseId);
             long approved = count("SELECT COUNT(*) FROM pf_release_application WHERE release_id=? AND status='APPROVED'", releaseId);
             long completed = count("SELECT COUNT(*) FROM pf_release_stage WHERE release_id=? AND status='COMPLETED' AND stage_code IN ("
                     + "'REQUIREMENT_SUBMISSION','REQUIREMENT_REVIEW','UI_DESIGN','DEVELOPMENT','TEST_HANDOFF',"

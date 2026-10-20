@@ -48,6 +48,7 @@ public class IterationService {
     private final WorkHubService workHub;
     private final NoticeService notices;
     private final FileService files;
+    private final ReleaseExecutionService releaseExecutions;
 
     public Map<String, Object> workflow(String releaseId) {
         Map<String, Object> release = release(releaseId);
@@ -91,6 +92,9 @@ public class IterationService {
                 """, releaseId));
         result.put("members", members(projectId));
         result.put("canManage", canManage(projectId));
+        List<Long> executionTaskIds = jdbc.queryForList(
+                "SELECT task_id FROM pf_release_execution WHERE release_id=?", Long.class, releaseId);
+        result.put("releaseExecutionTaskId", executionTaskIds.isEmpty() ? null : executionTaskIds.get(0));
         return result;
     }
 
@@ -130,6 +134,7 @@ public class IterationService {
         checkDates(request.plannedStart(), request.plannedEnd(), "计划时间");
         checkDates(request.actualStart(), request.actualEnd(), "实际时间");
         if ("COMPLETED".equals(request.status())) {
+            if (index == 9) releaseExecutions.requireVerifiedReportBeforeFollowup(releaseId);
             if (request.ownerId() == null || !StringUtils.hasText(request.conclusion()) || request.actualEnd() == null) {
                 bad("完成阶段需填写负责人、实际完成日期和结论");
             }
@@ -255,6 +260,7 @@ public class IterationService {
         Map<String, Object> before = application(releaseId);
         if (!"DRAFT".equals(before.get("status")) && !"REJECTED".equals(before.get("status"))) bad("请先填写上线申请草稿");
         if (!"READY".equals(release.get("status"))) bad("请先将版本标记为已就绪");
+        releaseExecutions.requireMeetingBeforeApplication(releaseId);
         for (int i = 0; i < 8; i++) {
             if (!"COMPLETED".equals(stage(releaseId, STAGES.get(i)).get("status"))) {
                 bad("请先完成上线前的八个阶段并留存结论");

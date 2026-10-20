@@ -28,6 +28,8 @@ public class TaskResponse {
     @Schema(description = "任务角色名称。")
     private String roleName;
 
+    private String workType;
+
     @Schema(description = "优先级，例如 LOW、MEDIUM、HIGH、URGENT。")
     private String priority;
 

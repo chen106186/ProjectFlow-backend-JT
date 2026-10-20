@@ -34,6 +34,7 @@ import com.jitong.projectflow.task.dto.TaskRiskStatisticsResponse;
 import com.jitong.projectflow.task.dto.TaskUpdateRequest;
 import com.jitong.projectflow.task.entity.TaskEntity;
 import com.jitong.projectflow.task.mapper.TaskMapper;
+import com.jitong.projectflow.workhub.ReleaseExecutionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -56,11 +57,13 @@ public class TaskService {
     private final ProjectMapper projectMapper;
     private final OperationLogMapper operationLogMapper;
     private final FileService fileService;
+    private final ReleaseExecutionService releaseExecutions;
     private final TaskStatusCalculator statusCalculator = new TaskStatusCalculator();
 
     @Transactional
     public TaskResponse create(TaskCreateRequest request) {
         requireProjectRead(request.getProjectId());
+        releaseExecutions.validateTaskCreate(request);
         if (request.getParentId() != null) {
             TaskEntity parent = requireTask(request.getParentId());
             businessAccessService.requireTaskRead(parent);
@@ -74,6 +77,7 @@ public class TaskService {
         DateRangeValidator.validate(request.getPlannedStartDate(), request.getPlannedEndDate(), "计划");
         TaskEntity entity = createEntity(request);
         taskMapper.insert(entity);
+        releaseExecutions.afterTaskCreated(entity, request);
         afterTaskCreated(entity);
         return toResponse(entity);
     }
@@ -111,6 +115,7 @@ public class TaskService {
         entity.setParentId(request.getParentId());
         entity.setName(request.getName());
         entity.setRoleName(request.getRoleName());
+        entity.setWorkType(request.getWorkType() == null ? "GENERAL" : request.getWorkType());
         entity.setPriority(request.getPriority());
         entity.setAssigneeId(request.getAssigneeId());
         entity.setPlannedStartDate(request.getPlannedStartDate());
@@ -218,6 +223,7 @@ public class TaskService {
     public TaskResponse update(Long id, TaskUpdateRequest request) {
         TaskEntity entity = requireTask(id);
         businessAccessService.requireTaskManage(entity);
+        releaseExecutions.validateTaskUpdate(entity, request);
         Long oldAssigneeId = entity.getAssigneeId();
         if (request.getProjectId() != null && !request.getProjectId().equals(entity.getProjectId())) {
             requireProjectRead(request.getProjectId());
@@ -260,6 +266,7 @@ public class TaskService {
     public TaskResponse updateActualTime(Long id, TaskActualTimeUpdateRequest request) {
         TaskEntity entity = requireTask(id);
         businessAccessService.requireTaskActualTimeManage(entity);
+        if (request.getActualEndDate() != null) releaseExecutions.requireReportBeforeClose(entity);
         if (request.isActualStartDatePresent()) entity.setActualStartDate(request.getActualStartDate());
         if (request.isActualEndDatePresent()) entity.setActualEndDate(request.getActualEndDate());
         DateRangeValidator.validate(entity.getActualStartDate(), entity.getActualEndDate(), "实际");
@@ -276,6 +283,7 @@ public class TaskService {
     public void delete(Long id) {
         TaskEntity entity = requireTask(id);
         businessAccessService.requireTaskManage(entity);
+        releaseExecutions.requireNotReleaseTask(entity);
         deleteWithDescendants(id);
         operationLogService.record("task", "Task", id, "DELETE", "删除任务：" + entity.getName());
     }
@@ -398,6 +406,7 @@ public class TaskService {
                 .parentId(entity.getParentId())
                 .name(entity.getName())
                 .roleName(entity.getRoleName())
+                .workType(entity.getWorkType())
                 .priority(entity.getPriority())
                 .status(displayStatus.name())
                 .assigneeId(entity.getAssigneeId())

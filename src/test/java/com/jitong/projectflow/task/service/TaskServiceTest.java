@@ -12,6 +12,7 @@ import com.jitong.projectflow.task.dto.TaskCreateRequest;
 import com.jitong.projectflow.task.dto.TaskQueryRequest;
 import com.jitong.projectflow.task.entity.TaskEntity;
 import com.jitong.projectflow.task.mapper.TaskMapper;
+import com.jitong.projectflow.workhub.ReleaseExecutionService;
 import com.jitong.projectflow.project.entity.ProjectEntity;
 import com.jitong.projectflow.project.mapper.ProjectMapper;
 import com.jitong.projectflow.system.mapper.SystemUserMapper;
@@ -47,6 +48,7 @@ class TaskServiceTest {
     @Mock
     NoticeService noticeService;
     @Mock ProjectMapper projectMapper;
+    @Mock ReleaseExecutionService releaseExecutions;
     @Mock SystemUserMapper systemUserMapper;
     @Mock OperationLogMapper operationLogMapper;
     @InjectMocks TaskService taskService;

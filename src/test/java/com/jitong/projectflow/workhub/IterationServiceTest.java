@@ -47,6 +47,7 @@ class IterationServiceTest {
         jdbc.execute("CREATE TABLE pf_release_stage(release_id VARCHAR(36),stage_code VARCHAR(32),owner_id BIGINT,planned_start DATE,planned_end DATE,actual_start DATE,actual_end DATE,status VARCHAR(16),conclusion CLOB,completed_by BIGINT,completed_at TIMESTAMP,updated_by BIGINT,updated_at TIMESTAMP,PRIMARY KEY(release_id,stage_code))");
         jdbc.execute("CREATE TABLE pf_release_record(id VARCHAR(36),release_id VARCHAR(36),stage_code VARCHAR(32),record_type VARCHAR(24),title VARCHAR(160),content CLOB,evidence_url VARCHAR(1000),file_id BIGINT,before_json CLOB,after_json CLOB,actor_id BIGINT,created_at TIMESTAMP)");
         jdbc.execute("CREATE TABLE pf_release_application(release_id VARCHAR(36) PRIMARY KEY,environment VARCHAR(120),window_start TIMESTAMP,window_end TIMESTAMP,change_summary CLOB,impact_scope CLOB,rollback_plan CLOB,monitoring_plan CLOB,support_plan CLOB,applicant_id BIGINT,approver_id BIGINT,status VARCHAR(16),submitted_at TIMESTAMP,decision_at TIMESTAMP,decision_note CLOB,updated_by BIGINT,updated_at TIMESTAMP)");
+        jdbc.execute("CREATE TABLE pf_release_execution(task_id BIGINT,release_id VARCHAR(36))");
         jdbc.execute("CREATE TABLE sys_user(id BIGINT,real_name VARCHAR(80),enabled INT,deleted INT)");
         jdbc.execute("CREATE TABLE pf_project(id BIGINT,manager_id BIGINT,created_by BIGINT,co_manager_ids VARCHAR(200),deleted INT)");
         jdbc.execute("CREATE TABLE pf_project_participant(project_id BIGINT,user_id BIGINT)");
@@ -66,7 +67,7 @@ class IterationServiceTest {
         when(workHub.releases(100L)).thenReturn(List.of(Map.of("id", releaseId, "ready", true,
                 "selectedRequirementIds", List.of(10L), "selectedTaskIds", List.of(20L))));
         service = new IterationService(jdbc, new ObjectMapper().findAndRegisterModules(), access, projects,
-                workHub, mock(NoticeService.class), files);
+                workHub, mock(NoticeService.class), files, mock(ReleaseExecutionService.class));
     }
 
     @AfterEach

@@ -27,6 +27,8 @@ public class TaskEntity {
 
     private String roleName;
 
+    private String workType;
+
     private String priority;
 
     private String status;

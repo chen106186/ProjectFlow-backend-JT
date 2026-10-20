@@ -59,6 +59,7 @@ class WorkHubServiceTest {
         jdbc.execute("CREATE TABLE pf_bug(id BIGINT,project_id BIGINT,bug_no BIGINT,title VARCHAR(160),status VARCHAR(30),priority VARCHAR(20),assignee_id BIGINT,creator_id BIGINT,solution VARCHAR(1000),created_at TIMESTAMP,deleted INT)");
         jdbc.execute("CREATE TABLE pf_requirement(id BIGINT,project_id BIGINT,requirement_no BIGINT,title VARCHAR(160),status VARCHAR(30),priority VARCHAR(20),reviewer_id BIGINT,created_by BIGINT,created_at TIMESTAMP,deleted INT)");
         jdbc.execute("CREATE TABLE pf_task(id BIGINT,project_id BIGINT,name VARCHAR(160),status VARCHAR(30),priority VARCHAR(20),assignee_id BIGINT,created_by BIGINT,planned_end_date DATE,sort_order INT,created_at TIMESTAMP,deleted INT)");
+        jdbc.execute("CREATE TABLE pf_release_execution(task_id BIGINT,release_id VARCHAR(36))");
         jdbc.execute("CREATE TABLE pf_delivery_release(id VARCHAR(36) PRIMARY KEY,project_id BIGINT,name VARCHAR(160),target_date DATE,status VARCHAR(16),acceptance_note CLOB,released_at TIMESTAMP,created_by BIGINT,created_at TIMESTAMP,updated_at TIMESTAMP)");
         jdbc.execute("CREATE TABLE pf_delivery_release_item(release_id VARCHAR(36),business_type VARCHAR(16),business_id BIGINT,PRIMARY KEY(release_id,business_type,business_id))");
         jdbc.execute("CREATE TABLE pf_release_stage(release_id VARCHAR(36),stage_code VARCHAR(32),owner_id BIGINT,actual_start DATE,actual_end DATE,status VARCHAR(16),conclusion CLOB,completed_by BIGINT,completed_at TIMESTAMP,updated_by BIGINT,updated_at TIMESTAMP)");
@@ -78,7 +79,7 @@ class WorkHubServiceTest {
         tasks = mock(TaskMapper.class);
         notices = mock(NoticeService.class);
         service = new WorkHubService(jdbc, new ObjectMapper(), access, projects, requirements, tasks,
-                notices, mock(OperationLogService.class));
+                notices, mock(OperationLogService.class), mock(ReleaseExecutionService.class));
         RequirementEntity requirement = new RequirementEntity();
         requirement.setId(10L);
         requirement.setProjectId(100L);
@@ -176,6 +177,18 @@ class WorkHubServiceTest {
         assertEquals("RELEASED", released.get("status"));
         assertEquals(3L, jdbc.queryForObject("SELECT COUNT(*) FROM pf_release_record WHERE release_id=? AND record_type='RELEASE_CHANGE'", Long.class, id));
         assertTrue(jdbc.queryForObject("SELECT after_json FROM pf_release_record WHERE release_id=? AND record_type='RELEASE_CHANGE' ORDER BY created_at DESC LIMIT 1", String.class, id).contains("requirementIds"));
+    }
+
+    @Test
+    void releaseExecutionTaskCannotBeCountedAsDeliverableTask() {
+        TaskEntity execution = new TaskEntity();
+        execution.setId(20L);
+        execution.setProjectId(100L);
+        execution.setWorkType("RELEASE_EXECUTION");
+        when(tasks.selectById(20L)).thenReturn(execution);
+        assertThrows(BusinessException.class, () -> service.saveRelease(null,
+                new WorkHubRequests.Release(100L, "十月交付", LocalDate.of(2026, 10, 30),
+                        "PLANNED", "", List.of(), List.of(20L))));
     }
 
     @Test

@@ -6,6 +6,8 @@ import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @Schema(description = "任务创建请求。")
@@ -23,6 +25,23 @@ public class TaskCreateRequest {
 
     @Schema(description = "任务角色名称，例如开发、测试、设计。")
     private String roleName;
+
+    @Schema(description = "工作类型：GENERAL、FEATURE、RELEASE_EXECUTION。")
+    private String workType;
+
+    @Schema(description = "功能开发关联的需求 ID。")
+    private Long requirementId;
+
+    @Schema(description = "上线执行关联的交付版本 ID。")
+    private String releaseId;
+    private String releaseEnvironment;
+    private LocalDateTime releaseWindowStart;
+    private LocalDateTime releaseWindowEnd;
+    private Long releaseLeadId;
+    private List<Long> releaseOperatorIds;
+    private Long releaseVerifierId;
+    private List<Long> releaseSupportIds;
+    private LocalDateTime meetingPlannedAt;
 
     @NotBlank
     @Schema(description = "优先级，例如 LOW、MEDIUM、HIGH、URGENT。")
